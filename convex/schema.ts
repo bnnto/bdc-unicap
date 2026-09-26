@@ -215,6 +215,24 @@ export default defineSchema({
     ),
     matchScore: v.number(),
     appliedAt: v.number(),
+    /**
+     * [S4-2] R5 — motivo padronizado da reprovação (enum fixo), gravado
+     * apenas pela mutation `rejectApplication` (nunca texto livre).
+     * Presente somente quando stage = "reprovado"; consultável para
+     * auditoria e métricas.
+     */
+    rejectionReason: v.optional(
+      v.union(
+        v.literal("requisitos_obrigatorios"),
+        v.literal("formacao_incompativel"),
+        v.literal("disponibilidade_incompativel"),
+        v.literal("idioma_insuficiente"),
+        v.literal("perfil_duplicado"),
+        v.literal("vaga_preenchida"),
+        v.literal("vaga_cancelada"),
+        v.literal("outro"),
+      ),
+    ),
   })
     .index("by_job", ["jobId"])
     .index("by_student", ["studentId"])

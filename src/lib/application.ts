@@ -119,6 +119,70 @@ export function formatMissingPrerequisites(missing: readonly string[]): string {
   return `Requisitos obrigatórios não atendidos: ${missing.join(", ")}.`;
 }
 
+/**
+ * [S4-2] R5 — Motivo padronizado de reprovação (enum fixo) para auditoria
+ * e métricas. Nada de texto livre: a mutation só grava com um motivo do
+ * catálogo abaixo.
+ */
+export const REJECTION_REASONS = [
+  "requisitos_obrigatorios",
+  "formacao_incompativel",
+  "disponibilidade_incompativel",
+  "idioma_insuficiente",
+  "perfil_duplicado",
+  "vaga_preenchida",
+  "vaga_cancelada",
+  "outro",
+] as const;
+export type RejectionReason = (typeof REJECTION_REASONS)[number];
+
+export const REJECTION_REASON_LABELS: Record<RejectionReason, string> = {
+  requisitos_obrigatorios: "Não atende aos requisitos obrigatórios da vaga",
+  formacao_incompativel: "Formação incompatível com a vaga",
+  disponibilidade_incompativel: "Disponibilidade incompatível com a vaga",
+  idioma_insuficiente: "Idioma abaixo do nível exigido",
+  perfil_duplicado: "Perfil duplicado/candidatura múltipla indevida",
+  vaga_preenchida: "Vaga já preenchida",
+  vaga_cancelada: "Vaga cancelada ou suspensa",
+  outro: "Outro motivo (detalhado pelo recrutador)",
+};
+
+/** Guarda do enum fixo (mutation aceita apenas motivos do catálogo). */
+export function isRejectionReason(value: unknown): value is RejectionReason {
+  return (
+    typeof value === "string" &&
+    (REJECTION_REASONS as readonly string[]).includes(value)
+  );
+}
+
+export type RejectionDecision =
+  { ok: true; nextStage: "reprovado" } | { ok: false; error: string };
+
+/**
+ * R5/CA 1 — Decisão de reprovação: exige motivo do enum fixo; falha
+ * clara sem motivo, com motivo fora do catálogo ou em já-reprovado.
+ */
+export function rejectionDecision(input: {
+  stage: ApplicationStage;
+  reason: unknown;
+}): RejectionDecision {
+  const { stage, reason } = input;
+  if (typeof reason !== "string" || reason.length === 0) {
+    return { ok: false, error: "Motivo de reprovação é obrigatório (R5)." };
+  }
+  if (!isRejectionReason(reason)) {
+    return {
+      ok: false,
+      error:
+        "Motivo de reprovação inválido — escolha um motivo da lista padronizada.",
+    };
+  }
+  if (stage === "reprovado") {
+    return { ok: false, error: "Candidatura já está reprovada." };
+  }
+  return { ok: true, nextStage: "reprovado" };
+}
+
 /** Campos do perfil do aluno consumidos pelo algoritmo de matching. */
 export type ProfileMatchingFields = {
   skills?: string[];
