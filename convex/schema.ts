@@ -243,5 +243,10 @@ export default defineSchema({
   })
     .index("by_job", ["jobId"])
     .index("by_student", ["studentId"])
-    .index("by_job_stage", ["jobId", "stage"]),
+    .index("by_job_stage", ["jobId", "stage"])
+    /**
+     * [S5-1] Painel Operacional — contagem de candidaturas por etapa do
+     * pipeline (5 colunas) sem varredura completa da tabela.
+     */
+    .index("by_stage", ["stage"]),
 });
