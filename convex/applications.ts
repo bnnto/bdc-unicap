@@ -5,7 +5,9 @@ import { CURRENT_TERM_VERSION } from "./consentTerms";
 import { computeMatchScore } from "../src/lib/matching";
 import {
   canApplyTo,
+  checkRequiredPrerequisites,
   buildMatchingCandidateInput,
+  formatMissingPrerequisites,
   type ApplicableJob,
 } from "../src/lib/application";
 import type { LanguageLevel } from "../src/lib/skills";
@@ -95,6 +97,17 @@ export const applyToJob = mutation({
       .collect();
     if (existing.some((a) => a.jobId === jobId)) {
       throw new Error("Você já se candidatou a esta vaga.");
+    }
+
+    // [S3-5] CA 1 — bloqueio no servidor: pré-requisitos obrigatórios
+    // não atendidos impedem a candidatura (mesma regra da UI, mas aqui
+    // é a fonte da verdade — o cliente nunca decide).
+    const gate = checkRequiredPrerequisites(
+      { prerequisites: jobPrerequisites(job) },
+      student.skills ?? [],
+    );
+    if (!gate.ok) {
+      throw new Error(formatMissingPrerequisites(gate.missing));
     }
 
     // R8 — match calculado no servidor e persistido (CA 1).

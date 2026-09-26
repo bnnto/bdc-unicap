@@ -5,6 +5,7 @@
  */
 import type { LanguageLevel } from "./skills";
 import type { Availability } from "./studentProfile";
+import { hasSkillFor } from "./matching";
 
 /** Pipeline de stages (CA 3 — stage inicial "inscrito"). */
 export const APPLICATION_STAGES = [
@@ -45,6 +46,38 @@ export function canApplyTo(job: ApplicableJob, now: number): ApplyDecision {
     return { ok: false, reason: "vaga_expirada" };
   }
   return { ok: true };
+}
+
+/**
+ * [S3-5] Bloqueio de candidatura fora dos requisitos obrigatórios:
+ * avalia apenas os pré-requisitos marcados como `required` e devolve os
+ * itens faltantes para o aviso claro na UI (CA 2). Opcional (não-marca-
+ * dos) nunca bloqueiam — são insumo do matching, não critério de entrada.
+ */
+export type PrerequisiteGate = {
+  ok: boolean;
+  missing: string[];
+};
+
+export function checkRequiredPrerequisites(
+  job: { prerequisites: ReadonlyArray<{ item: string; required: boolean }> },
+  candidateSkills: readonly string[],
+): PrerequisiteGate {
+  const missing = job.prerequisites
+    .filter((prerequisite) => prerequisite.required)
+    .filter((prerequisite) => !hasSkillFor(candidateSkills, prerequisite.item))
+    .map((prerequisite) => prerequisite.item);
+  return { ok: missing.length === 0, missing };
+}
+
+/**
+ * Mensagem de aviso claro para a UI (CA 2) — singular/plural corretos.
+ */
+export function formatMissingPrerequisites(missing: readonly string[]): string {
+  if (missing.length === 1) {
+    return `Requisito obrigatório não atendido: ${missing[0]}.`;
+  }
+  return `Requisitos obrigatórios não atendidos: ${missing.join(", ")}.`;
 }
 
 /** Campos do perfil do aluno consumidos pelo algoritmo de matching. */

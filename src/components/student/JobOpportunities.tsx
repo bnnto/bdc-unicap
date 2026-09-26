@@ -5,7 +5,10 @@ import type { Doc } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
-import { STAGE_LABELS } from "../../lib/application";
+import {
+  STAGE_LABELS,
+  checkRequiredPrerequisites,
+} from "../../lib/application";
 import { CONTRACT_LABELS, formatSalaryRange } from "../../lib/job";
 import {
   MATCH_BAND_LABELS,
@@ -58,6 +61,16 @@ export function JobOpportunities() {
   // Perfil mínimo exigido para candidatar (cadastro completo).
   const hasProfile = profile !== undefined && profile !== null;
 
+  // [S3-5] Aviso claro por vaga: quais requisitos obrigatórios faltam
+  // (mesma regra pura do servidor — o bloqueio final é sempre lá).
+  function missingPrerequisitesFor(job: OpenJob): string[] {
+    if (!hasProfile) return [];
+    return checkRequiredPrerequisites(
+      { prerequisites: job.prerequisites },
+      profile.skills ?? [],
+    ).missing;
+  }
+
   if (openJobs === undefined || myApplications === undefined) {
     return (
       <p className="text-sm text-slate-500" role="status" aria-live="polite">
@@ -86,6 +99,8 @@ export function JobOpportunities() {
           {openJobs.map((job: OpenJob) => {
             const applied = appliedJobIds.has(String(job._id));
             const error = errors[String(job._id)];
+            const missing = missingPrerequisitesFor(job);
+            const blocked = missing.length > 0;
             return (
               <li
                 key={job._id}
@@ -132,10 +147,28 @@ export function JobOpportunities() {
                   ))}
                 </ul>
 
+                {blocked ? (
+                  <p
+                    role="alert"
+                    className="mt-3 rounded border border-warning bg-white px-3 py-2 text-xs font-medium text-warning"
+                  >
+                    {missing.length === 1
+                      ? `Requisito obrigatório não atendido: ${missing[0]}.`
+                      : `Requisitos obrigatórios não atendidos: ${missing.join(", ")}.`}{" "}
+                    Complete o perfil com as competências necessárias para se
+                    candidatar.
+                  </p>
+                ) : null}
+
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Button
                     variant="primary"
-                    disabled={applied || !hasProfile}
+                    disabled={applied || !hasProfile || blocked}
+                    title={
+                      blocked
+                        ? "Complete os requisitos obrigatórios no seu perfil para se candidatar."
+                        : undefined
+                    }
                     onClick={() => {
                       setNotice(null);
                       void (async () => {

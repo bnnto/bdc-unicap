@@ -59,8 +59,11 @@ function prerequisiteWeight(required: boolean): number {
   return required ? WEIGHT_REQUIRED : WEIGHT_OPTIONAL;
 }
 
-/** Pré-requisito atendido quando existe skill equivalente (sem acento/caixa). */
-function hasSkillFor(skills: readonly string[], item: string): boolean {
+/**
+ * Pré-requisito atendido quando existe skill equivalente (sem acento/caixa).
+ * Exportada para reuso no bloqueio de candidaturas (S3-5).
+ */
+export function hasSkillFor(skills: readonly string[], item: string): boolean {
   const wanted = normalizeForSearch(item);
   return skills.some((skill) => normalizeForSearch(skill) === wanted);
 }
