@@ -198,10 +198,10 @@ export default defineSchema({
     .index("by_status", ["status"]),
 
   /**
-   * Candidaturas dos alunos às vagas (issue [S3-4], R8).
+   * Candidaturas dos alunos às vagas (issues [S3-4]/[S4-1], R8).
    * `matchScore` (0–100) é calculado NO SERVIDOR na mutation `applyToJob`
    * com a regra pura de matching (S3-3) — fonte da verdade (CA 1).
-   * `stage` segue o pipeline (CA 3); mudanças de etapa chegam na S4-2.
+   * `stage` segue o pipeline Kanban do issue [S4-1] (5 colunas).
    */
   applications: defineTable({
     jobId: v.id("jobs"),
@@ -210,8 +210,7 @@ export default defineSchema({
       v.literal("inscrito"),
       v.literal("triagem"),
       v.literal("entrevista"),
-      v.literal("proposta"),
-      v.literal("contratado"),
+      v.literal("aprovado"),
       v.literal("reprovado"),
     ),
     matchScore: v.number(),

@@ -1,5 +1,5 @@
 /**
- * Regras puras de Candidatura (issue [S3-4], R8).
+ * Regras puras de Candidatura (issues [S3-4]/[S4-1], R8).
  * Compartilhadas entre as mutations/queries Convex (`applications`) e a
  * UI do aluno/recrutador — TDD, sem I/O.
  */
@@ -7,25 +7,64 @@ import type { LanguageLevel } from "./skills";
 import type { Availability } from "./studentProfile";
 import { hasSkillFor } from "./matching";
 
-/** Pipeline de stages (CA 3 — stage inicial "inscrito"). */
+/**
+ * Pipeline do Kanban (S4-1): as 5 colunas do issue, na ordem de fluxo.
+ * Stage inicial "inscrito" (CA 3 de S3-4); "Aprovado" consolida
+ * proposta/contratação conforme a especificação do issue.
+ */
 export const APPLICATION_STAGES = [
   "inscrito",
   "triagem",
   "entrevista",
-  "proposta",
-  "contratado",
+  "aprovado",
   "reprovado",
 ] as const;
 export type ApplicationStage = (typeof APPLICATION_STAGES)[number];
 
 export const STAGE_LABELS: Record<ApplicationStage, string> = {
   inscrito: "Inscrito",
-  triagem: "Triagem",
+  triagem: "Em Triagem",
   entrevista: "Entrevista",
-  proposta: "Proposta",
-  contratado: "Contratado",
+  aprovado: "Aprovado",
   reprovado: "Reprovado",
 };
+
+/**
+ * Movimentação de card entre colunas (CA 1): qualquer coluna → qualquer
+ * outra é permitida (pipeline real tem retorno de entrevista → triagem);
+ * mover para a própria coluna é no-op e é rejeitado pela mutation.
+ */
+export function canTransitionTo(
+  from: ApplicationStage,
+  to: ApplicationStage,
+): boolean {
+  return from !== to;
+}
+
+/** Guarda de validação de stage (mutation aceita apenas valores válidos). */
+export function isApplicationStage(value: unknown): value is ApplicationStage {
+  return (
+    typeof value === "string" &&
+    (APPLICATION_STAGES as readonly string[]).includes(value)
+  );
+}
+
+/** Agrupa candidaturas por coluna, com todas as 5 colunas presentes. */
+export function groupApplicationsByStage<T extends { stage: ApplicationStage }>(
+  applications: readonly T[],
+): Record<ApplicationStage, T[]> {
+  const grouped = {
+    inscrito: [],
+    triagem: [],
+    entrevista: [],
+    aprovado: [],
+    reprovado: [],
+  } as Record<ApplicationStage, T[]>;
+  for (const application of applications) {
+    grouped[application.stage].push(application);
+  }
+  return grouped;
+}
 
 /** Job mínimo necessário para decidir se a vaga aceita candidatura. */
 export type ApplicableJob = {

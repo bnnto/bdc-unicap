@@ -4,6 +4,7 @@ import { useAuthState } from "./components/auth/authContext";
 import { StudentHomePage } from "./components/student/StudentHomePage";
 import { TalentSearchPage } from "./components/talent/TalentSearchPage";
 import { JobsPanel } from "./components/recruiter/JobsPanel";
+import { JobKanban } from "./components/recruiter/JobKanban";
 import { ROLE_LABELS } from "./lib/roles";
 
 /**
@@ -58,6 +59,9 @@ function AuthGate() {
           <div className="mx-auto max-w-6xl px-4 py-8">
             <div className="mb-6">
               <JobsPanel />
+            </div>
+            <div className="mb-6">
+              <JobKanban />
             </div>
             <TalentSearchPage />
           </div>
