@@ -141,6 +141,93 @@ function TimeToHireSection() {
   );
 }
 
+/**
+ * [S5-3] CA 2 — Funil de conversão: barras proporcionais por etapa do
+ * pipeline e % de avanço entre degraus. Dados prontos da query
+ * `pipelineFunnel` (contagem e conversão agregadas no servidor).
+ */
+function FunnelSection() {
+  const funnel = useQuery(api.operational.pipelineFunnel, {});
+
+  const steps = funnel?.steps ?? [];
+  const maxCount = Math.max(1, ...steps.map((step) => step.count));
+
+  return (
+    <section
+      data-testid="pipeline-funnel"
+      className="mt-3"
+      aria-label="Funil de conversão"
+    >
+      <Card title="Funil de Conversão" accent="primary">
+        {funnel === undefined ? (
+          <p
+            className="text-sm text-slate-500"
+            role="status"
+            aria-live="polite"
+          >
+            Carregando funil…
+          </p>
+        ) : (
+          <>
+            <p className="mb-3 text-xs text-slate-500">
+              Candidaturas por etapa do pipeline e % de avanço entre degraus —{" "}
+              {funnel.totalApplications} candidaturas ao todo.
+            </p>
+            <ul className="flex flex-col gap-2">
+              {steps.map((step) => (
+                <li key={step.stage} className="flex items-center gap-3">
+                  <span className="w-24 shrink-0 text-xs font-semibold text-slate-700">
+                    {step.label}
+                  </span>
+                  <div
+                    className="h-7 flex-1 overflow-hidden rounded bg-slate-100"
+                    aria-hidden="true"
+                  >
+                    <div
+                      data-testid={`funnel-bar-${step.stage}`}
+                      className="flex h-full items-center justify-end rounded bg-primary px-2 text-xs font-semibold text-white"
+                      style={{
+                        width: `${Math.max(
+                          step.count === 0 ? 0 : 8,
+                          (step.count / maxCount) * 100,
+                        )}%`,
+                      }}
+                    >
+                      {step.count > 0 ? step.count : ""}
+                    </div>
+                  </div>
+                  <span
+                    className="w-8 shrink-0 text-right text-sm font-bold text-primary"
+                    aria-label={`${step.count} candidaturas em ${step.label}`}
+                  >
+                    {step.count}
+                  </span>
+                  <span
+                    className="w-12 shrink-0 text-right text-xs text-slate-500"
+                    aria-label={
+                      step.conversionFromPrevious === null
+                        ? "sem conversão anterior"
+                        : `${step.conversionFromPrevious}% de conversão da etapa anterior`
+                    }
+                  >
+                    {step.conversionFromPrevious === null
+                      ? "—"
+                      : `${step.conversionFromPrevious}%`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-slate-400">
+              % = avanço em relação à etapa anterior (reprovados não compõem o
+              funil).
+            </p>
+          </>
+        )}
+      </Card>
+    </section>
+  );
+}
+
 export function OperationalPanel() {
   const summary = useQuery(api.operational.operationalSummary, {});
 
@@ -215,6 +302,8 @@ export function OperationalPanel() {
       </div>
 
       <TimeToHireSection />
+
+      <FunnelSection />
     </section>
   );
 }

@@ -16,6 +16,7 @@ import {
   summarizeJobs,
   type JobRow,
 } from "../src/lib/operationalPanel";
+import { buildFunnel, type FunnelApplicationRow } from "../src/lib/funnel";
 
 /**
  * Painel Operacional (issue [S5-1]) — agregações no SERVIDOR.
@@ -259,5 +260,42 @@ export const timeToHireStats = query({
       samplesCount: filtered.length,
       facets: { courses, companies },
     };
+  },
+});
+
+/**
+ * [S5-3] Funil de conversão por etapa do pipeline — CA 1: contagem de
+ * candidaturas em cada etapa de avanço (Inscrito → Triagem → Entrevista →
+ * Aprovado) e conversão % entre degraus, agregadas NO SERVIDOR com a
+ * regra pura de S5-3 ("reprovado" é saída, não degrau).
+ * CA 2: a resposta já vem pronta para a visualização (ordem + rótulos).
+ *
+ * R7: mesmo guard da visão operacional — apenas contagens agregadas,
+ * sem dados pessoais (LGPD).
+ */
+export const pipelineFunnel = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireOperationalViewer(ctx);
+
+    // Candidaturas por etapa via índice by_stage (5 leituras indexadas).
+    // Os documentos já satisfazem FunnelApplicationRow ({stage}), então
+    // a regra pura monta os degraus direto da fonte da verdade.
+    const rows: FunnelApplicationRow[] = [];
+    for (const stage of APPLICATION_STAGES) {
+      const docs = await ctx.db
+        .query("applications")
+        .withIndex("by_stage", (q) => q.eq("stage", stage))
+        .collect();
+      for (const doc of docs) {
+        rows.push(doc);
+      }
+    }
+
+    // CA 1 — contagem e conversão % entre degraus (regra pura S5-3);
+    // CA 2 — etapas sem candidatura aparecem zeradas, na ordem de exibição.
+    const steps = buildFunnel(rows);
+
+    return { steps, totalApplications: rows.length };
   },
 });
