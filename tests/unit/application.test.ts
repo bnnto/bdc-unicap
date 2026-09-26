@@ -7,14 +7,13 @@ import {
 } from "../../src/lib/application";
 
 describe("stages da candidatura (S3-4, CA 3)", () => {
-  it("stage inicial é 'inscrito' e os stages seguem o pipeline", () => {
+  it("stage inicial é 'inscrito' e os stages seguem o pipeline do Kanban (S4-1)", () => {
     expect(APPLICATION_STAGES[0]).toBe("inscrito");
     expect(APPLICATION_STAGES).toEqual([
       "inscrito",
       "triagem",
       "entrevista",
-      "proposta",
-      "contratado",
+      "aprovado",
       "reprovado",
     ]);
   });

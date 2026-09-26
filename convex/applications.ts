@@ -5,10 +5,13 @@ import { CURRENT_TERM_VERSION } from "./consentTerms";
 import { computeMatchScore } from "../src/lib/matching";
 import {
   canApplyTo,
+  canTransitionTo,
   checkRequiredPrerequisites,
   buildMatchingCandidateInput,
   formatMissingPrerequisites,
+  isApplicationStage,
   type ApplicableJob,
+  type ApplicationStage,
 } from "../src/lib/application";
 import type { LanguageLevel } from "../src/lib/skills";
 
@@ -130,7 +133,7 @@ export const applyToJob = mutation({
     const applicationId = await ctx.db.insert("applications", {
       jobId,
       studentId: student._id,
-      stage: "inscrito",
+      stage: "inscrito" as ApplicationStage,
       matchScore: score,
       appliedAt: Date.now(),
     });
@@ -230,6 +233,83 @@ export const jobApplications = query({
       });
     }
     return items.sort((a, b) => b.matchScore - a.matchScore);
+  },
+});
+
+/**
+ * [S4-1] CA 1 — Mover card no Kanban: atualiza `applications.stage`.
+ * Apenas o recrutador dono da vaga move; transição para a mesma coluna
+ * é rejeitada (no-op); stage destino validado pela guarda pura.
+ * A reatividade do Convex propaga a mudança a todos os clientes abertos.
+ */
+export const moveApplication = mutation({
+  args: {
+    applicationId: v.id("applications"),
+    to: v.union(
+      v.literal("inscrito"),
+      v.literal("triagem"),
+      v.literal("entrevista"),
+      v.literal("aprovado"),
+      v.literal("reprovado"),
+    ),
+  },
+  handler: async (ctx, { applicationId, to }) => {
+    const user = await requireActiveUser(ctx);
+    if (!isApplicationStage(to)) {
+      throw new Error("Coluna de destino inválida.");
+    }
+    const application = await ctx.db.get(applicationId);
+    if (application === null) {
+      throw new Error("Candidatura não encontrada.");
+    }
+    const job = await ctx.db.get(application.jobId);
+    if (job === null) throw new Error("Vaga não encontrada.");
+    if (job.recruiterId !== user._id) {
+      throw new Error("Apenas o recrutador da vaga move as candidaturas.");
+    }
+    if (!canTransitionTo(application.stage, to)) {
+      throw new Error("O card já está nesta coluna.");
+    }
+    await ctx.db.patch(applicationId, { stage: to });
+    return { ok: true as const, stage: to };
+  },
+});
+
+/**
+ * [S4-1] CA 1/CA 2 — Board do Kanban de uma vaga do recrutador dono:
+ * todas as candidaturas com dados do candidato e % de match. A query
+ * reativa re-renderiza as colunas em tempo real a cada `moveApplication`.
+ */
+export const jobBoard = query({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }) => {
+    const user = await requireActiveUser(ctx);
+    const job = await ctx.db.get(jobId);
+    if (job === null) return null;
+    if (job.recruiterId !== user._id) return null;
+
+    const rows = await ctx.db
+      .query("applications")
+      .withIndex("by_job", (q) => q.eq("jobId", jobId))
+      .collect();
+
+    const items = [];
+    for (const row of rows) {
+      const student = await ctx.db.get(row.studentId);
+      if (student === null) continue;
+      items.push({
+        applicationId: row._id,
+        studentId: student._id,
+        fullName: student.fullName,
+        course: student.course,
+        stage: row.stage,
+        matchScore: row.matchScore,
+        appliedAt: row.appliedAt,
+        // R6 — contato segue a autorização geral do aluno.
+        contactAllowed: student.showContactToRecruiters ?? false,
+      });
+    }
+    return { job: { jobId: job._id, title: job.title }, items };
   },
 });
 
