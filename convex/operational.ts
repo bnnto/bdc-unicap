@@ -1,4 +1,5 @@
 import { query, type QueryCtx } from "./_generated/server";
+import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { CURRENT_TERM_VERSION } from "./consentTerms";
 import {
@@ -6,8 +7,12 @@ import {
   type ApplicationStage,
 } from "../src/lib/application";
 import {
+  averageTimeToHire,
   employabilityRate,
+  filterSamplesByPeriod,
   formatEmployabilityRate,
+  formatTimeToHire,
+  hireSamples,
   summarizeJobs,
   type JobRow,
 } from "../src/lib/operationalPanel";
@@ -142,6 +147,117 @@ export const operationalSummary = query({
         approved,
         rejected,
       },
+    };
+  },
+});
+
+/**
+ * [S5-2] Time-to-Hire médio — CA 1: cálculo em dias agregado no
+ * SERVIDOR; CA 2: filtros de período/curso/empresa aplicados aos dados
+ * antes da agregação. Cada amostra é uma contratação (candidatura
+ * aprovada em vaga preenchida) com `filledAt − appliedAt`.
+ *
+ * R7: mesmo guard da visão operacional. Aluno/egresso nunca expõe
+ * dado além do que o papel autoriza (LGPD: só contagens e médias,
+ * sem dados pessoais dos contratados).
+ */
+export const timeToHireStats = query({
+  args: {
+    from: v.optional(v.number()),
+    to: v.optional(v.number()),
+    course: v.optional(v.string()),
+    company: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireOperationalViewer(ctx);
+
+    // Vagas preenchidas (encerradas) — `filledAt` gravado no encerramento
+    // manual (setJobStatus) ou pelo cron R4.
+    const filledJobs = (
+      await ctx.db
+        .query("jobs")
+        .withIndex("by_status", (q) => q.eq("status", "encerrada"))
+        .collect()
+    ).filter(
+      (job): job is Doc<"jobs"> & { filledAt: number } =>
+        job.filledAt !== undefined,
+    );
+    const filledByJobId = new Map(filledJobs.map((j) => [j._id, j]));
+
+    // Aprovações (pipeline S4-1) — via índice by_stage.
+    const approvals = await ctx.db
+      .query("applications")
+      .withIndex("by_stage", (q) => q.eq("stage", "aprovado"))
+      .collect();
+
+    // Perfis dos contratados e recrutadores (curso e empresa dos filtros).
+    const studentById = new Map(
+      (await ctx.db.query("students").collect()).map((s) => [s._id, s]),
+    );
+    const userById = new Map(
+      (await ctx.db.query("users").collect()).map((u) => [u._id, u]),
+    );
+
+    /** Empresa de uma vaga = recrutador responsável (fallback e-mail). */
+    const companyNameFor = (job: Doc<"jobs">): string => {
+      const recruiter = userById.get(job.recruiterId);
+      return recruiter?.name ?? recruiter?.email ?? "";
+    };
+
+    // Facets SEM filtro: opções para os dropdowns de curso/empresa da UI.
+    const courses = [
+      ...new Set(
+        approvals.flatMap((a) => {
+          const student = studentById.get(a.studentId);
+          return student === undefined ? [] : [student.course];
+        }),
+      ),
+    ].sort((a, b) => a.localeCompare(b));
+    const companies = [
+      ...new Set(filledJobs.map(companyNameFor).filter((n) => n !== "")),
+    ].sort((a, b) => a.localeCompare(b));
+
+    // Pareamento aprovação × vaga preenchida (regra pura S5-2) com os
+    // filtros de curso/empresa aplicados antes da agregação.
+    const samples = hireSamples(
+      filledJobs.map((job) => ({
+        jobId: job._id,
+        filledAt: job.filledAt,
+      })),
+      approvals
+        .filter((a) => {
+          const job = filledByJobId.get(a.jobId);
+          if (job === undefined) return false;
+          const student = studentById.get(a.studentId);
+          if (args.course !== undefined && student?.course !== args.course) {
+            return false;
+          }
+          if (
+            args.company !== undefined &&
+            companyNameFor(job) !== args.company
+          ) {
+            return false;
+          }
+          return true;
+        })
+        .map((a) => ({
+          jobId: a.jobId,
+          studentId: a.studentId,
+          appliedAt: a.appliedAt,
+        })),
+    );
+
+    const filtered = filterSamplesByPeriod(samples, {
+      from: args.from,
+      to: args.to,
+    });
+    const average = averageTimeToHire(filtered);
+
+    return {
+      averageDays: average,
+      label: formatTimeToHire(average),
+      samplesCount: filtered.length,
+      facets: { courses, companies },
     };
   },
 });
