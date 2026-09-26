@@ -49,6 +49,10 @@ export function JobOpportunities() {
   const myApplications = useQuery(api.applications.myApplications, {});
   const profile = useQuery(api.students.myProfile, {});
   const apply = useMutation(api.applications.applyToJob);
+  const acceptProcess = useMutation(api.applications.acceptProcess);
+  const revokeProcessAcceptance = useMutation(
+    api.applications.revokeProcessAcceptance,
+  );
 
   const [notice, setNotice] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -206,7 +210,7 @@ export function JobOpportunities() {
       <div className="mt-6 border-t border-slate-200 pt-4">
         <h4 className="font-serif text-sm font-bold text-primary">
           Minhas candidaturas
-        </h4>
+        </h4>{" "}
         {(myApplications ?? []).length === 0 ? (
           <p className="mt-1 text-xs text-slate-500">
             Nenhuma candidatura ainda. Candidate-se às vagas acima — o % de
@@ -217,17 +221,56 @@ export function JobOpportunities() {
             {(myApplications ?? []).map((application) => (
               <li
                 key={application.applicationId}
-                className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                className="flex flex-col gap-2 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
               >
-                <span className="font-semibold text-slate-800">
-                  {application.jobTitle}
-                </span>
-                <span className="flex items-center gap-2">
-                  <span className="text-xs text-slate-600">
-                    {STAGE_LABELS[application.stage] ?? application.stage}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-800">
+                    {application.jobTitle}
                   </span>
-                  <MatchChip score={application.matchScore} />
-                </span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-xs text-slate-600">
+                      {STAGE_LABELS[application.stage] ?? application.stage}
+                    </span>
+                    <MatchChip score={application.matchScore} />
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  {/* [S4-3] R6 — aceite em participar do processo libera o
+                      contato ao recrutador desta vaga; revogável a qualquer
+                      momento (LGPD). */}
+                  {application.processAccepted ? (
+                    <span className="text-xs text-success">
+                      Contato liberado para esta vaga (aceite no processo)
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-500">
+                      Contato não liberado para esta vaga
+                    </span>
+                  )}
+                  <Button
+                    variant={
+                      application.processAccepted ? "secondary" : "accent"
+                    }
+                    aria-label={
+                      application.processAccepted
+                        ? `Revogar aceite do processo da vaga ${application.jobTitle}`
+                        : `Autorizar contato e aceitar participar do processo da vaga ${application.jobTitle}`
+                    }
+                    onClick={() => {
+                      void (application.processAccepted
+                        ? revokeProcessAcceptance({
+                            applicationId: application.applicationId,
+                          })
+                        : acceptProcess({
+                            applicationId: application.applicationId,
+                          }));
+                    }}
+                  >
+                    {application.processAccepted
+                      ? "Revogar aceite"
+                      : "Aceitar participar (libera contato)"}
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>

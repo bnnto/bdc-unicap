@@ -233,6 +233,13 @@ export default defineSchema({
         v.literal("outro"),
       ),
     ),
+    /**
+     * [S4-3] R6 — aceite do aluno em participar do processo seletivo da
+     * vaga (por candidatura): libera o contato ao recrutador mesmo sem a
+     * autorização geral. Registrado com timestamp para auditoria LGPD.
+     */
+    processAccepted: v.optional(v.boolean()),
+    processAcceptedAt: v.optional(v.number()),
   })
     .index("by_job", ["jobId"])
     .index("by_student", ["studentId"])

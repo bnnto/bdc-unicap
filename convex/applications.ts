@@ -8,6 +8,7 @@ import {
   canTransitionTo,
   checkRequiredPrerequisites,
   buildMatchingCandidateInput,
+  contactProjectionForApplication,
   formatMissingPrerequisites,
   isApplicationStage,
   isRejectionReason,
@@ -197,6 +198,8 @@ export const myApplications = query({
         stage: row.stage,
         matchScore: row.matchScore,
         appliedAt: row.appliedAt,
+        // [S4-3] R6 — estado do aceite do aluno no processo (auditável).
+        processAccepted: row.processAccepted ?? false,
       });
     }
     return items;
@@ -301,6 +304,17 @@ export const jobBoard = query({
     for (const row of rows) {
       const student = await ctx.db.get(row.studentId);
       if (student === null) continue;
+      // Fonte dos dados de contato: o usuário autenticado (e-mail) e o
+      // perfil (LinkedIn/portfólio). Nunca deixam o servidor sem liberação.
+      const owner = await ctx.db.get(student.userId);
+      // [S4-3] R6 — contato projetado no servidor: omitido sem autorização
+      // geral do aluno ou aceite no processo (CA 1); contactReleased
+      // reflete a liberação (CA 2).
+      const contact = contactProjectionForApplication({
+        showContactToRecruiters: student.showContactToRecruiters ?? false,
+        processAccepted: row.processAccepted ?? false,
+        email: owner?.email,
+      });
       items.push({
         applicationId: row._id,
         studentId: student._id,
@@ -309,8 +323,15 @@ export const jobBoard = query({
         stage: row.stage,
         matchScore: row.matchScore,
         appliedAt: row.appliedAt,
-        // R6 — contato segue a autorização geral do aluno.
-        contactAllowed: student.showContactToRecruiters ?? false,
+        contactReleased: contact.contactReleased,
+        releaseReason: contact.releaseReason,
+        ...(contact.contactReleased
+          ? {
+              email: contact.email,
+              linkedinUrl: student.linkedinUrl ?? undefined,
+              portfolioUrl: student.portfolioUrl ?? undefined,
+            }
+          : {}),
       });
     }
     return { job: { jobId: job._id, title: job.title }, items };
@@ -396,6 +417,74 @@ export const jobRejections = query({
           REJECTION_REASON_LABELS[row.rejectionReason as RejectionReason],
         appliedAt: row.appliedAt,
       }));
+  },
+});
+
+/**
+ * [S4-3] R6 — Aceite do aluno em participar do processo seletivo da vaga
+ * (por candidatura). Libera o contato ao recrutador daquela vaga mesmo
+ * sem a autorização geral; registrado com timestamp para auditoria LGPD.
+ */
+export const acceptProcess = mutation({
+  args: { applicationId: v.id("applications") },
+  handler: async (ctx, { applicationId }) => {
+    const user = await requireActiveUser(ctx);
+    if (user.role !== "aluno") {
+      throw new Error("Apenas o aluno candidato aceita o processo.");
+    }
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    if (student === null) {
+      throw new Error("Perfil de aluno não encontrado.");
+    }
+    const application = await ctx.db.get(applicationId);
+    if (application === null) {
+      throw new Error("Candidatura não encontrada.");
+    }
+    if (application.studentId !== student._id) {
+      throw new Error(
+        "Você só pode aceitar processos das suas próprias candidaturas.",
+      );
+    }
+    await ctx.db.patch(applicationId, {
+      processAccepted: true,
+      processAcceptedAt: Date.now(),
+    });
+    return { ok: true as const, processAccepted: true };
+  },
+});
+
+/**
+ * [S4-3] R6 — Retirada do aceite do aluno (revogação LGPD). A liberação
+ * por aceite cessa; a autorização geral do aluno não é alterada aqui.
+ */
+export const revokeProcessAcceptance = mutation({
+  args: { applicationId: v.id("applications") },
+  handler: async (ctx, { applicationId }) => {
+    const user = await requireActiveUser(ctx);
+    if (user.role !== "aluno") {
+      throw new Error("Apenas o aluno candidato revoga o aceite.");
+    }
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    if (student === null) {
+      throw new Error("Perfil de aluno não encontrado.");
+    }
+    const application = await ctx.db.get(applicationId);
+    if (application === null) {
+      throw new Error("Candidatura não encontrada.");
+    }
+    if (application.studentId !== student._id) {
+      throw new Error(
+        "Você só pode revogar o aceite das suas próprias candidaturas.",
+      );
+    }
+    await ctx.db.patch(applicationId, { processAccepted: false });
+    return { ok: true as const, processAccepted: false };
   },
 });
 
