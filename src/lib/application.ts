@@ -266,3 +266,82 @@ export function buildMatchingCandidateInput(profile: ProfileMatchingFields): {
     availability: profile.availability,
   };
 }
+
+/**
+ * [S4-4] "Minhas Candidaturas" — regras puras da view do aluno.
+ * Lista reativa (useQuery) ordenada da candidatura mais recente para a
+ * mais antiga, com etapa atual do pipeline (CA 1) e % de match (CA 2).
+ */
+
+/** Candidatura como exibida na lista do aluno. */
+export type MyApplication = {
+  applicationId: string;
+  jobTitle: string;
+  stage: ApplicationStage;
+  matchScore: number;
+  appliedAt: number;
+};
+
+/** Ordena da mais recente para a mais antiga, sem mutar a entrada. */
+export function sortMyApplications<T extends { appliedAt: number }>(
+  applications: readonly T[],
+): T[] {
+  return [...applications].sort((a, b) => b.appliedAt - a.appliedAt);
+}
+
+/** Linha de status legível para a lista (etapa atual do pipeline). */
+export function formatApplicationStatusLabel(application: {
+  jobTitle: string;
+  stage: ApplicationStage;
+  appliedAt: number;
+}): string {
+  const date = new Date(application.appliedAt);
+  return `${application.jobTitle} — etapa: ${
+    STAGE_LABELS[application.stage]
+  } (Inscrito em ${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}).`;
+}
+
+export type TimelineStep = {
+  stage: ApplicationStage;
+  state: "done" | "current" | "upcoming";
+};
+
+/**
+ * Timeline das 5 etapas do pipeline a partir da etapa atual:
+ * etapas anteriores "done", atual "current", futuras "upcoming".
+ * Nota: "reprovado" é coluna terminal do board (S4-1); na linha do
+ * tempo do aluno ele aparece como etapa futura até ocorrer.
+ */
+export function stageTimeline(current: ApplicationStage): TimelineStep[] {
+  const currentIndex = APPLICATION_STAGES.indexOf(current);
+  return APPLICATION_STAGES.map((stage, index) => ({
+    stage,
+    state:
+      index < currentIndex
+        ? ("done" as const)
+        : index === currentIndex
+          ? ("current" as const)
+          : ("upcoming" as const),
+  }));
+}
+
+export type MyApplicationsKpis = {
+  total: number;
+  /** Ainda em andamento (não reprovadas). */
+  active: number;
+  /** Melhor % de match entre as candidaturas (null quando não há). */
+  bestMatch: number | null;
+};
+
+/** Indicadores-resumo do cabeçalho da view. */
+export function myApplicationsKpis(
+  applications: ReadonlyArray<MyApplication>,
+): MyApplicationsKpis {
+  const total = applications.length;
+  const active = applications.filter((a) => a.stage !== "reprovado").length;
+  const bestMatch =
+    total === 0
+      ? null
+      : applications.reduce((best, a) => Math.max(best, a.matchScore), 0);
+  return { total, active, bestMatch };
+}

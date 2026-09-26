@@ -4,6 +4,7 @@ import { PrivacySettings } from "./PrivacySettings";
 import { ResumeForm } from "./ResumeForm";
 import { ResumeDownload } from "./ResumeDownload";
 import { JobOpportunities } from "./JobOpportunities";
+import { MyApplicationsPage } from "./MyApplicationsPage";
 
 /**
  * Home do aluno (issue [S1-3]): cadastro/edição do perfil em Card
@@ -45,6 +46,9 @@ export function StudentHomePage() {
       </div>
       <div className="mt-6">
         <JobOpportunities />
+      </div>
+      <div className="mt-6">
+        <MyApplicationsPage />
       </div>
     </div>
   );

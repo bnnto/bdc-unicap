@@ -200,6 +200,8 @@ export const myApplications = query({
         appliedAt: row.appliedAt,
         // [S4-3] R6 — estado do aceite do aluno no processo (auditável).
         processAccepted: row.processAccepted ?? false,
+        // [S4-4] — motivo padronizado quando reprovado (R5, transparência).
+        rejectionReason: row.rejectionReason ?? null,
       });
     }
     return items;
