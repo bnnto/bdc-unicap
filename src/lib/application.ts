@@ -156,9 +156,7 @@ export function isRejectionReason(value: unknown): value is RejectionReason {
 }
 
 export type RejectionDecision =
-  { ok: true; nextStage: "reprovado" } | { ok: false; error: string };
-
-/**
+  { ok: true; nextStage: "reprovado" } | { ok: false; error: string }; /**
  * R5/CA 1 — Decisão de reprovação: exige motivo do enum fixo; falha
  * clara sem motivo, com motivo fora do catálogo ou em já-reprovado.
  */
@@ -181,6 +179,68 @@ export function rejectionDecision(input: {
     return { ok: false, error: "Candidatura já está reprovada." };
   }
   return { ok: true, nextStage: "reprovado" };
+}
+
+/**
+ * [S4-3] R6 — Liberação de contato por candidatura (LGPD).
+ * O recrutador só vê os dados de contato quando o ALUNO autoriza:
+ * (a) autorização geral (`showContactToRecruiters`), ou
+ * (b) aceite explícito em participar daquele processo seletivo
+ *     (`processAccepted`, por candidatura).
+ * O aceite do termo LGPD (R7) é pré-condição de uso do portal — sozinho
+ * NÃO libera contato; a liberação é sempre escolha do aluno.
+ */
+export type ContactReleaseInput = {
+  showContactToRecruiters: boolean;
+  processAccepted: boolean;
+  /** R7 — aceite vigente do termo (contexto; não libera sozinho). */
+  consentAccepted?: boolean;
+  email?: string;
+  phone?: string;
+};
+
+export type ContactReleaseDecision = {
+  contactReleased: boolean;
+  reason: "autorizacao_geral" | "aceite_no_processo" | "sem_autorizacao";
+};
+
+export function contactReleaseDecision(
+  input: ContactReleaseInput,
+): ContactReleaseDecision {
+  if (input.showContactToRecruiters) {
+    return { contactReleased: true, reason: "autorizacao_geral" };
+  }
+  if (input.processAccepted) {
+    return { contactReleased: true, reason: "aceite_no_processo" };
+  }
+  return { contactReleased: false, reason: "sem_autorizacao" };
+}
+
+export type ContactProjection = {
+  contactReleased: boolean;
+  releaseReason: ContactReleaseDecision["reason"];
+  email?: string;
+  phone?: string;
+};
+
+/**
+ * Projeção segura por candidatura (CA 1/CA 2): sem liberação, os campos
+ * de contato são OMITIDOS do objeto (nunca mascarados) — os dados não
+ * chegam ao cliente; com liberação, `contactReleased: true` + contato.
+ */
+export function contactProjectionForApplication(
+  input: ContactReleaseInput,
+): ContactProjection {
+  const decision = contactReleaseDecision(input);
+  if (!decision.contactReleased) {
+    return { contactReleased: false, releaseReason: decision.reason };
+  }
+  return {
+    contactReleased: true,
+    releaseReason: decision.reason,
+    email: input.email,
+    phone: input.phone,
+  };
 }
 
 /** Campos do perfil do aluno consumidos pelo algoritmo de matching. */

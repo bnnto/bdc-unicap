@@ -33,7 +33,12 @@ type BoardApplication = {
   stage: ApplicationStage;
   matchScore: number;
   appliedAt: number;
-  contactAllowed: boolean;
+  /** [S4-3] R6 — liberação de contato projetada no servidor. */
+  contactReleased: boolean;
+  releaseReason: "autorizacao_geral" | "aceite_no_processo" | "sem_autorizacao";
+  email?: string;
+  linkedinUrl?: string;
+  portfolioUrl?: string;
 };
 
 /**
@@ -261,6 +266,33 @@ export function JobKanban() {
                       {application.course} ·{" "}
                       {MATCH_BAND_LABELS[matchBand(application.matchScore)]}
                     </p>
+                    <p className="mt-1 text-xs font-semibold">
+                      {application.contactReleased ? (
+                        <span className="text-success">Contato liberado</span>
+                      ) : (
+                        <span className="text-slate-500">
+                          Contato não liberado
+                        </span>
+                      )}
+                    </p>
+                    {application.contactReleased ? (
+                      <p className="mt-1 text-xs text-primary">
+                        {application.email ?? "E-mail não cadastrado"}
+                        {application.linkedinUrl !== undefined ? (
+                          <>
+                            {" · "}
+                            <a
+                              href={application.linkedinUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline"
+                            >
+                              LinkedIn
+                            </a>
+                          </>
+                        ) : null}
+                      </p>
+                    ) : null}
                     <div className="mt-2 flex gap-1">
                       {prevStage !== null ? (
                         <Button
