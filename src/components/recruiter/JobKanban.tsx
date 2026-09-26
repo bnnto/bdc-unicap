@@ -9,7 +9,10 @@ import {
   APPLICATION_STAGES,
   STAGE_LABELS,
   groupApplicationsByStage,
+  REJECTION_REASONS,
+  REJECTION_REASON_LABELS,
   type ApplicationStage,
+  type RejectionReason,
 } from "../../lib/application";
 import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
 
@@ -47,6 +50,8 @@ export function JobKanban() {
   const [error, setError] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<ApplicationStage | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [reasonDraft, setReasonDraft] = useState<RejectionReason | "">("");
 
   const boardJobId = selectedJobId as Id<"jobs"> | null;
   const board =
@@ -55,6 +60,7 @@ export function JobKanban() {
       boardJobId !== null ? { jobId: boardJobId } : "skip",
     ) ?? undefined;
   const moveApplication = useMutation(api.applications.moveApplication);
+  const rejectApplication = useMutation(api.applications.rejectApplication);
 
   async function handleMove(applicationId: string, to: ApplicationStage) {
     setError(null);
@@ -66,6 +72,33 @@ export function JobKanban() {
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Falha ao mover a candidatura.",
+      );
+    }
+  }
+
+  // [S4-2] R5 — reprovação só acontece COM motivo do enum fixo; sem
+  // motivo o botão nem dispara a mutation (aviso claro na UI).
+  async function handleReject(
+    applicationId: string,
+    reason: RejectionReason | "",
+  ) {
+    setError(null);
+    if (reason === "") {
+      setError(
+        "Selecione o motivo padronizado da reprovação — é obrigatório (R5).",
+      );
+      return;
+    }
+    try {
+      await rejectApplication({
+        applicationId: applicationId as Id<"applications">,
+        reason,
+      });
+      setRejectingId(null);
+      setReasonDraft("");
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Falha ao reprovar a candidatura.",
       );
     }
   }
@@ -257,7 +290,80 @@ export function JobKanban() {
                           →
                         </Button>
                       ) : null}
+                      {stage !== "reprovado" ? (
+                        <Button
+                          variant="secondary"
+                          aria-label={`Reprovar ${application.fullName} com motivo padronizado`}
+                          onClick={() => {
+                            setRejectingId((current) =>
+                              current === application.applicationId
+                                ? null
+                                : application.applicationId,
+                            );
+                            setReasonDraft("");
+                          }}
+                        >
+                          Reprovar
+                        </Button>
+                      ) : null}
                     </div>
+
+                    {rejectingId === application.applicationId ? (
+                      <div className="mt-2 flex flex-col gap-2 rounded border border-warning bg-white p-2">
+                        <label
+                          htmlFor={`reason-${application.applicationId}`}
+                          className="text-xs font-semibold text-slate-700"
+                        >
+                          Motivo padronizado (obrigatório — R5)
+                        </label>
+                        <select
+                          id={`reason-${application.applicationId}`}
+                          value={reasonDraft}
+                          onChange={(e) =>
+                            setReasonDraft(
+                              e.target.value as RejectionReason | "",
+                            )
+                          }
+                          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+                        >
+                          <option value="">Selecione…</option>
+                          {REJECTION_REASONS.map((reason) => (
+                            <option key={reason} value={reason}>
+                              {REJECTION_REASON_LABELS[reason]}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="primary"
+                            aria-label="Confirmar reprovação com o motivo selecionado"
+                            onClick={() =>
+                              void handleReject(
+                                application.applicationId,
+                                reasonDraft,
+                              )
+                            }
+                          >
+                            Confirmar
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              setRejectingId(null);
+                              setReasonDraft("");
+                            }}
+                          >
+                            Cancelar
+                          </Button>
+                        </div>
+                        {reasonDraft === "" ? (
+                          <p className="text-xs text-danger">
+                            A reprovação sem motivo é bloqueada — a mutation
+                            falha (R5).
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </article>
                 );
               })}

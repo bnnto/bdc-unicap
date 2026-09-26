@@ -10,8 +10,12 @@ import {
   buildMatchingCandidateInput,
   formatMissingPrerequisites,
   isApplicationStage,
+  isRejectionReason,
+  rejectionDecision,
+  REJECTION_REASON_LABELS,
   type ApplicableJob,
   type ApplicationStage,
+  type RejectionReason,
 } from "../src/lib/application";
 import type { LanguageLevel } from "../src/lib/skills";
 
@@ -310,6 +314,88 @@ export const jobBoard = query({
       });
     }
     return { job: { jobId: job._id, title: job.title }, items };
+  },
+});
+
+/**
+ * [S4-2] R5 — Reprovação com motivo padronizado OBRIGATÓRIO (CA 1).
+ * A mutation falha sem `rejectionReason`, com motivo fora do enum fixo
+ * (nada de texto livre) ou em candidatura já reprovada; grava o motivo
+ * do catálogo junto com o stage "reprovado" (CA 2 — auditável).
+ * Apenas o recrutador dono da vaga reprova.
+ */
+export const rejectApplication = mutation({
+  args: {
+    applicationId: v.id("applications"),
+    reason: v.union(
+      v.literal("requisitos_obrigatorios"),
+      v.literal("formacao_incompativel"),
+      v.literal("disponibilidade_incompativel"),
+      v.literal("idioma_insuficiente"),
+      v.literal("perfil_duplicado"),
+      v.literal("vaga_preenchida"),
+      v.literal("vaga_cancelada"),
+      v.literal("outro"),
+    ),
+  },
+  handler: async (ctx, { applicationId, reason }) => {
+    const user = await requireActiveUser(ctx);
+    if (!isRejectionReason(reason)) {
+      throw new Error(
+        "Motivo de reprovação inválido — escolha um motivo da lista padronizada.",
+      );
+    }
+    const application = await ctx.db.get(applicationId);
+    if (application === null) {
+      throw new Error("Candidatura não encontrada.");
+    }
+    const job = await ctx.db.get(application.jobId);
+    if (job === null) throw new Error("Vaga não encontrada.");
+    if (job.recruiterId !== user._id) {
+      throw new Error("Apenas o recrutador da vaga reprova candidaturas.");
+    }
+    const decision = rejectionDecision({ stage: application.stage, reason });
+    if (!decision.ok) {
+      throw new Error(decision.error);
+    }
+    await ctx.db.patch(applicationId, {
+      stage: decision.nextStage,
+      rejectionReason: reason as RejectionReason,
+    });
+    return { ok: true as const, stage: decision.nextStage, reason };
+  },
+});
+
+/**
+ * [S4-2] CA 2 — Auditoria: motivos de reprovação da vaga (dono apenas),
+ * com rótulo pt-BR do enum fixo, do mais recente para o mais antigo.
+ */
+export const jobRejections = query({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }) => {
+    const user = await requireActiveUser(ctx);
+    const job = await ctx.db.get(jobId);
+    if (job === null) return null;
+    if (job.recruiterId !== user._id) return null;
+
+    const rows = await ctx.db
+      .query("applications")
+      .withIndex("by_job", (q) => q.eq("jobId", jobId))
+      .collect();
+
+    return rows
+      .filter(
+        (row) => row.stage === "reprovado" && row.rejectionReason !== undefined,
+      )
+      .sort((a, b) => b.appliedAt - a.appliedAt)
+      .map((row) => ({
+        applicationId: row._id,
+        stage: row.stage,
+        reason: row.rejectionReason as RejectionReason,
+        reasonLabel:
+          REJECTION_REASON_LABELS[row.rejectionReason as RejectionReason],
+        appliedAt: row.appliedAt,
+      }));
   },
 });
 
