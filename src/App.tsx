@@ -5,6 +5,7 @@ import { StudentHomePage } from "./components/student/StudentHomePage";
 import { TalentSearchPage } from "./components/talent/TalentSearchPage";
 import { JobsPanel } from "./components/recruiter/JobsPanel";
 import { JobKanban } from "./components/recruiter/JobKanban";
+import { OperationalPanel } from "./components/operational/OperationalPanel";
 import { ROLE_LABELS } from "./lib/roles";
 
 /**
@@ -57,6 +58,9 @@ function AuthGate() {
           <StudentHomePage />
         ) : role === "recrutador" || role === "gestor" || role === "empresa" ? (
           <div className="mx-auto max-w-6xl px-4 py-8">
+            <div className="mb-6">
+              <OperationalPanel />
+            </div>
             <div className="mb-6">
               <JobsPanel />
             </div>
