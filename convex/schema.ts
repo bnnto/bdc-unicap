@@ -170,6 +170,12 @@ export default defineSchema({
     publishedAt: v.optional(v.number()),
     expiresAt: v.optional(v.number()),
     /**
+     * [S5-2] Time-to-Hire — momento do preenchimento, gravado quando a
+     * vaga passa a "encerrada" (manual ou cron R4) e limpo na reabertura.
+     * Base das amostras `filledAt − appliedAt` do painel operacional.
+     */
+    filledAt: v.optional(v.number()),
+    /**
      * [S3-4] Insumos dos bônus do matching (R8): idioma mínimo exigido e
      * disponibilidade desejada — opcionais; ausentes, o bônus não entra.
      */

@@ -1,15 +1,28 @@
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Card } from "../ui/card";
 import { formatEmployabilityRate } from "../../lib/operationalPanel";
 
 /**
- * Painel Operacional (issue [S5-1]).
- * Cards com totais de vagas por status e taxa de empregabilidade —
- * TODOS os números vêm da query agregada `operationalSummary` no
- * servidor (CA 1: consistentes com o banco; CA 2: taxa calculada a
- * partir de aprovações). A UI apenas exibe e formata.
+ * Painel Operacional (issues [S5-1] e [S5-2]).
+ * Cards com totais de vagas por status, taxa de empregabilidade e
+ * Time-to-Hire médio com filtros — TODOS os números vêm das queries
+ * agregadas no servidor (consistentes com o banco); a UI apenas exibe
+ * e aplica os filtros.
  */
+
+const DAY = 24 * 60 * 60 * 1000;
+
+const PERIOD_OPTIONS = [
+  { value: "", label: "Todo o período" },
+  { value: "30", label: "Últimos 30 dias" },
+  { value: "90", label: "Últimos 90 dias" },
+  { value: "365", label: "Últimos 12 meses" },
+] as const;
+
+const SELECT_CLASS =
+  "rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15";
 
 type KpiCardProps = {
   value: string | number;
@@ -28,6 +41,103 @@ function KpiCard({ value, label, hint }: KpiCardProps) {
         <p className="mt-0.5 text-xs text-slate-400">{hint}</p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * [S5-2] CA 2 — Time-to-Hire médio com filtros de período, curso e
+ * empresa. Os filtros são argumentos da query: a agregação acontece
+ * no servidor sobre os dados filtrados (CA 1).
+ */
+function TimeToHireSection() {
+  const [period, setPeriod] = useState<string>("");
+  const [course, setCourse] = useState<string>("");
+  const [company, setCompany] = useState<string>("");
+
+  const stats = useQuery(api.operational.timeToHireStats, {
+    from: period !== "" ? Date.now() - Number(period) * DAY : undefined,
+    course: course !== "" ? course : undefined,
+    company: company !== "" ? company : undefined,
+  });
+
+  return (
+    <section
+      data-testid="time-to-hire"
+      className="mt-3"
+      aria-label="Time to hire"
+    >
+      <Card title="Time-to-Hire médio" accent="secondary">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Período
+            </span>
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className={SELECT_CLASS}
+            >
+              {PERIOD_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Curso
+            </span>
+            <select
+              value={course}
+              onChange={(e) => setCourse(e.target.value)}
+              className={SELECT_CLASS}
+            >
+              <option value="">Todos os cursos</option>
+              {(stats?.facets.courses ?? []).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Empresa
+            </span>
+            <select
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+              className={SELECT_CLASS}
+            >
+              <option value="">Todas as empresas</option>
+              {(stats?.facets.companies ?? []).map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-4 flex items-baseline gap-3">
+          <p className="font-serif text-3xl font-bold text-primary">
+            {stats === undefined ? "…" : stats.label}
+          </p>
+          <p className="text-xs text-slate-500">
+            {stats === undefined
+              ? "calculando…"
+              : stats.samplesCount === 0
+                ? "sem contratações no filtro selecionado"
+                : `${stats.samplesCount} ${stats.samplesCount === 1 ? "contratação" : "contratações"} no filtro`}
+          </p>
+        </div>
+        <p className="mt-1 text-xs text-slate-400">
+          Média de dias entre a candidatura do contratado e o preenchimento da
+          vaga.
+        </p>
+      </Card>
+    </section>
   );
 }
 
@@ -103,6 +213,8 @@ export function OperationalPanel() {
           </p>
         </Card>
       </div>
+
+      <TimeToHireSection />
     </section>
   );
 }

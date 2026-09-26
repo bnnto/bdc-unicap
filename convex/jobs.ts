@@ -204,15 +204,18 @@ export const setJobStatus = mutation({
       throw new Error("Você só pode alterar as suas próprias vagas.");
     }
     if (status === "aberta") {
-      // Reabertura — reinicia o prazo de expiração a partir de agora.
+      // Reabertura — reinicia o prazo de expiração a partir de agora e
+      // [S5-2] limpa o momento de preenchimento (vaga volta ao ciclo ativo).
       const now = Date.now();
       await ctx.db.patch(jobId, {
         status,
         publishedAt: now,
         expiresAt: computeExpiresAt(now),
+        filledAt: undefined,
       });
     } else {
-      await ctx.db.patch(jobId, { status });
+      // [S5-2] encerramento manual grava o momento do preenchimento.
+      await ctx.db.patch(jobId, { status, filledAt: Date.now() });
     }
     return { ok: true as const, status };
   },
@@ -252,6 +255,7 @@ export const renewJob = mutation({
       status: "aberta",
       publishedAt: now,
       expiresAt: decision.expiresAt,
+      filledAt: undefined,
     });
     return { ok: true as const, expiresAt: decision.expiresAt };
   },
@@ -276,7 +280,11 @@ export const closeExpiredJobs = internalMutation({
         job.expiresAt !== undefined &&
         isJobExpired({ status: job.status, expiresAt: job.expiresAt }, now)
       ) {
-        await ctx.db.patch(job._id, { status: "encerrada" });
+        // [S5-2] grava o momento do preenchimento (base do time-to-hire).
+        await ctx.db.patch(job._id, {
+          status: "encerrada",
+          filledAt: now,
+        });
         closed += 1;
       }
     }

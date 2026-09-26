@@ -109,3 +109,111 @@ export function formatPercent(value: number): string {
 export function formatEmployabilityRate(rate: number | null): string {
   return rate === null ? "—" : formatPercent(rate);
 }
+
+/**
+ * Time-to-Hire (issue [S5-2]) — regras puras do indicador.
+ *
+ * CA 1 — cálculo em dias, agregado corretamente: o tempo é medido por
+ * CONTRATAÇÃO (candidatura aprovada) desde a candidatura do contratado
+ * até o preenchimento da vaga (`filledAt − appliedAt`), e a média é
+ * feita sobre essas amostras — nunca sobre vagas sem contratação.
+ * CA 2 — agregação por período (faixa de `filledAt`) para os filtros
+ * do dashboard (curso/empresa filtram as amostras antes de chegar aqui).
+ */
+
+/** Amostra de uma contratação: candidatura aprovada em vaga preenchida. */
+export type TimeToHireSample = {
+  jobId: string;
+  studentId: string;
+  /** Dias entre a candidatura do contratado e o preenchimento da vaga. */
+  days: number;
+  /** Momento do preenchimento (base do filtro de período). */
+  filledAt: number;
+};
+
+/**
+ * Tempo de contratação em DIAS (CA 1): teto da diferença — um dia
+ * parcial conta como dia completo decorrido; mínimo 1 quando há avanco
+ * positivo; datas inconsistentes (preenchimento antes da candidatura)
+ * valem 0 e são descartadas pela agregação.
+ */
+export function timeToHireDays(filledAt: number, appliedAt: number): number {
+  const diff = filledAt - appliedAt;
+  if (diff <= 0) return 0;
+  return Math.max(1, Math.ceil(diff / (24 * 60 * 60 * 1000)));
+}
+
+/** Vaga preenchida com momento do preenchimento (insumo do pareamento). */
+export type FilledJobRow = {
+  jobId: string;
+  filledAt: number;
+};
+
+/** Aprovação com a data da candidatura (insumo do pareamento). */
+export type ApprovalRow = {
+  jobId: string;
+  studentId: string;
+  appliedAt: number;
+};
+
+/**
+ * Pareia aprovações com vagas preenchidas: cada contratação é uma
+ * amostra (vaga preenchida sem aprovado, ou aprovado sem vaga
+ * preenchida, não medem tempo de contratação).
+ */
+export function hireSamples(
+  filledJobs: readonly FilledJobRow[],
+  approvals: readonly ApprovalRow[],
+): TimeToHireSample[] {
+  const filledByJob = new Map(filledJobs.map((j) => [j.jobId, j]));
+  const samples: TimeToHireSample[] = [];
+  for (const approval of approvals) {
+    const job = filledByJob.get(approval.jobId);
+    if (job === undefined) continue;
+    const days = timeToHireDays(job.filledAt, approval.appliedAt);
+    if (days <= 0) continue; // datas inconsistentes não medem tempo
+    samples.push({
+      jobId: approval.jobId,
+      studentId: approval.studentId,
+      days,
+      filledAt: job.filledAt,
+    });
+  }
+  return samples;
+}
+
+/** Filtro de período sobre a data de preenchimento (limites inclusivos). */
+export type PeriodFilter = {
+  from?: number;
+  to?: number;
+};
+
+/** Filtra amostras por faixa de `filledAt` (agregado por período, CA 1). */
+export function filterSamplesByPeriod(
+  samples: readonly TimeToHireSample[],
+  period: PeriodFilter,
+): TimeToHireSample[] {
+  return samples.filter((s) => {
+    if (period.from !== undefined && s.filledAt < period.from) return false;
+    if (period.to !== undefined && s.filledAt > period.to) return false;
+    return true;
+  });
+}
+
+/**
+ * Média de dias das amostras, arredondada para inteiro (exibição direta).
+ * Sem amostras não há contratação para medir: null (vira "—" na UI).
+ */
+export function averageTimeToHire(
+  samples: readonly TimeToHireSample[],
+): number | null {
+  if (samples.length === 0) return null;
+  const total = samples.reduce((sum, s) => sum + s.days, 0);
+  return Math.round(total / samples.length);
+}
+
+/** Formata o TTH médio: null (sem dados) vira travessão, dias com sufixo. */
+export function formatTimeToHire(days: number | null): string {
+  if (days === null) return "—";
+  return days === 1 ? "1 dia" : `${days} dias`;
+}
