@@ -255,4 +255,30 @@ export default defineSchema({
      * pipeline (5 colunas) sem varredura completa da tabela.
      */
     .index("by_stage", ["stage"]),
+
+  /**
+   * Projetos de extensão (issue [S7-1], Módulo de Extensão).
+   * `coordinatorId` aponta para `users` (docente/servidor coordenador);
+   * `area` segue o enum fixo das áreas temáticas do RESGES/CENADES;
+   * `status` do ciclo de vida entra na [S7-2] (ativo/não ativo com data).
+   */
+  extensionProjects: defineTable({
+    title: v.string(),
+    description: v.string(),
+    coordinatorId: v.id("users"),
+    area: v.union(
+      v.literal("comunicacao"),
+      v.literal("cultura"),
+      v.literal("direitos_humanos_justica"),
+      v.literal("educacao"),
+      v.literal("meio_ambiente"),
+      v.literal("saude"),
+      v.literal("tecnologia_e_producao"),
+      v.literal("trabalho"),
+    ),
+    targetAudience: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_coordinator", ["coordinatorId"])
+    .index("by_created_at", ["createdAt"]),
 });
