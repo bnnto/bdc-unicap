@@ -613,3 +613,72 @@ export const resolveStudent = internalQuery({
     };
   },
 });
+
+/**
+ * [S8-1] R6/R7 — Exclusão de dados pelo titular (art. 18, VI — LGPD).
+ * Remove do acervo TODOS os dados pessoais do titular autenticado:
+ * perfil de estudante, candidaturas e trilha de aceites. O documento
+ * `users` (conta) é preservado para permitir reentrada com novo aceite
+ * (o consentimento anterior é apagado — nada de dados persistem).
+ * Aceite em processo seletivo: a liberação de contato cessa junto (R6) —
+ * as candidaturas são eliminadas, logo não há o que projetar ao recrutador.
+ */
+export const deleteMyProfile = mutation({
+  args: {},
+  handler: async (
+    ctx,
+  ): Promise<{
+    ok: true;
+    deleted: { students: number; applications: number; consents: number };
+  }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (identity === null) throw new Error("Não autenticado.");
+    const email = identity.email ?? identity.tokenIdentifier;
+
+    // R7 — guard comum do módulo: usuário existente e aceite vigente.
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (user === null) throw new Error("Usuário não encontrado.");
+    const consents = await ctx.db
+      .query("consents")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    const active = consents.some((c) => c.termVersion === CURRENT_TERM_VERSION);
+    if (!active) {
+      throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
+    }
+
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+
+    let applicationCount = 0;
+    if (student !== null) {
+      const apps = await ctx.db
+        .query("applications")
+        .withIndex("by_student", (q) => q.eq("studentId", student._id))
+        .collect();
+      for (const app of apps) {
+        await ctx.db.delete(app._id);
+        applicationCount += 1;
+      }
+      await ctx.db.delete(student._id);
+    }
+
+    for (const consent of consents) {
+      await ctx.db.delete(consent._id);
+    }
+
+    return {
+      ok: true as const,
+      deleted: {
+        students: student !== null ? 1 : 0,
+        applications: applicationCount,
+        consents: consents.length,
+      },
+    };
+  },
+});

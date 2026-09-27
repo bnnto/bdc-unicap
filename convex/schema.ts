@@ -289,4 +289,19 @@ export default defineSchema({
   })
     .index("by_coordinator", ["coordinatorId"])
     .index("by_created_at", ["createdAt"]),
+
+  /**
+   * [S8-1] Trilha de auditoria LGPD — snapshot imutável de cada execução
+   * do checklist (`lgpd.runAudit`, papel gestor). `report` guarda o
+   * resultado completo do checklist (itens, status, detalhes) para
+   * consulta histórica pelo DPO/coordenação. Nunca é editado ou apagado.
+   */
+  lgpdAudits: defineTable({
+    actorId: v.id("users"),
+    actorRole: v.string(),
+    passed: v.boolean(),
+    failedItems: v.array(v.string()),
+    report: v.any(),
+    createdAt: v.number(),
+  }).index("by_actor", ["actorId"]),
 });
