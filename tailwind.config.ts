@@ -13,6 +13,16 @@ export default {
         success: "#047857", // esmeralda escuro — AA com branco (auditoria S0-4)
         warning: "#B45309", // âmbar escuro — AA com branco (auditoria S0-4)
         danger: "#DC2626",
+        // [S8-2] Variantes AA — texto sobre fundo claro (WCAG 1.4.3 ≥ 4.5:1).
+        // Use SEMPRE o prefixo a11y:* para texto; os tons puros continuam
+        // reservados a fundos/decoração (dourado puro nunca é texto).
+        "a11y-secondary": "#7A5A16", // dourado escurecido — 6,2:1 com branco
+        "a11y-slate-500": "#64748B",
+        "a11y-slate-600": "#475569",
+        "a11y-slate-700": "#334155",
+        "a11y-success": "#047857",
+        "a11y-danger": "#DC2626",
+        "a11y-primary": "#6B1426",
       },
       fontFamily: {
         serif: ["Merriweather", "Georgia", "serif"],

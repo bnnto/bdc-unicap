@@ -18,9 +18,14 @@ export function ExtensionProjectsPublicPage() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <header className="bg-primary text-white shadow-level2">
+      <header
+        aria-label="Cabeçalho"
+        className="bg-primary text-white shadow-level2"
+      >
         <div className="mx-auto max-w-6xl px-4 py-10 sm:py-12">
           <p className="font-serif text-xs uppercase tracking-widest text-secondary">
+            {/* [S8-2]: dourado puro aqui é DECORAÇÃO sobre bordô (6,36:1 com
+                o bordô — AA); nunca use text-secondary sobre fundo claro. */}
             Universidade Católica de Pernambuco
           </p>
           <h1 className="mt-2 font-serif text-3xl font-bold sm:text-4xl">
@@ -33,7 +38,13 @@ export function ExtensionProjectsPublicPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-8">
+      {/* [S8-2]: main único da página e destino do skip-link. */}
+      <main
+        id="conteudo"
+        tabIndex={-1}
+        aria-label="Projetos de extensão"
+        className="mx-auto max-w-6xl px-4 py-8 outline-none"
+      >
         {projects === undefined ? (
           <p role="status" className="text-sm text-slate-500">
             Carregando projetos de extensão…
@@ -59,7 +70,7 @@ export function ExtensionProjectsPublicPage() {
                   <span className="rounded border border-secondary/60 bg-secondary/10 px-2 py-0.5 text-xs font-semibold text-primary">
                     {EXTENSION_AREA_LABELS[project.area]}
                   </span>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-a11y-slate-500">
                     Publicação: {formatDay(project.createdAt)}
                   </span>
                 </div>
@@ -81,7 +92,10 @@ export function ExtensionProjectsPublicPage() {
         )}
       </main>
 
-      <footer className="border-t border-slate-200 bg-white">
+      <footer
+        aria-label="Rodapé"
+        className="border-t border-slate-200 bg-white"
+      >
         <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 py-6 text-center">
           <p className="text-sm text-slate-600">
             Faça parte: alunos e professores participam pelo Portal de

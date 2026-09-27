@@ -45,7 +45,7 @@ const STATUS_OPTIONS = [
 ] as const;
 
 const SELECT_CLASS =
-  "rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15";
+  "rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
 
 type KpiCardProps = {
   value: string | number;
@@ -88,7 +88,7 @@ function KpiCard({ value, label, hint }: KpiCardProps) {
         {label}
       </p>
       {hint !== undefined ? (
-        <p className="mt-0.5 text-xs text-slate-400">{hint}</p>
+        <p className="mt-0.5 text-xs text-a11y-slate-500">{hint}</p>
       ) : null}
     </div>
   );
@@ -138,12 +138,12 @@ function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
             type="button"
             data-testid="clear-filters"
             onClick={() => onChange(EMPTY_FILTERS)}
-            className="rounded border border-primary px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#FDF2F4] focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="rounded border border-primary px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#FDF2F4] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             Limpar filtros
           </button>
         ) : (
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-a11y-slate-500">
             aplicam-se a todas as métricas
           </span>
         )}
@@ -250,7 +250,7 @@ function TimeToHireSection({ stats }: { stats: TimeToHireStats | undefined }) {
                   : `${stats.samplesCount} ${stats.samplesCount === 1 ? "contratação" : "contratações"} no filtro`}
               </p>
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-a11y-slate-500">
               Média de dias entre a candidatura do contratado e o preenchimento
               da vaga.
             </p>
@@ -330,7 +330,7 @@ function FunnelSection({ funnel }: { funnel: FunnelResult | undefined }) {
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-a11y-slate-500">
               % = avanço em relação à etapa anterior (reprovados não compõem o
               funil).
             </p>
@@ -430,7 +430,7 @@ function RankingSection({
                   <span className="block truncate text-sm font-medium text-slate-800">
                     {job.title}
                   </span>
-                  <span className="block truncate text-xs text-slate-400">
+                  <span className="block truncate text-xs text-a11y-slate-500">
                     {job.companyName}
                   </span>
                 </span>
@@ -525,11 +525,17 @@ export function OperationalPanel() {
     printOperationalReport(report);
   };
 
+  // [S8-2]: role=region explícito — o main da página é único, no App (1.3.1).
   return (
-    <section data-testid="operational-panel" aria-label="Painel operacional">
-      <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <section
+      data-testid="operational-panel"
+      role="region"
+      aria-label="Painel operacional"
+    >
+      {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="font-serif text-xs uppercase tracking-widest text-secondary">
+          <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
             Indicadores
           </p>
           <h2 className="font-serif text-2xl font-bold text-primary">
@@ -567,7 +573,7 @@ export function OperationalPanel() {
             Baixar PDF
           </Button>
         </div>
-      </header>
+      </div>
 
       <FilterBar
         state={filterState}

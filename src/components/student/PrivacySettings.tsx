@@ -60,7 +60,11 @@ export function PrivacySettings() {
   }
 
   return (
-    <Card title="Privacidade e visibilidade" accent="secondary">
+    <Card
+      title="Privacidade e visibilidade"
+      accent="secondary"
+      headingLevel={2}
+    >
       {error !== null ? (
         <p role="alert" className="mb-3 text-sm font-medium text-danger">
           {error}

@@ -63,20 +63,27 @@ export function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
-      <div className="w-full max-w-md">
-        <header className="mb-8 text-center">
-          <p className="font-serif text-xs uppercase tracking-widest text-secondary">
-            Universidade Católica de Pernambuco
-          </p>
-          <h1 className="mt-2 font-serif text-3xl font-bold text-primary">
-            Portal de Carreiras
-          </h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Acesso ao Portal de Carreiras e ao Setor de Extensão
-          </p>
-        </header>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas px-4 py-10">
+      <header className="mb-8 text-center">
+        <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
+          Universidade Católica de Pernambuco
+        </p>
+        <h1 className="mt-2 font-serif text-3xl font-bold text-primary">
+          Portal de Carreiras
+        </h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Acesso ao Portal de Carreiras e ao Setor de Extensão
+        </p>
+      </header>
 
+      {/* [S8-2]: main único da página (o App não aninha outro) e destino
+          do skip-link. */}
+      <main
+        id="conteudo"
+        tabIndex={-1}
+        aria-label="Autenticação"
+        className="w-full max-w-md outline-none"
+      >
         <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-level2">
           <div
             role="tablist"
@@ -89,11 +96,12 @@ export function AuthPage() {
                 role="tab"
                 type="button"
                 aria-selected={mode === m}
+                aria-controls="painel-auth"
                 onClick={() => {
                   setMode(m);
                   setError(null);
                 }}
-                className={`rounded px-3 py-2 text-sm font-semibold transition-colors ${
+                className={`rounded px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                   mode === m
                     ? "bg-primary text-white"
                     : "text-slate-600 hover:text-primary"
@@ -105,6 +113,7 @@ export function AuthPage() {
           </div>
 
           <form
+            id="painel-auth"
             onSubmit={(e) => {
               e.preventDefault();
               void handleSubmit(e);
@@ -184,10 +193,10 @@ export function AuthPage() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs text-slate-400">
+        <p className="mt-6 text-center text-xs text-a11y-slate-500">
           {ROLES.map((r) => ROLE_LABELS[r]).join(" · ")}
         </p>
-      </div>
+      </main>
     </div>
   );
 }
@@ -206,7 +215,7 @@ type ConsentCheckboxProps = {
 function ConsentCheckbox({ checked, onChange, errorId }: ConsentCheckboxProps) {
   return (
     <div className="flex flex-col gap-2">
-      <label className="flex cursor-pointer items-start gap-2 text-sm text-slate-700">
+      <label className="flex cursor-pointer items-start gap-2 text-sm text-a11y-slate-700">
         <input
           type="checkbox"
           checked={checked}
@@ -217,7 +226,7 @@ function ConsentCheckbox({ checked, onChange, errorId }: ConsentCheckboxProps) {
         />
         <span>
           Li e aceito o Termo de Consentimento LGPD ({CONSENT_TERM_VERSION}) —{" "}
-          <span className="text-slate-500">{consentSummary()}</span>
+          <span className="text-a11y-slate-500">{consentSummary()}</span>
         </span>
       </label>
       <details className="rounded border border-slate-200 bg-canvas px-3 py-2">

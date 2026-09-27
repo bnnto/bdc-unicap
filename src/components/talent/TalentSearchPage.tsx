@@ -112,9 +112,16 @@ export function TalentSearchPage() {
     language.trim().length > 0;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <header className="mb-4">
-        <p className="font-serif text-xs uppercase tracking-widest text-secondary">
+    // [S8-2]: região nomeada em vez de <main> aninhado (o main da página é
+    // único, no App — WCAG 1.3.1).
+    <div
+      role="region"
+      aria-label="Busca de talentos"
+      className="mx-auto max-w-6xl px-4 py-8"
+    >
+      {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
+      <div className="mb-4">
+        <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
           Recrutadores
         </p>
         <h1 className="font-serif text-2xl font-bold text-primary">
@@ -124,7 +131,7 @@ export function TalentSearchPage() {
           Alunos ativos e egressos que autorizaram a divulgação do perfil
           (R1/R2). O contato só aparece quando o aluno autoriza (R6).
         </p>
-      </header>
+      </div>
 
       <Card title="Filtros" accent="primary">
         <form
@@ -186,7 +193,7 @@ export function TalentSearchPage() {
                   setStatus(e.target.value as "ativo" | "egresso" | "");
                   updateFilter();
                 }}
-                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todas</option>
                 <option value="ativo">Alunos ativos</option>
@@ -203,7 +210,7 @@ export function TalentSearchPage() {
                   setAvailability(e.target.value as Availability | "");
                   updateFilter();
                 }}
-                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todas</option>
                 {AVAILABILITY.map((value) => (
@@ -229,7 +236,7 @@ export function TalentSearchPage() {
                   placeholder="Ex.: Inglês"
                   aria-label="Idioma"
                   list="talent-language-options"
-                  className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+                  className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                 />
                 <datalist id="talent-language-options">
                   {KNOWN_LANGUAGES.map((language) => (
@@ -243,7 +250,7 @@ export function TalentSearchPage() {
                     updateFilter();
                   }}
                   aria-label="Nível mínimo do idioma"
-                  className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+                  className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                 >
                   {LANGUAGE_LEVELS.map((level) => (
                     <option key={level} value={level}>

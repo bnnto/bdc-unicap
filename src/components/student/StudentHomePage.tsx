@@ -15,7 +15,7 @@ export function StudentHomePage() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       {" "}
       <header className="mb-4">
-        <p className="font-serif text-xs uppercase tracking-widest text-secondary">
+        <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
           Portal do Aluno
         </p>
         <h1 className="font-serif text-2xl font-bold text-primary">
@@ -49,7 +49,8 @@ export function StudentHomePage() {
           ))}
         </nav>
       </header>
-      <Card title="Cadastro do aluno" accent="primary">
+      {/* [S8-2]: headingLevel=2 — sob o h1 da página, sem saltos (1.3.1). */}
+      <Card title="Cadastro do aluno" accent="primary" headingLevel={2}>
         <span id="secao-cadastro" className="sr-only">
           Cadastro
         </span>
@@ -59,7 +60,7 @@ export function StudentHomePage() {
         <PrivacySettings />
       </div>
       <div className="mt-6" id="secao-curriculo">
-        <Card title="Currículo Vitae" accent="secondary">
+        <Card title="Currículo Vitae" accent="secondary" headingLevel={2}>
           <ResumeForm />
           <div
             className="my-4 border-t border-slate-200"
