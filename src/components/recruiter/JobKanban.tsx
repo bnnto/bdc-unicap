@@ -69,6 +69,14 @@ export function JobKanban() {
 
   async function handleMove(applicationId: string, to: ApplicationStage) {
     setError(null);
+    if (to === "reprovado") {
+      // [UX-P1] H3-2/H5-1 — a reprovação exige motivo padronizado (R5):
+      // arrastar até a coluna Reprovado (ou usar a seta →) abre o painel
+      // de motivo em vez de mover direto, mantendo a trilha auditável.
+      setRejectingId(applicationId);
+      setReasonDraft("");
+      return;
+    }
     try {
       await moveApplication({
         applicationId: applicationId as Id<"applications">,
