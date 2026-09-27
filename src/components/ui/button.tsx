@@ -1,5 +1,5 @@
 type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "accent";
+  variant?: "primary" | "secondary" | "accent" | "danger";
 };
 
 const VARIANT_CLASSES: Record<NonNullable<ButtonProps["variant"]>, string> = {
@@ -12,6 +12,9 @@ const VARIANT_CLASSES: Record<NonNullable<ButtonProps["variant"]>, string> = {
   // Dourado premium com texto escuro — contraste AA auditado em S0-4
   accent:
     "bg-secondary text-slate-900 hover:brightness-95 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+  // [UX-P3] H8-2 — ações destrutivas se destacam (contorno vermelho)
+  danger:
+    "border border-danger bg-white text-danger hover:bg-[#FEF2F2] focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2",
 };
 
 /**

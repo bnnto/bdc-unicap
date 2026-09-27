@@ -6,7 +6,11 @@ import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
 import { AVAILABILITY, type Availability } from "../../lib/studentProfile";
-import { LANGUAGE_LEVELS, type LanguageLevel } from "../../lib/skills";
+import {
+  KNOWN_LANGUAGES,
+  LANGUAGE_LEVELS,
+  type LanguageLevel,
+} from "../../lib/skills";
 import { TALENT_PAGE_SIZE } from "../../lib/talentSearch";
 
 type SearchArgs = {
@@ -214,6 +218,7 @@ export function TalentSearchPage() {
                 Idioma e nível mínimo
               </span>
               <div className="flex gap-2">
+                {/* [UX-P3] H6-1 — sugestões nativas via datalist (sem libs). */}
                 <input
                   type="text"
                   value={language}
@@ -223,8 +228,14 @@ export function TalentSearchPage() {
                   }}
                   placeholder="Ex.: Inglês"
                   aria-label="Idioma"
+                  list="talent-language-options"
                   className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
                 />
+                <datalist id="talent-language-options">
+                  {KNOWN_LANGUAGES.map((language) => (
+                    <option key={language} value={language} />
+                  ))}
+                </datalist>
                 <select
                   value={languageLevel}
                   onChange={(e) => {
@@ -275,9 +286,32 @@ export function TalentSearchPage() {
             Buscando talentos…
           </p>
         ) : result.items.length === 0 ? (
-          <p className="text-sm text-slate-600" role="status">
-            Nenhum talento encontrado com os filtros atuais.
-          </p>
+          /* [UX-P3] H4-2 — empty state explica e oferece o próximo passo. */
+          <div
+            role="status"
+            className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center"
+          >
+            <p className="text-sm font-semibold text-slate-700">
+              Nenhum talento encontrado com os filtros atuais.
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Tente ampliar a busca — por exemplo, removendo o idioma ou a
+              disponibilidade.
+            </p>
+            <Button
+              variant="secondary"
+              className="mt-3"
+              onClick={() => {
+                setStatus("");
+                setAvailability("");
+                setLanguage("");
+                setSkill("");
+                setPage(0);
+              }}
+            >
+              Limpar filtros
+            </Button>
+          </div>
         ) : (
           <>
             <p className="mb-3 text-sm text-slate-600" aria-live="polite">

@@ -13,6 +13,7 @@ import { MyApplicationsPage } from "./MyApplicationsPage";
 export function StudentHomePage() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
+      {" "}
       <header className="mb-4">
         <p className="font-serif text-xs uppercase tracking-widest text-secondary">
           Portal do Aluno
@@ -26,14 +27,38 @@ export function StudentHomePage() {
           Use o currículo abaixo para destacar headline, experiências e
           histórico acadêmico.
         </p>
+        {/* [UX-P3] H8-1 — sumário por âncoras para a página longa. */}
+        <nav
+          aria-label="Seções desta página"
+          className="mt-3 flex flex-wrap gap-2"
+        >
+          {[
+            { href: "#secao-cadastro", label: "Cadastro" },
+            { href: "#secao-privacidade", label: "Privacidade" },
+            { href: "#secao-curriculo", label: "Currículo" },
+            { href: "#secao-oportunidades", label: "Oportunidades" },
+            { href: "#secao-candidaturas", label: "Minhas candidaturas" },
+          ].map((item) => (
+            <a
+              key={item.href}
+              href={item.href}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition-colors hover:border-primary hover:text-primary"
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
       </header>
       <Card title="Cadastro do aluno" accent="primary">
+        <span id="secao-cadastro" className="sr-only">
+          Cadastro
+        </span>
         <StudentProfileForm />
       </Card>
-      <div className="mt-6">
+      <div className="mt-6" id="secao-privacidade">
         <PrivacySettings />
       </div>
-      <div className="mt-6">
+      <div className="mt-6" id="secao-curriculo">
         <Card title="Currículo Vitae" accent="secondary">
           <ResumeForm />
           <div
@@ -44,10 +69,10 @@ export function StudentHomePage() {
           <ResumeDownload />
         </Card>
       </div>
-      <div className="mt-6">
+      <div className="mt-6" id="secao-oportunidades">
         <JobOpportunities />
       </div>
-      <div className="mt-6">
+      <div className="mt-6" id="secao-candidaturas">
         <MyApplicationsPage />
       </div>
     </div>
