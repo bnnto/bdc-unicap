@@ -9,10 +9,10 @@ import {
 } from "../../lib/extensionProject";
 import {
   countByArea,
-  countByStatus,
   filterProjectsForDashboard,
   hasActiveExtensionFilters,
   normalizeExtensionFilters,
+  summarizeProjects,
 } from "../../lib/extensionDashboard";
 
 /**
@@ -101,7 +101,7 @@ export function ExtensionDashboard() {
   }
 
   const filtered = filterProjectsForDashboard(projects, filters);
-  const byStatus = countByStatus(filtered);
+  const summary = summarizeProjects(filtered);
   const byArea = countByArea(filtered);
   const maxArea = Math.max(1, ...Object.values(byArea));
   const visibleAreas = Object.entries(byArea).filter(([, count]) => count > 0);
@@ -201,24 +201,30 @@ export function ExtensionDashboard() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           testId="kpi-total"
-          value={byStatus.total}
+          value={summary.total}
           label="Total de projetos"
           hint="no filtro atual"
         />
         <KpiCard
           testId="kpi-ativo"
-          value={byStatus.ativo}
+          value={summary.ativo}
           label="Projetos ativos"
           hint="divulgados publicamente (R9)"
         />
         <KpiCard
           testId="kpi-inativo"
-          value={byStatus.inativo}
+          value={summary.inativo}
           label="Não ativos"
           hint="ocultos da divulgação"
+        />
+        <KpiCard
+          testId="kpi-areas"
+          value={summary.areasWithProjects}
+          label="Áreas com projetos"
+          hint={`de ${EXTENSION_AREAS.length} áreas temáticas`}
         />
       </div>
 

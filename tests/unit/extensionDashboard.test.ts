@@ -131,6 +131,22 @@ describe("[S7-4] filterProjectsForDashboard (filtros combináveis — CA 2)", ()
       last90.every((p) => p.createdAt >= Date.now() - 90 * 24 * 60 * 60 * 1000),
     ).toBe(true);
   });
+
+  it("[S7-5] limite superior do período (to) é inclusivo e combinável", () => {
+    // De T0+10d a T0+100d: B, C e D (limites inclusivos nos dois lados).
+    const upTo = filterProjectsForDashboard(ROWS, {
+      from: T0 + 10 * 24 * 60 * 60 * 1000,
+      to: T0 + 100 * 24 * 60 * 60 * 1000,
+    });
+    expect(upTo.map((p) => p.title).sort()).toEqual(["B", "C", "D"]);
+    // Combinado com área, restringe ainda mais (CA 2).
+    const combined = filterProjectsForDashboard(ROWS, {
+      from: T0,
+      to: T0 + 100 * 24 * 60 * 60 * 1000,
+      area: "educacao",
+    });
+    expect(combined.map((p) => p.title).sort()).toEqual(["A", "C"]);
+  });
 });
 
 describe("[S7-4] contagens por área/status (CA 1)", () => {

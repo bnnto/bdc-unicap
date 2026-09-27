@@ -125,4 +125,30 @@ describe("ExtensionDashboard — painel gestor (S7-4)", () => {
 
     expect(screen.getByText(/nenhum projeto no filtro/i)).toBeInTheDocument();
   });
+
+  // —— [S7-5] Backfill de cobertura de ramos da UI ——
+
+  it("[S7-5] estado de carregamento mantém o layout estável", () => {
+    mockedUseQuery.mockReturnValue(undefined);
+    render(<ExtensionDashboard />);
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /carregando painel de extensão/i,
+    );
+    expect(screen.queryByTestId("kpi-total")).toBeNull();
+  });
+
+  it("[S7-5] Limpar filtros restaura as métricas completas", async () => {
+    render(<ExtensionDashboard />);
+
+    await userEvent.selectOptions(screen.getByLabelText(/^área$/i), "saude");
+    expect(screen.getByTestId("kpi-total")).toHaveTextContent("1");
+    expect(screen.getByTestId("clear-extension-filters")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByTestId("clear-extension-filters"));
+
+    expect(screen.getByTestId("kpi-total")).toHaveTextContent("3");
+    expect(screen.getByTestId("kpi-ativo")).toHaveTextContent("2");
+    expect(screen.getByTestId("kpi-inativo")).toHaveTextContent("1");
+  });
 });

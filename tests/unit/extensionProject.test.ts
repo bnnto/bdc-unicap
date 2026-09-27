@@ -112,6 +112,29 @@ describe("[S7-1] validação do projeto (CA 2)", () => {
     expect(tooLong.ok).toBe(false);
   });
 
+  it("[S7-5] limites superiores exatos são ACEITOS (título 120, descrição 4000)", () => {
+    const atLimits = validateExtensionProject({
+      ...VALID,
+      title: "T".repeat(120),
+      description: "D".repeat(4000),
+      targetAudience: "P".repeat(400),
+    });
+    expect(atLimits.ok).toBe(true);
+  });
+
+  it("[S7-5] um caractere acima dos limites superiores é REJEITADO", () => {
+    const over = validateExtensionProject({
+      ...VALID,
+      title: "T".repeat(121),
+      description: "D".repeat(4001),
+      targetAudience: "P".repeat(401),
+    });
+    expect(over.ok).toBe(false);
+    if (!over.ok) {
+      expect(over.errors).toHaveLength(3);
+    }
+  });
+
   it("coleta TODOS os erros de uma vez (não para no primeiro)", () => {
     const result = validateExtensionProject({
       title: "abc",
