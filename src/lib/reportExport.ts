@@ -46,7 +46,7 @@ function csvField(value: ReportCell): string {
   if (value === null || value === undefined) return "";
   const text = String(value)
     .replace(/^\uFEFF/, "")
-    .replace(/\r?\n/g, "\r\n");
+    .replace(/\r\n|\r|\n/g, "\r\n");
   if (/[";\r\n]/.test(text)) {
     return `"${text.replaceAll('"', '""')}"`;
   }
@@ -95,7 +95,8 @@ export function reportFilename(
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return `${slug}-${formatDateStamp(now)}.${format}`;
+  const base = slug === "" ? "relatorio" : slug;
+  return `${base}-${formatDateStamp(now)}.${format}`;
 }
 
 /**
@@ -114,7 +115,10 @@ export function sheetNameFor(
   if (!used.has(name)) return name;
   let suffix = 2;
   while (used.has(`${name} ${suffix}`)) suffix += 1;
-  return `${name} ${suffix}`;
+  const withSuffix = `${name} ${suffix}`;
+  if (withSuffix.length <= 31) return withSuffix;
+  // Sufixo não pode estourar o limite do Excel: trunca a base.
+  return `${name.slice(0, 31 - String(suffix).length - 1)} ${suffix}`;
 }
 
 /** Escapa texto para XML (attribute/element content). */

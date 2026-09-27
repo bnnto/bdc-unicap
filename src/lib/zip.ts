@@ -41,16 +41,22 @@ const ENCODER = new TextEncoder();
 
 /** Empacota as entradas (stored) em um ZIP válido e determinístico. */
 export function buildZip(entries: readonly ZipEntry[]): Uint8Array {
-  const nameBytes = entries.map((entry) => ENCODER.encode(entry.name));
-  const crcs = entries.map((entry) => crc32(entry.data));
-  const sizes = entries.map((entry) => entry.data.length);
+  // Metadados por entrada (nome UTF-8, CRC, tamanho e offset local) em
+  // uma única passagem — sem indexação cruzada entre arrays paralelos.
+  const metas = entries.map((entry) => ({
+    name: ENCODER.encode(entry.name),
+    data: entry.data,
+    crc: crc32(entry.data),
+    size: entry.data.length,
+    localOffset: 0,
+  }));
 
   const localHeaderSize = 30;
   const centralHeaderSize = 46;
-  const namesLength = nameBytes.reduce((sum, bytes) => sum + bytes.length, 0);
-  const dataLength = sizes.reduce((sum, size) => sum + size, 0);
+  const namesLength = metas.reduce((sum, meta) => sum + meta.name.length, 0);
+  const dataLength = metas.reduce((sum, meta) => sum + meta.size, 0);
   const total =
-    entries.length * (localHeaderSize + centralHeaderSize) +
+    metas.length * (localHeaderSize + centralHeaderSize) +
     namesLength * 2 +
     dataLength +
     22;
@@ -58,48 +64,45 @@ export function buildZip(entries: readonly ZipEntry[]): Uint8Array {
 
   // Local file headers + dados (sem compressão: método 0, "stored").
   let offset = 0;
-  const localOffsets: number[] = [];
-  entries.forEach((entry, index) => {
-    localOffsets.push(offset);
+  metas.forEach((meta) => {
+    meta.localOffset = offset;
     writeUint32(zip, offset, 0x04034b50);
     writeUint16(zip, offset + 4, 20); // versão necessária
     writeUint16(zip, offset + 6, 0x0800); // UTF-8 (flag bit 11)
     writeUint16(zip, offset + 8, 0); // método stored
-    writeUint32(zip, offset + 14, crcs[index] ?? 0);
-    writeUint32(zip, offset + 18, sizes[index] ?? 0);
-    writeUint32(zip, offset + 22, sizes[index] ?? 0);
-    const name = nameBytes[index] ?? new Uint8Array(0);
-    writeUint16(zip, offset + 26, name.length);
+    writeUint32(zip, offset + 14, meta.crc);
+    writeUint32(zip, offset + 18, meta.size);
+    writeUint32(zip, offset + 22, meta.size);
+    writeUint16(zip, offset + 26, meta.name.length);
     writeUint16(zip, offset + 28, 0); // sem extra field
-    zip.set(name, offset + 30);
-    offset += 30 + name.length;
-    zip.set(entry.data, offset);
-    offset += entry.data.length;
+    zip.set(meta.name, offset + 30);
+    offset += 30 + meta.name.length;
+    zip.set(meta.data, offset);
+    offset += meta.size;
   });
 
   // Central directory.
   const centralStart = offset;
-  entries.forEach((_entry, index) => {
-    const name = nameBytes[index] ?? new Uint8Array(0);
+  metas.forEach((meta) => {
     writeUint32(zip, offset, 0x02014b50);
     writeUint16(zip, offset + 4, 20);
     writeUint16(zip, offset + 6, 20);
     writeUint16(zip, offset + 8, 0x0800);
     writeUint16(zip, offset + 10, 0); // método stored
-    writeUint32(zip, offset + 16, crcs[index] ?? 0);
-    writeUint32(zip, offset + 20, sizes[index] ?? 0);
-    writeUint32(zip, offset + 24, sizes[index] ?? 0);
-    writeUint16(zip, offset + 28, name.length);
-    writeUint32(zip, offset + 42, localOffsets[index] ?? 0);
-    zip.set(name, offset + 46);
-    offset += 46 + name.length;
+    writeUint32(zip, offset + 16, meta.crc);
+    writeUint32(zip, offset + 20, meta.size);
+    writeUint32(zip, offset + 24, meta.size);
+    writeUint16(zip, offset + 28, meta.name.length);
+    writeUint32(zip, offset + 42, meta.localOffset);
+    zip.set(meta.name, offset + 46);
+    offset += 46 + meta.name.length;
   });
   const centralSize = offset - centralStart;
 
   // End of central directory.
   writeUint32(zip, offset, 0x06054b50);
-  writeUint16(zip, offset + 8, entries.length);
-  writeUint16(zip, offset + 10, entries.length);
+  writeUint16(zip, offset + 8, metas.length);
+  writeUint16(zip, offset + 10, metas.length);
   writeUint32(zip, offset + 12, centralSize);
   writeUint32(zip, offset + 16, centralStart);
   return zip;
