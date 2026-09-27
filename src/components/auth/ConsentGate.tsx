@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuthState } from "./authContext";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { CONSENT_TERM, CONSENT_TERM_VERSION } from "../../lib/consentTerm";
 
 /**
@@ -29,9 +29,27 @@ export function ConsentGate({ children }: { children: ReactNode }) {
 
 function ConsentRequiredScreen() {
   const accept = useMutation(api.consents.acceptCurrentTerm);
+  /**
+   * [UX-P2] H1-3/H9-3 — o aceite dá feedback de progresso e recupera
+   * falhas com alerta acessível (nenhum erro silencioso).
+   */
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleAccept() {
-    await accept({});
+    setError(null);
+    setPending(true);
+    try {
+      await accept({});
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível registrar o aceite agora. Tente novamente.",
+      );
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -63,11 +81,22 @@ function ConsentRequiredScreen() {
         <div className="mt-6 flex flex-col items-center gap-3">
           <button
             type="button"
+            disabled={pending}
             onClick={() => void handleAccept()}
-            className="rounded bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#520F1D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+            className="rounded bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#520F1D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Li e aceito o termo ({CONSENT_TERM_VERSION})
+            {pending
+              ? "Registrando aceite…"
+              : `Li e aceito o termo (${CONSENT_TERM_VERSION})`}
           </button>
+          {error !== null ? (
+            <p
+              role="alert"
+              className="rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
+            >
+              {error}
+            </p>
+          ) : null}
           <p className="text-xs text-slate-500">
             O aceite é registrado com versão, data e hora (trilha de auditoria).
             Você pode revogá-lo a qualquer momento pelo Encarregado (DPO).

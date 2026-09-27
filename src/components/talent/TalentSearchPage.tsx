@@ -338,7 +338,7 @@ export function TalentSearchPage() {
                     <p className="mt-2 text-xs font-semibold">
                       {talent.contactAllowed ? (
                         <span className="text-success">
-                          Contato autorizado pelo aluno (R6)
+                          Contato autorizado pelo aluno
                         </span>
                       ) : (
                         <span className="text-slate-500">

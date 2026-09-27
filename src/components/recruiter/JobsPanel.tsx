@@ -48,7 +48,11 @@ export function JobsPanel() {
   const [mode, setMode] = useState<
     { kind: "list" } | { kind: "new" } | { kind: "edit"; job: Doc<"jobs"> }
   >({ kind: "list" });
-  const [error, setError] = useState<string | null>(null);
+  /**
+   * [UX-P2] H9-1 — erro por item: a mensagem aparece junto à vaga que
+   * originou a ação (não num bloco global), mesmo em listas longas.
+   */
+  const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
   /**
    * [UX-P1] H3-1 — confirmação inline antes de Fechar/Encerrar:
    * "Encerrar" é permanente (sem reabertura) e "Fechar" impede novas
@@ -58,27 +62,51 @@ export function JobsPanel() {
     jobId: Doc<"jobs">["_id"];
     status: Doc<"jobs">["status"];
   } | null>(null);
+  /** [UX-P2] H1-1 — id da vaga com ação em voo (desabilita os botões dela). */
+  const [actionPending, setActionPending] = useState<string | null>(null);
 
   async function handleStatus(
     jobId: Doc<"jobs">["_id"],
     next: Doc<"jobs">["status"],
   ) {
-    setError(null);
+    const key = String(jobId);
+    setItemErrors((prev) => {
+      const rest = { ...prev };
+      delete rest[key];
+      return rest;
+    });
+    // [UX-P2] H1-1 — trava as ações da vaga até a mutation terminar.
+    setActionPending(key);
     try {
       await setJobStatus({ jobId, status: next });
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Falha ao alterar o status.",
-      );
+      setItemErrors((prev) => ({
+        ...prev,
+        [key]:
+          err instanceof Error ? err.message : "Falha ao alterar o status.",
+      }));
+    } finally {
+      setActionPending(null);
     }
   }
 
   async function handleRenew(jobId: Doc<"jobs">["_id"]) {
-    setError(null);
+    const key = String(jobId);
+    setItemErrors((prev) => {
+      const rest = { ...prev };
+      delete rest[key];
+      return rest;
+    });
+    setActionPending(key);
     try {
       await renewJob({ jobId });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao renovar a vaga.");
+      setItemErrors((prev) => ({
+        ...prev,
+        [key]: err instanceof Error ? err.message : "Falha ao renovar a vaga.",
+      }));
+    } finally {
+      setActionPending(null);
     }
   }
 
@@ -110,15 +138,6 @@ export function JobsPanel() {
           + Publicar nova vaga
         </Button>
       </div>
-
-      {error !== null ? (
-        <p
-          role="alert"
-          className="mb-3 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-        >
-          {error}
-        </p>
-      ) : null}
 
       {jobs === undefined ? (
         <p className="text-sm text-slate-500" role="status" aria-live="polite">
@@ -205,10 +224,19 @@ export function JobsPanel() {
                   </li>
                 ))}
               </ul>
+              {itemErrors[String(job._id)] !== undefined ? (
+                <p
+                  role="alert"
+                  className="mt-2 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
+                >
+                  {itemErrors[String(job._id)]}
+                </p>
+              ) : null}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {job.status !== "encerrada" ? (
                   <Button
                     variant="accent"
+                    disabled={actionPending === String(job._id)}
                     onClick={() => void handleRenew(job._id)}
                   >
                     Renovar (30 dias)
@@ -216,6 +244,7 @@ export function JobsPanel() {
                 ) : null}
                 <Button
                   variant="secondary"
+                  disabled={actionPending === String(job._id)}
                   onClick={() => setMode({ kind: "edit", job })}
                 >
                   Editar
@@ -224,6 +253,7 @@ export function JobsPanel() {
                   <Button
                     key={option.value}
                     variant="secondary"
+                    disabled={actionPending === String(job._id)}
                     onClick={() => {
                       if (option.value === "aberta") {
                         // Reabrir é reversível — direto, sem confirmação.

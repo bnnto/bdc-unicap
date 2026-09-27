@@ -21,10 +21,10 @@ export function StudentHomePage() {
           Meu perfil
         </h1>
         <p className="mt-1 text-sm text-slate-600">
-          Dados usados para validar seu vínculo com a UNICAP (R1) e compor o
-          banco de talentos — visível a recrutadores conforme sua escolha de
-          privacidade ([S1-4]). Use o currículo abaixo para destacar headline,
-          experiências e histórico acadêmico ([S2-1]).
+          Seus dados validam o vínculo com a UNICAP e compõem o banco de
+          talentos — visível a recrutadores conforme sua escolha de privacidade.
+          Use o currículo abaixo para destacar headline, experiências e
+          histórico acadêmico.
         </p>
       </header>
       <Card title="Cadastro do aluno" accent="primary">

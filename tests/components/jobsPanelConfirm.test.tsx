@@ -8,7 +8,7 @@
  * proxies (cada acesso cria referência nova), então sentinelas estáveis
  * garantem a identidade entre teste e componente.
  */
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Doc } from "../../convex/_generated/dataModel";
@@ -111,6 +111,27 @@ describe("JobsPanel — confirmação antes de fechar/encerrar (H3-1)", () => {
       jobId: "job-1",
       status: "fechada",
     });
+  });
+
+  it("H9-1 — erro de status aparece junto à vaga, não num bloco global", async () => {
+    setJobStatus.mockRejectedValueOnce(
+      new Error("Você só pode alterar as suas próprias vagas."),
+    );
+
+    render(<JobsPanel />);
+    await userEvent.click(screen.getByRole("button", { name: "Fechar" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Confirmar mudança de status" }),
+    );
+
+    const item = screen
+      .getByText("Estágio em Desenvolvimento Web")
+      .closest("li");
+    expect(item).not.toBeNull();
+    const alert = within(item as HTMLElement).getByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Você só pode alterar as suas próprias vagas.",
+    );
   });
 
   it("Reabrir (reversível) continua direto, sem confirmação", async () => {
