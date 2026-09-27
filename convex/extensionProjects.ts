@@ -7,6 +7,10 @@ import {
   type ExtensionProjectInput,
 } from "../src/lib/extensionProject";
 import { evaluateStatusChange } from "../src/lib/extensionProjectStatus";
+import {
+  isProjectPubliclyVisible,
+  toPublicProjectView,
+} from "../src/lib/extensionProjectPublic";
 
 /**
  * [S7-1] Cadastro de projetos de extensão — CRUD no servidor.
@@ -197,5 +201,30 @@ export const setStatus = mutation({
       statusChangedAt: decision.statusChangedAt,
     });
     return { ok: true as const, changed: true as const };
+  },
+});
+
+/**
+ * [S7-3] Divulgação pública de projetos ativos (R9) — SEM autenticação:
+ * aberta a estudantes, professores e público externo.
+ *
+ * CA — lista apenas projetos ATIVOS ([S7-2] é a fonte do estado) e aplica
+ * a projeção whitelist da regra pura (CA 2 da S7-3): a resposta carrega
+ * SOMENTE campos públicos — `coordinatorId` e dados internos nunca saem
+ * daqui. Projetos não ativos ficam ocultos (R1/R9); sem projetos, devolve
+ * lista vazia (a página pública exibe o estado vazio orientador).
+ */
+export const listPublicProjects = query({
+  args: {},
+  handler: async (ctx) => {
+    const projects = await ctx.db
+      .query("extensionProjects")
+      .withIndex("by_created_at")
+      .order("desc")
+      .collect();
+
+    return projects
+      .filter((project) => isProjectPubliclyVisible(project))
+      .map((project) => toPublicProjectView(project));
   },
 });
