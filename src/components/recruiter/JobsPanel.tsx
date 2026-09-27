@@ -49,6 +49,15 @@ export function JobsPanel() {
     { kind: "list" } | { kind: "new" } | { kind: "edit"; job: Doc<"jobs"> }
   >({ kind: "list" });
   const [error, setError] = useState<string | null>(null);
+  /**
+   * [UX-P1] H3-1 — confirmação inline antes de Fechar/Encerrar:
+   * "Encerrar" é permanente (sem reabertura) e "Fechar" impede novas
+   * candidaturas; ambas exigem Confirmar antes de chamar a mutation.
+   */
+  const [pendingStatus, setPendingStatus] = useState<{
+    jobId: Doc<"jobs">["_id"];
+    status: Doc<"jobs">["status"];
+  } | null>(null);
 
   async function handleStatus(
     jobId: Doc<"jobs">["_id"],
@@ -215,12 +224,65 @@ export function JobsPanel() {
                   <Button
                     key={option.value}
                     variant="secondary"
-                    onClick={() => void handleStatus(job._id, option.value)}
+                    onClick={() => {
+                      if (option.value === "aberta") {
+                        // Reabrir é reversível — direto, sem confirmação.
+                        void handleStatus(job._id, option.value);
+                        return;
+                      }
+                      setPendingStatus({
+                        jobId: job._id,
+                        status: option.value,
+                      });
+                    }}
                   >
                     {option.label}
                   </Button>
                 ))}
               </div>
+
+              {pendingStatus !== null && pendingStatus.jobId === job._id ? (
+                <div
+                  role="dialog"
+                  aria-labelledby={`confirm-status-${job._id}`}
+                  className="mt-3 rounded border border-warning bg-white p-3"
+                >
+                  <p
+                    id={`confirm-status-${job._id}`}
+                    className="text-sm font-semibold text-slate-800"
+                  >
+                    {pendingStatus.status === "encerrada"
+                      ? "Confirmar encerramento"
+                      : "Confirmar fechamento"}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    {pendingStatus.status === "encerrada"
+                      ? "O encerramento é permanente: esta vaga não poderá ser reaberta nem renovada."
+                      : "A vaga deixará de receber novas candidaturas até ser reaberta."}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      variant="primary"
+                      aria-label="Confirmar mudança de status"
+                      onClick={() => {
+                        const target = pendingStatus;
+                        setPendingStatus(null);
+                        if (target !== null) {
+                          void handleStatus(target.jobId, target.status);
+                        }
+                      }}
+                    >
+                      Confirmar
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setPendingStatus(null)}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>
