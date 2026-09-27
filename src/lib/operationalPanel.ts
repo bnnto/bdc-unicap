@@ -244,11 +244,13 @@ export type OperationalReportInput = {
   funnel?: { steps: readonly FunnelStep[]; totalApplications: number };
   rankings?: {
     topCompanies: readonly {
+      recruiterId?: string;
       companyName: string;
       publishedJobs: number;
       applicationsCount: number;
     }[];
     topJobs: readonly {
+      jobId?: string;
       title: string;
       companyName: string;
       applicationsCount: number;
