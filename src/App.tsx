@@ -8,6 +8,7 @@ import { JobKanban } from "./components/recruiter/JobKanban";
 import { OperationalPanel } from "./components/operational/OperationalPanel";
 import { ROLE_LABELS } from "./lib/roles";
 import { ExtensionProjectsPublicPage } from "./components/extension/ExtensionProjectsPublicPage";
+import { ExtensionDashboard } from "./components/extension/ExtensionDashboard";
 
 /**
  * Shell da aplicação (issue [S1-1]): usuários autenticados veem o painel
@@ -72,6 +73,11 @@ function AuthGate() {
             <div className="mb-6">
               <OperationalPanel />
             </div>
+            {role === "gestor" ? (
+              <div className="mb-6">
+                <ExtensionDashboard />
+              </div>
+            ) : null}
             <div className="mb-6">
               <JobsPanel />
             </div>
