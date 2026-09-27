@@ -144,9 +144,26 @@ export function JobsPanel() {
           Carregando vagas…
         </p>
       ) : jobs.length === 0 ? (
-        <p className="text-sm text-slate-600">
-          Nenhuma vaga publicada ainda. Clique em “Publicar nova vaga”.
-        </p>
+        /* [UX-P3] H4-2 — empty state com CTA real (não só instrução textual). */
+        <div
+          role="status"
+          className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center"
+        >
+          <p className="text-sm font-semibold text-slate-700">
+            Nenhuma vaga publicada ainda.
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Publique a primeira vaga para receber candidaturas e acompanhar o
+            pipeline.
+          </p>
+          <Button
+            variant="primary"
+            className="mt-3"
+            onClick={() => setMode({ kind: "new" })}
+          >
+            + Publicar nova vaga
+          </Button>
+        </div>
       ) : (
         <ul className="flex flex-col gap-3">
           {jobs.map((job) => (
@@ -238,6 +255,7 @@ export function JobsPanel() {
                     variant="accent"
                     disabled={actionPending === String(job._id)}
                     onClick={() => void handleRenew(job._id)}
+                    title="Reativa o prazo de 30 dias desta vaga"
                   >
                     Renovar (30 dias)
                   </Button>
@@ -252,7 +270,9 @@ export function JobsPanel() {
                 {NEXT_STATUS[job.status].map((option) => (
                   <Button
                     key={option.value}
-                    variant="secondary"
+                    variant={
+                      option.value === "encerrada" ? "danger" : "secondary"
+                    }
                     disabled={actionPending === String(job._id)}
                     onClick={() => {
                       if (option.value === "aberta") {

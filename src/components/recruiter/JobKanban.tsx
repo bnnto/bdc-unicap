@@ -15,6 +15,7 @@ import {
   type RejectionReason,
 } from "../../lib/application";
 import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
+import { formatDay } from "../../lib/formatters";
 
 const MATCH_CHIP: Record<
   ReturnType<typeof matchBand>,
@@ -288,6 +289,10 @@ export function JobKanban() {
                     <p className="mt-0.5 text-xs text-slate-500">
                       {application.course} ·{" "}
                       {MATCH_BAND_LABELS[matchBand(application.matchScore)]}
+                    </p>
+                    {/* [UX-P3] H6-2 — idade do processo no próprio card. */}
+                    <p className="mt-0.5 text-xs text-slate-400">
+                      Candidatou-se em {formatDay(application.appliedAt)}
                     </p>
                     <p className="mt-1 text-xs font-semibold">
                       {application.contactReleased ? (

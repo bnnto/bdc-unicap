@@ -5,7 +5,7 @@
 **Escopo:** exclusivamente usabilidade no frontend (Tailwind + paleta bordô `#6B1426` / dourado `#C89D3C`).
 **Restrições respeitadas nesta auditoria:** nenhuma funcionalidade nova, nenhuma alteração de regra de negócio no backend (`convex/`), nenhuma biblioteca extra. Todas as recomendações usam apenas os componentes do Design System (`ui/button`, `ui/card`, `ui/badge`, `ui/input`) e classes Tailwind existentes.
 
-**Status do documento: AGUARDANDO APROVAÇÃO — nenhuma refatoração de código foi executada.**
+**Status do documento: APROVADO E EXECUTADO** — P1 (PR #74), P2 (PR #75) e P3 (PR #76) implementados em lotes revisados. Achados fora de escopo (H7-1) permanecem registrados como limitação conhecida.
 
 ---
 

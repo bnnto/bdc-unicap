@@ -4,7 +4,11 @@ import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { LANGUAGE_LEVELS, type LanguageLevel } from "../../lib/skills";
+import {
+  KNOWN_LANGUAGES,
+  LANGUAGE_LEVELS,
+  type LanguageLevel,
+} from "../../lib/skills";
 import { AVAILABILITY } from "../../lib/studentProfile";
 import {
   CONTRACT_TYPES,
@@ -136,11 +140,12 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         jobId: initial?._id,
         ...validation.normalized,
       });
-      setNotice(
-        initial !== null
-          ? "Vaga atualizada com sucesso."
-          : "Vaga publicada com sucesso.",
-      );
+      /**
+       * [UX-P3] H3-4 — sucesso retorna à lista imediatamente: evita duplo
+       * salvamento acidental e devolve o contexto de navegação (a lista
+       * reativa já mostra a vaga nova/atualizada).
+       */
+      onDone();
     } catch (err) {
       setErrors([
         err instanceof Error ? err.message : "Falha ao salvar a vaga.",
@@ -343,14 +348,21 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
           </span>
         </legend>
         <div className="flex flex-col gap-2 sm:flex-row">
+          {/* [UX-P3] H6-1 — sugestões nativas via datalist (sem libs). */}
           <input
             type="text"
             value={languageName}
             onChange={(e) => setLanguageName(e.target.value)}
             placeholder="Idioma exigido (ex.: Inglês)"
             aria-label="Idioma exigido"
+            list="job-language-options"
             className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
           />
+          <datalist id="job-language-options">
+            {KNOWN_LANGUAGES.map((language) => (
+              <option key={language} value={language} />
+            ))}
+          </datalist>
           <select
             value={languageLevel}
             onChange={(e) => setLanguageLevel(e.target.value as LanguageLevel)}

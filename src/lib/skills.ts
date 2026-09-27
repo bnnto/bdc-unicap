@@ -6,6 +6,23 @@
 export const MAX_SKILLS = 20;
 export const MAX_LANGUAGES = 8;
 
+/**
+ * [UX-P3] H6-1 — catálogo de idiomas para sugestão (datalist) nos campos
+ * de idioma: reconhecimento em vez de memorização/soletração livre.
+ * Somente leitura — consumidores não podem mutar o catálogo.
+ */
+export const KNOWN_LANGUAGES: readonly string[] = Object.freeze([
+  "Alemão",
+  "Espanhol",
+  "Francês",
+  "Inglês",
+  "Italiano",
+  "Japonês",
+  "Libras",
+  "Mandarim",
+  "Português",
+] as const);
+
 export const LANGUAGE_LEVELS = [
   "basico",
   "intermediario",

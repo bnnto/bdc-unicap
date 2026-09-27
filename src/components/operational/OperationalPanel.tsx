@@ -45,6 +45,33 @@ type KpiCardProps = {
   hint?: string;
 };
 
+/**
+ * [UX-P3] H1-4 — skeleton de carregamento: mantém o layout estável
+ * enquanto a seção agrega no servidor (sem saltos de conteúdo).
+ */
+function SkeletonBlock({ lines = 3 }: { lines?: number }) {
+  return (
+    <div className="animate-pulse flex flex-col gap-2" aria-hidden="true">
+      {Array.from({ length: lines }).map((_, index) => (
+        <div
+          key={index}
+          className="h-4 rounded bg-slate-100"
+          style={{ width: `${100 - index * 12}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Contêiner de carga acessível com skeleton dentro. */
+function LoadingSection({ label }: { label: string }) {
+  return (
+    <div role="status" aria-label={label}>
+      <SkeletonBlock lines={3} />
+    </div>
+  );
+}
+
 function KpiCard({ value, label, hint }: KpiCardProps) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-4 text-center shadow-level1">
@@ -201,22 +228,26 @@ function TimeToHireSection({ stats }: { stats: TimeToHireStats | undefined }) {
       aria-label="Time to hire"
     >
       <Card title="Time-to-Hire médio" accent="secondary">
-        <div className="flex items-baseline gap-3">
-          <p className="font-serif text-3xl font-bold text-primary">
-            {stats === undefined ? "…" : stats.label}
-          </p>
-          <p className="text-xs text-slate-500">
-            {stats === undefined
-              ? "calculando…"
-              : stats.samplesCount === 0
-                ? "sem contratações no filtro selecionado"
-                : `${stats.samplesCount} ${stats.samplesCount === 1 ? "contratação" : "contratações"} no filtro`}
-          </p>
-        </div>
-        <p className="mt-1 text-xs text-slate-400">
-          Média de dias entre a candidatura do contratado e o preenchimento da
-          vaga.
-        </p>
+        {stats === undefined ? (
+          <LoadingSection label="Carregando time-to-hire" />
+        ) : (
+          <>
+            <div className="flex items-baseline gap-3">
+              <p className="font-serif text-3xl font-bold text-primary">
+                {stats.label}
+              </p>
+              <p className="text-xs text-slate-500">
+                {stats.samplesCount === 0
+                  ? "sem contratações no filtro selecionado"
+                  : `${stats.samplesCount} ${stats.samplesCount === 1 ? "contratação" : "contratações"} no filtro`}
+              </p>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Média de dias entre a candidatura do contratado e o preenchimento
+              da vaga.
+            </p>
+          </>
+        )}
       </Card>
     </section>
   );
@@ -240,13 +271,7 @@ function FunnelSection({ funnel }: { funnel: FunnelResult | undefined }) {
     >
       <Card title="Funil de Conversão" accent="primary">
         {funnel === undefined ? (
-          <p
-            className="text-sm text-slate-500"
-            role="status"
-            aria-live="polite"
-          >
-            Carregando funil…
-          </p>
+          <LoadingSection label="Carregando funil" />
         ) : (
           <>
             <p className="mb-3 text-xs text-slate-500">
@@ -338,13 +363,7 @@ function RankingSection({
     >
       <Card title="Empresas mais ativas" accent="secondary">
         {rankings === undefined ? (
-          <p
-            className="text-sm text-slate-500"
-            role="status"
-            aria-live="polite"
-          >
-            Carregando ranking…
-          </p>
+          <LoadingSection label="Carregando ranking" />
         ) : rankings.topCompanies.length === 0 ? (
           <p className="text-sm text-slate-600">
             Nenhuma vaga publicada no filtro atual.
@@ -381,13 +400,7 @@ function RankingSection({
 
       <Card title="Vagas mais procuradas">
         {rankings === undefined ? (
-          <p
-            className="text-sm text-slate-500"
-            role="status"
-            aria-live="polite"
-          >
-            Carregando ranking…
-          </p>
+          <LoadingSection label="Carregando ranking" />
         ) : rankings.topJobs.length === 0 ? (
           <p className="text-sm text-slate-600">
             Nenhuma candidatura no filtro atual.

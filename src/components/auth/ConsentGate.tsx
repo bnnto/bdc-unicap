@@ -83,7 +83,7 @@ function ConsentRequiredScreen() {
             type="button"
             disabled={pending}
             onClick={() => void handleAccept()}
-            className="rounded bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#520F1D] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded border-transparent bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#520F1D] focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending
               ? "Registrando aceite…"

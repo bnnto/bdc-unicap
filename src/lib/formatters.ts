@@ -16,3 +16,16 @@ export function formatCurrencyBRL(value: number): string {
     currency: "BRL",
   }).format(value);
 }
+
+/**
+ * [UX-P3] H6-2 — data legível (dd/mm/aaaa, pt-BR) para prazos, publicações
+ * e idade de candidaturas; ausente vira travessão (nunca "Invalid Date").
+ */
+export function formatDay(timestamp: number | undefined): string {
+  if (timestamp === undefined) return "—";
+  return new Date(timestamp).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
