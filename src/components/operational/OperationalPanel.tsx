@@ -228,6 +228,111 @@ function FunnelSection() {
   );
 }
 
+/**
+ * [S5-4] CA 1 — Ranking de Empresas/Vagas mais ativas (Top 5):
+ * publicações e candidatos atraídos, agregados no servidor.
+ */
+function RankingSection() {
+  const rankings = useQuery(api.operational.activeRankings, { limit: 5 });
+
+  return (
+    <section
+      data-testid="active-ranking"
+      className="mt-3 grid gap-3 md:grid-cols-2"
+      aria-label="Empresas e vagas mais ativas"
+    >
+      <Card title="Empresas mais ativas" accent="secondary">
+        {rankings === undefined ? (
+          <p
+            className="text-sm text-slate-500"
+            role="status"
+            aria-live="polite"
+          >
+            Carregando ranking…
+          </p>
+        ) : rankings.topCompanies.length === 0 ? (
+          <p className="text-sm text-slate-600">
+            Nenhuma vaga publicada ainda.
+          </p>
+        ) : (
+          <ol className="flex flex-col gap-2">
+            {rankings.topCompanies.map((company, index) => (
+              <li
+                key={company.recruiterId}
+                className="flex items-center gap-3 rounded border border-slate-100 bg-white px-3 py-2"
+              >
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] text-xs font-bold text-primary"
+                  aria-hidden="true"
+                >
+                  {index + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
+                  {company.companyName}
+                </span>
+                <span className="shrink-0 text-xs text-slate-500">
+                  {company.publishedJobs}{" "}
+                  {company.publishedJobs === 1 ? "vaga" : "vagas"} ·{" "}
+                  <strong className="text-primary">
+                    {company.applicationsCount}
+                  </strong>{" "}
+                  {company.applicationsCount === 1 ? "candidato" : "candidatos"}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+
+      <Card title="Vagas mais procuradas">
+        {rankings === undefined ? (
+          <p
+            className="text-sm text-slate-500"
+            role="status"
+            aria-live="polite"
+          >
+            Carregando ranking…
+          </p>
+        ) : rankings.topJobs.length === 0 ? (
+          <p className="text-sm text-slate-600">
+            Nenhuma candidatura registrada ainda.
+          </p>
+        ) : (
+          <ol className="flex flex-col gap-2">
+            {rankings.topJobs.map((job, index) => (
+              <li
+                key={job.jobId}
+                className="flex items-center gap-3 rounded border border-slate-100 bg-white px-3 py-2"
+              >
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] text-xs font-bold text-primary"
+                  aria-hidden="true"
+                >
+                  {index + 1}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-slate-800">
+                    {job.title}
+                  </span>
+                  <span className="block truncate text-xs text-slate-400">
+                    {job.companyName}
+                  </span>
+                </span>
+                <span className="shrink-0 text-xs text-slate-500">
+                  <strong className="text-primary">
+                    {job.applicationsCount}
+                  </strong>{" "}
+                  {job.applicationsCount === 1 ? "candidato" : "candidatos"}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+    </section>
+  );
+}
+
 export function OperationalPanel() {
   const summary = useQuery(api.operational.operationalSummary, {});
 
@@ -304,6 +409,8 @@ export function OperationalPanel() {
       <TimeToHireSection />
 
       <FunnelSection />
+
+      <RankingSection />
     </section>
   );
 }
