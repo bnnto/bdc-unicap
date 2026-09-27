@@ -2,7 +2,12 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Card } from "../ui/card";
-import { formatEmployabilityRate } from "../../lib/operationalPanel";
+import { Button } from "../ui/button";
+import {
+  buildOperationalReport,
+  formatEmployabilityRate,
+} from "../../lib/operationalPanel";
+import { downloadReport } from "../../lib/reportExport";
 import type { FunnelStep } from "../../lib/funnel";
 import {
   hasActiveFilters,
@@ -18,6 +23,8 @@ import {
  * status) é COMBINÁVEL e atualiza todas as métricas reativamente:
  * cada mudança nos filtros muda os argumentos das queries e as
  * subscriptions do Convex entregam os novos valores em tempo real.
+ * [S6-1] Botões de exportação (CSV/Excel): o relatório é montado a partir
+ * do MESMO estado filtrado exibido — sem nova ida ao servidor.
  */
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -478,19 +485,77 @@ export function OperationalPanel() {
     );
   }
 
+  /**
+   * [S6-1] Exporta o relatório com os dados FILTRADOS vigentes: monta as
+   * seções a partir do estado atual das 4 queries e dispara o download
+   * nativo (CSV UTF-8+BOM ou XLSX OOXML — ambos sem dependências).
+   */
+  const exportReport = (format: "csv" | "xlsx") => {
+    downloadReport(
+      buildOperationalReport({
+        summary: {
+          jobs: summary.jobs,
+          applications: summary.applications,
+          employability: { rate: summary.employability.rate },
+        },
+        timeToHire:
+          tth === undefined
+            ? undefined
+            : { averageDays: tth.averageDays, samplesCount: tth.samplesCount },
+        funnel:
+          funnel === undefined
+            ? undefined
+            : {
+                steps: funnel.steps,
+                totalApplications: funnel.totalApplications,
+              },
+        rankings:
+          rankings === undefined
+            ? undefined
+            : {
+                topCompanies: rankings.topCompanies,
+                topJobs: rankings.topJobs,
+              },
+      }),
+      format,
+    );
+  };
+
   return (
     <section data-testid="operational-panel" aria-label="Painel operacional">
-      <header className="mb-4">
-        <p className="font-serif text-xs uppercase tracking-widest text-secondary">
-          Indicadores
-        </p>
-        <h2 className="font-serif text-2xl font-bold text-primary">
-          Painel Operacional
-        </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Visão geral das vagas e do desempenho dos processos seletivos —
-          atualizado em tempo real com o banco do portal.
-        </p>
+      <header className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="font-serif text-xs uppercase tracking-widest text-secondary">
+            Indicadores
+          </p>
+          <h2 className="font-serif text-2xl font-bold text-primary">
+            Painel Operacional
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Visão geral das vagas e do desempenho dos processos seletivos —
+            atualizado em tempo real com o banco do portal.
+          </p>
+        </div>
+        <div
+          className="flex gap-2"
+          role="group"
+          aria-label="Exportar relatório com os filtros atuais"
+        >
+          <Button
+            variant="secondary"
+            onClick={() => exportReport("csv")}
+            title="Planilha CSV (Excel/LibreOffice) com os indicadores filtrados"
+          >
+            Baixar CSV
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => exportReport("xlsx")}
+            title="Pasta de trabalho Excel (.xlsx) com os indicadores filtrados"
+          >
+            Baixar Excel
+          </Button>
+        </div>
       </header>
 
       <FilterBar
