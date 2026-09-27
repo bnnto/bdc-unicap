@@ -8,7 +8,7 @@
  * `convex/react` e `convex/_generated/api` são mockados (sentinelas
  * estáveis contra os proxies da api gerada do Convex).
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -95,7 +95,7 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
     expect(moveApplication).not.toHaveBeenCalled();
     // Painel de motivo padronizado aberto para o card (R5).
     expect(
-      screen.getByLabelText(/Motivo padronizado \(obrigatório/i),
+      screen.getByLabelText(/Motivo da reprovação \(obrigatório/i),
     ).toBeInTheDocument();
   });
 
@@ -110,8 +110,26 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
 
     expect(moveApplication).not.toHaveBeenCalled();
     expect(
-      screen.getByLabelText(/Motivo padronizado \(obrigatório/i),
+      screen.getByLabelText(/Motivo da reprovação \(obrigatório/i),
     ).toBeInTheDocument();
+  });
+
+  it("H9-1 — erro de movimento aparece junto ao card, não no topo do board", async () => {
+    moveApplication.mockRejectedValueOnce(
+      new Error("O card já está nesta coluna."),
+    );
+    await renderBoard();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Mover Maria da Silva para Entrevista",
+      }),
+    );
+
+    const card = screen.getByText("Maria da Silva").closest("article");
+    expect(card).not.toBeNull();
+    const alert = within(card as HTMLElement).getByRole("alert");
+    expect(alert).toHaveTextContent("O card já está nesta coluna.");
   });
 
   it("movimento para coluna de avanço (Entrevista) permanece imediato", async () => {
@@ -141,7 +159,7 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
     });
 
     await userEvent.selectOptions(
-      screen.getByLabelText(/Motivo padronizado \(obrigatório/i),
+      screen.getByLabelText(/Motivo da reprovação \(obrigatório/i),
       "vaga_preenchida",
     );
     await userEvent.click(

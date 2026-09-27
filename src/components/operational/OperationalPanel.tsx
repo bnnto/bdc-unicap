@@ -497,7 +497,7 @@ export function OperationalPanel() {
         <KpiCard
           value={summary.jobs.filled}
           label="Vagas preenchidas"
-          hint="encerradas (R4)"
+          hint="encerradas (prazo ou ciclo completo)"
         />
         <KpiCard value={summary.jobs.total} label="Total de vagas" />
       </div>

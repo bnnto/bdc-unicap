@@ -111,6 +111,17 @@ export function AuthPage() {
             }}
             className="flex flex-col gap-4"
           >
+            {/* [UX-P2] H9-2 — erro de autenticação é do FORMULÁRIO (credenciais
+                inválidas, e-mail já cadastrado), não do campo senha: alerta
+                no topo, sem vínculo aria ao campo. */}
+            {error !== null ? (
+              <p
+                role="alert"
+                className="rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
+              >
+                {error}
+              </p>
+            ) : null}
             {mode === "signUp" ? (
               <>
                 <Input
@@ -152,7 +163,6 @@ export function AuthPage() {
               autoComplete={
                 mode === "signUp" ? "new-password" : "current-password"
               }
-              error={error ?? undefined}
             />
 
             <Button

@@ -174,7 +174,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             onClick={onDone}
             className="font-semibold underline"
           >
-            Voltar para a lista
+            ← Voltar para a lista
           </button>
         </p>
       ) : null}

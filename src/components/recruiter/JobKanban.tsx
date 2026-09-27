@@ -52,7 +52,11 @@ type BoardApplication = {
 export function JobKanban() {
   const jobs = useQuery(api.jobs.myJobs, {});
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  /**
+   * [UX-P2] H9-1 — erro por card: a mensagem aparece junto ao card que
+   * originou a ação (não no topo do board), mesmo com muitas candidaturas.
+   */
+  const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<ApplicationStage | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -68,7 +72,11 @@ export function JobKanban() {
   const rejectApplication = useMutation(api.applications.rejectApplication);
 
   async function handleMove(applicationId: string, to: ApplicationStage) {
-    setError(null);
+    setCardErrors((prev) => {
+      const rest = { ...prev };
+      delete rest[applicationId];
+      return rest;
+    });
     if (to === "reprovado") {
       // [UX-P1] H3-2/H5-1 — a reprovação exige motivo padronizado (R5):
       // arrastar até a coluna Reprovado (ou usar a seta →) abre o painel
@@ -83,9 +91,11 @@ export function JobKanban() {
         to,
       });
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Falha ao mover a candidatura.",
-      );
+      setCardErrors((prev) => ({
+        ...prev,
+        [applicationId]:
+          err instanceof Error ? err.message : "Falha ao mover a candidatura.",
+      }));
     }
   }
 
@@ -95,11 +105,17 @@ export function JobKanban() {
     applicationId: string,
     reason: RejectionReason | "",
   ) {
-    setError(null);
+    setCardErrors((prev) => {
+      const rest = { ...prev };
+      delete rest[applicationId];
+      return rest;
+    });
     if (reason === "") {
-      setError(
-        "Selecione o motivo padronizado da reprovação — é obrigatório (R5).",
-      );
+      setCardErrors((prev) => ({
+        ...prev,
+        [applicationId]:
+          "Selecione o motivo da reprovação — ele é obrigatório para a auditoria do processo.",
+      }));
       return;
     }
     try {
@@ -110,9 +126,13 @@ export function JobKanban() {
       setRejectingId(null);
       setReasonDraft("");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Falha ao reprovar a candidatura.",
-      );
+      setCardErrors((prev) => ({
+        ...prev,
+        [applicationId]:
+          err instanceof Error
+            ? err.message
+            : "Falha ao reprovar a candidatura.",
+      }));
     }
   }
 
@@ -165,20 +185,15 @@ export function JobKanban() {
 
   return (
     <Card title={`Pipeline — ${selectedJobTitle}`} accent="primary">
-      <div className="mb-4">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <Button variant="secondary" onClick={() => setSelectedJobId(null)}>
           ← Trocar vaga
         </Button>
-      </div>
-
-      {error !== null ? (
-        <p
-          role="alert"
-          className="mb-3 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-        >
-          {error}
+        <p className="text-xs text-slate-500">
+          Arraste os cards ou use as setas do teclado; para reprovar, escolha o
+          motivo — ele fica registrado para auditoria.
         </p>
-      ) : null}
+      </div>
 
       {board === undefined ? (
         <p className="text-sm text-slate-500" role="status" aria-live="polite">
@@ -283,6 +298,14 @@ export function JobKanban() {
                         </span>
                       )}
                     </p>
+                    {cardErrors[application.applicationId] !== undefined ? (
+                      <p
+                        role="alert"
+                        className="mt-2 rounded border border-danger bg-white px-2 py-1 text-xs text-danger"
+                      >
+                        {cardErrors[application.applicationId]}
+                      </p>
+                    ) : null}
                     {application.contactReleased ? (
                       <p className="mt-1 text-xs text-primary">
                         {application.email ?? "E-mail não cadastrado"}
@@ -354,7 +377,7 @@ export function JobKanban() {
                           htmlFor={`reason-${application.applicationId}`}
                           className="text-xs font-semibold text-slate-700"
                         >
-                          Motivo padronizado (obrigatório — R5)
+                          Motivo da reprovação (obrigatório)
                         </label>
                         <select
                           id={`reason-${application.applicationId}`}
@@ -398,8 +421,8 @@ export function JobKanban() {
                         </div>
                         {reasonDraft === "" ? (
                           <p className="text-xs text-danger">
-                            A reprovação sem motivo é bloqueada — a mutation
-                            falha (R5).
+                            Escolha um motivo para confirmar — a reprovação sem
+                            motivo fica bloqueada.
                           </p>
                         ) : null}
                       </div>
