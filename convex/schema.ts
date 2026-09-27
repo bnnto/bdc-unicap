@@ -260,7 +260,8 @@ export default defineSchema({
    * Projetos de extensão (issue [S7-1], Módulo de Extensão).
    * `coordinatorId` aponta para `users` (docente/servidor coordenador);
    * `area` segue o enum fixo das áreas temáticas do RESGES/CENADES;
-   * `status` do ciclo de vida entra na [S7-2] (ativo/não ativo com data).
+   * `active`/`statusChangedAt` ([S7-2]) — acompanhamento ativo/não ativo
+   * com a data da última mudança (não ativo = oculto na divulgação da [S7-3]).
    */
   extensionProjects: defineTable({
     title: v.string(),
@@ -278,6 +279,13 @@ export default defineSchema({
     ),
     targetAudience: v.string(),
     createdAt: v.number(),
+    /**
+     * [S7-2] Acompanhamento ativo/não ativo com registro de data.
+     * Recém-cadastrado nasce não ativo; `statusChangedAt` é a data da
+     * última mudança de estado, gravada apenas pelo toggle idempotente.
+     */
+    active: v.boolean(),
+    statusChangedAt: v.number(),
   })
     .index("by_coordinator", ["coordinatorId"])
     .index("by_created_at", ["createdAt"]),

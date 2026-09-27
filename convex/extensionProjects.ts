@@ -6,6 +6,7 @@ import {
   validateExtensionProject,
   type ExtensionProjectInput,
 } from "../src/lib/extensionProject";
+import { evaluateStatusChange } from "../src/lib/extensionProjectStatus";
 
 /**
  * [S7-1] Cadastro de projetos de extensão — CRUD no servidor.
@@ -113,10 +114,14 @@ export const upsertProject = mutation({
       return { projectId: args.projectId, created: false as const };
     }
 
+    const now = Date.now();
     const projectId = await ctx.db.insert("extensionProjects", {
       ...project,
       coordinatorId,
-      createdAt: Date.now(),
+      createdAt: now,
+      /** [S7-2] Recém-cadastrado nasce NÃO ativo, com a data registrada. */
+      active: false,
+      statusChangedAt: now,
     });
     return { projectId, created: true as const };
   },
@@ -153,5 +158,44 @@ export const deleteProject = mutation({
     if (existing === null) throw new Error("Projeto não encontrado.");
     await ctx.db.delete(projectId);
     return { ok: true as const };
+  },
+});
+
+/**
+ * [S7-2] Toggle de status ativo/não ativo com registro de data (CA).
+ * A decisão (gravar? qual estado? qual timestamp?) vem da regra pura
+ * `evaluateStatusChange`: sem mudança de estado é idempotente (nada é
+ * gravado) e data anterior à última mudança é rejeitada no servidor.
+ */
+export const setStatus = mutation({
+  args: {
+    projectId: v.id("extensionProjects"),
+    active: v.boolean(),
+    changedAt: v.number(),
+  },
+  handler: async (ctx, { projectId, active, changedAt }) => {
+    await requireExtensionManager(ctx);
+
+    const project = await ctx.db.get(projectId);
+    if (project === null) throw new Error("Projeto não encontrado.");
+
+    const decision = evaluateStatusChange(
+      { active: project.active, statusChangedAt: project.statusChangedAt },
+      active,
+      changedAt,
+    );
+    if (!decision.ok) {
+      // Idempotente (sem mudança): nada a gravar, mantém o histórico.
+      if (decision.errors.length === 0) {
+        return { ok: true as const, changed: false as const };
+      }
+      throw new Error(decision.errors.join(" "));
+    }
+
+    await ctx.db.patch(projectId, {
+      active: decision.active,
+      statusChangedAt: decision.statusChangedAt,
+    });
+    return { ok: true as const, changed: true as const };
   },
 });
