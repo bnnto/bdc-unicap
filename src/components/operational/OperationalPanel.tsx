@@ -3,13 +3,21 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Card } from "../ui/card";
 import { formatEmployabilityRate } from "../../lib/operationalPanel";
+import type { FunnelStep } from "../../lib/funnel";
+import {
+  hasActiveFilters,
+  normalizeDashboardFilters,
+  type DashboardFilters,
+} from "../../lib/dashboardFilters";
 
 /**
- * Painel Operacional (issues [S5-1] e [S5-2]).
- * Cards com totais de vagas por status, taxa de empregabilidade e
- * Time-to-Hire médio com filtros — TODOS os números vêm das queries
- * agregadas no servidor (consistentes com o banco); a UI apenas exibe
- * e aplica os filtros.
+ * Painel Operacional (issues [S5-1] a [S5-5]).
+ * Cards de vagas, taxa de empregabilidade, Time-to-Hire, funil de
+ * conversão e rankings — todos alimentados por queries agregadas no
+ * servidor. [S5-5] A barra de filtros global (período, curso, empresa e
+ * status) é COMBINÁVEL e atualiza todas as métricas reativamente:
+ * cada mudança nos filtros muda os argumentos das queries e as
+ * subscriptions do Convex entregam os novos valores em tempo real.
  */
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -19,6 +27,13 @@ const PERIOD_OPTIONS = [
   { value: "30", label: "Últimos 30 dias" },
   { value: "90", label: "Últimos 90 dias" },
   { value: "365", label: "Últimos 12 meses" },
+] as const;
+
+const STATUS_OPTIONS = [
+  { value: "", label: "Todos os status" },
+  { value: "aberta", label: "Abertas" },
+  { value: "fechada", label: "Fechadas" },
+  { value: "encerrada", label: "Encerradas" },
 ] as const;
 
 const SELECT_CLASS =
@@ -44,22 +59,141 @@ function KpiCard({ value, label, hint }: KpiCardProps) {
   );
 }
 
+type FilterState = {
+  period: string;
+  course: string;
+  company: string;
+  status: string;
+};
+
+const EMPTY_FILTERS: FilterState = {
+  period: "",
+  course: "",
+  company: "",
+  status: "",
+};
+
+type FilterBarProps = {
+  state: FilterState;
+  onChange: (next: FilterState) => void;
+  facets: { courses: string[]; companies: string[] };
+  active: boolean;
+};
+
 /**
- * [S5-2] CA 2 — Time-to-Hire médio com filtros de período, curso e
- * empresa. Os filtros são argumentos da query: a agregação acontece
- * no servidor sobre os dados filtrados (CA 1).
+ * [S5-5] Barra de filtros combináveis: período + curso + empresa + status.
+ * Qualquer combinação atualiza todas as métricas do painel (as queries
+ * recebem os mesmos argumentos).
  */
-function TimeToHireSection() {
-  const [period, setPeriod] = useState<string>("");
-  const [course, setCourse] = useState<string>("");
-  const [company, setCompany] = useState<string>("");
+function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
+  const set = (patch: Partial<FilterState>) => onChange({ ...state, ...patch });
 
-  const stats = useQuery(api.operational.timeToHireStats, {
-    from: period !== "" ? Date.now() - Number(period) * DAY : undefined,
-    course: course !== "" ? course : undefined,
-    company: company !== "" ? company : undefined,
-  });
+  return (
+    <section
+      data-testid="dashboard-filters"
+      aria-label="Filtros do dashboard"
+      className="mb-4 rounded-lg border border-slate-200 bg-white p-4 shadow-level1"
+    >
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <h3 className="font-serif text-sm font-bold uppercase tracking-wide text-primary">
+          Filtros
+        </h3>
+        {active ? (
+          <button
+            type="button"
+            data-testid="clear-filters"
+            onClick={() => onChange(EMPTY_FILTERS)}
+            className="rounded border border-primary px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#FDF2F4] focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            Limpar filtros
+          </button>
+        ) : (
+          <span className="text-xs text-slate-400">
+            aplicam-se a todas as métricas
+          </span>
+        )}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Período
+          </span>
+          <select
+            value={state.period}
+            onChange={(e) => set({ period: e.target.value })}
+            className={SELECT_CLASS}
+          >
+            {PERIOD_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Curso
+          </span>
+          <select
+            value={state.course}
+            onChange={(e) => set({ course: e.target.value })}
+            className={SELECT_CLASS}
+          >
+            <option value="">Todos os cursos</option>
+            {facets.courses.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Empresa
+          </span>
+          <select
+            value={state.company}
+            onChange={(e) => set({ company: e.target.value })}
+            className={SELECT_CLASS}
+          >
+            <option value="">Todas as empresas</option>
+            {facets.companies.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Status da vaga
+          </span>
+          <select
+            value={state.status}
+            onChange={(e) => set({ status: e.target.value })}
+            className={SELECT_CLASS}
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
+  );
+}
 
+type TimeToHireStats = {
+  averageDays: number | null;
+  label: string;
+  samplesCount: number;
+  facets: { courses: string[]; companies: string[] };
+};
+
+/** [S5-2] Time-to-Hire médio (métrica segue os filtros globais). */
+function TimeToHireSection({ stats }: { stats: TimeToHireStats | undefined }) {
   return (
     <section
       data-testid="time-to-hire"
@@ -67,60 +201,7 @@ function TimeToHireSection() {
       aria-label="Time to hire"
     >
       <Card title="Time-to-Hire médio" accent="secondary">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Período
-            </span>
-            <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-              className={SELECT_CLASS}
-            >
-              {PERIOD_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Curso
-            </span>
-            <select
-              value={course}
-              onChange={(e) => setCourse(e.target.value)}
-              className={SELECT_CLASS}
-            >
-              <option value="">Todos os cursos</option>
-              {(stats?.facets.courses ?? []).map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Empresa
-            </span>
-            <select
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              className={SELECT_CLASS}
-            >
-              <option value="">Todas as empresas</option>
-              {(stats?.facets.companies ?? []).map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-
-        <div className="mt-4 flex items-baseline gap-3">
+        <div className="flex items-baseline gap-3">
           <p className="font-serif text-3xl font-bold text-primary">
             {stats === undefined ? "…" : stats.label}
           </p>
@@ -141,14 +222,13 @@ function TimeToHireSection() {
   );
 }
 
-/**
- * [S5-3] CA 2 — Funil de conversão: barras proporcionais por etapa do
- * pipeline e % de avanço entre degraus. Dados prontos da query
- * `pipelineFunnel` (contagem e conversão agregadas no servidor).
- */
-function FunnelSection() {
-  const funnel = useQuery(api.operational.pipelineFunnel, {});
+type FunnelResult = {
+  steps: FunnelStep[];
+  totalApplications: number;
+};
 
+/** [S5-3] Funil de conversão (métrica segue os filtros globais). */
+function FunnelSection({ funnel }: { funnel: FunnelResult | undefined }) {
   const steps = funnel?.steps ?? [];
   const maxCount = Math.max(1, ...steps.map((step) => step.count));
 
@@ -171,7 +251,7 @@ function FunnelSection() {
           <>
             <p className="mb-3 text-xs text-slate-500">
               Candidaturas por etapa do pipeline e % de avanço entre degraus —{" "}
-              {funnel.totalApplications} candidaturas ao todo.
+              {funnel.totalApplications} candidaturas no filtro atual.
             </p>
             <ul className="flex flex-col gap-2">
               {steps.map((step) => (
@@ -228,13 +308,28 @@ function FunnelSection() {
   );
 }
 
-/**
- * [S5-4] CA 1 — Ranking de Empresas/Vagas mais ativas (Top 5):
- * publicações e candidatos atraídos, agregados no servidor.
- */
-function RankingSection() {
-  const rankings = useQuery(api.operational.activeRankings, { limit: 5 });
+type RankingsResult = {
+  limit: number;
+  topCompanies: {
+    recruiterId: string;
+    companyName: string;
+    publishedJobs: number;
+    applicationsCount: number;
+  }[];
+  topJobs: {
+    jobId: string;
+    title: string;
+    companyName: string;
+    applicationsCount: number;
+  }[];
+};
 
+/** [S5-4] Rankings (métricas seguem os filtros globais). */
+function RankingSection({
+  rankings,
+}: {
+  rankings: RankingsResult | undefined;
+}) {
   return (
     <section
       data-testid="active-ranking"
@@ -252,7 +347,7 @@ function RankingSection() {
           </p>
         ) : rankings.topCompanies.length === 0 ? (
           <p className="text-sm text-slate-600">
-            Nenhuma vaga publicada ainda.
+            Nenhuma vaga publicada no filtro atual.
           </p>
         ) : (
           <ol className="flex flex-col gap-2">
@@ -295,7 +390,7 @@ function RankingSection() {
           </p>
         ) : rankings.topJobs.length === 0 ? (
           <p className="text-sm text-slate-600">
-            Nenhuma candidatura registrada ainda.
+            Nenhuma candidatura no filtro atual.
           </p>
         ) : (
           <ol className="flex flex-col gap-2">
@@ -334,7 +429,29 @@ function RankingSection() {
 }
 
 export function OperationalPanel() {
-  const summary = useQuery(api.operational.operationalSummary, {});
+  // [S5-5] Estado dos filtros combináveis — compartilhado por todas as
+  // métricas do painel.
+  const [filterState, setFilterState] = useState<FilterState>(EMPTY_FILTERS);
+
+  const filters: DashboardFilters = normalizeDashboardFilters({
+    from:
+      filterState.period !== ""
+        ? Date.now() - Number(filterState.period) * DAY
+        : undefined,
+    course: filterState.course,
+    company: filterState.company,
+    status: filterState.status,
+  });
+  const filtersActive = hasActiveFilters(filters);
+
+  // Toda mudança de filtro muda os argumentos → resubscribe reativa.
+  const summary = useQuery(api.operational.operationalSummary, filters);
+  const tth = useQuery(api.operational.timeToHireStats, filters);
+  const funnel = useQuery(api.operational.pipelineFunnel, filters);
+  const rankings = useQuery(api.operational.activeRankings, {
+    limit: 5,
+    ...filters,
+  });
 
   if (summary === undefined) {
     return (
@@ -363,6 +480,13 @@ export function OperationalPanel() {
         </p>
       </header>
 
+      <FilterBar
+        state={filterState}
+        onChange={setFilterState}
+        facets={tth?.facets ?? { courses: [], companies: [] }}
+        active={filtersActive}
+      />
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiCard
           value={summary.jobs.open}
@@ -384,7 +508,7 @@ export function OperationalPanel() {
             {formatEmployabilityRate(summary.employability.rate)}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Aprovados sobre finalizados (CA 2)
+            Aprovados sobre finalizados
           </p>
         </Card>
         <Card title="Candidaturas em andamento">
@@ -406,11 +530,9 @@ export function OperationalPanel() {
         </Card>
       </div>
 
-      <TimeToHireSection />
-
-      <FunnelSection />
-
-      <RankingSection />
+      <TimeToHireSection stats={tth} />
+      <FunnelSection funnel={funnel} />
+      <RankingSection rankings={rankings} />
     </section>
   );
 }
