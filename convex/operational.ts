@@ -17,6 +17,13 @@ import {
   type JobRow,
 } from "../src/lib/operationalPanel";
 import { buildFunnel, type FunnelApplicationRow } from "../src/lib/funnel";
+import {
+  aggregateCompanyActivity,
+  rankCompanies,
+  rankJobs,
+  type CompanyActivityRow,
+  type JobActivityRow,
+} from "../src/lib/activeRanking";
 
 /**
  * Painel Operacional (issue [S5-1]) — agregações no SERVIDOR.
@@ -297,5 +304,69 @@ export const pipelineFunnel = query({
     const steps = buildFunnel(rows);
 
     return { steps, totalApplications: rows.length };
+  },
+});
+
+/**
+ * [S5-4] Empresas/Vagas mais ativas — CA 1: Top N por vagas publicadas
+ * e volume de candidaturas, agregado NO SERVIDOR com as regras puras de
+ * S5-4 (rankJobs/rankCompanies/aggregateCompanyActivity).
+ *
+ * Candidaturas por vaga via índice by_job; rollup por empresa usa o
+ * recrutador responsável como "empresa" (mesma convenção da S5-2).
+ * R7: mesmo guard da visão operacional — apenas contagens agregadas.
+ */
+export const activeRankings = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    await requireOperationalViewer(ctx);
+    const limit = args.limit ?? 5;
+
+    // Vagas (todas — o rollup por empresa precisa do total por recrutador).
+    const allJobs = await ctx.db.query("jobs").collect();
+
+    // Volume de candidaturas por vaga, via índice by_job.
+    const jobRows: JobActivityRow[] = [];
+    for (const job of allJobs) {
+      const apps = await ctx.db
+        .query("applications")
+        .withIndex("by_job", (q) => q.eq("jobId", job._id))
+        .collect();
+      jobRows.push({
+        jobId: job._id,
+        title: job.title,
+        recruiterId: job.recruiterId,
+        applicationsCount: apps.length,
+      });
+    }
+
+    // Nome de exibição da empresa (recrutador responsável).
+    const userById = new Map(
+      (await ctx.db.query("users").collect()).map((u) => [u._id, u]),
+    );
+    const companyNameFor = (recruiterId: string): string => {
+      const recruiter = userById.get(recruiterId as Doc<"users">["_id"]);
+      return recruiter?.name ?? recruiter?.email ?? "Empresa";
+    };
+
+    // CA 1 — rankings com as regras puras (desempates determinísticos).
+    const companyRows: CompanyActivityRow[] = aggregateCompanyActivity(
+      jobRows,
+      companyNameFor,
+    );
+    const topCompanies = rankCompanies(companyRows, limit).map((company) => ({
+      recruiterId: company.recruiterId,
+      companyName: company.companyName,
+      publishedJobs: company.publishedJobs,
+      applicationsCount: company.applicationsCount,
+    }));
+    const topJobs = rankJobs(jobRows, limit).map((job) => ({
+      jobId: job.jobId,
+      title: job.title,
+      companyName: companyNameFor(job.recruiterId),
+      applicationsCount: job.applicationsCount,
+    }));
+
+    return { limit, topCompanies, topJobs };
   },
 });
