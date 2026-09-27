@@ -6,7 +6,7 @@
  */
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("convex/react", () => ({
   useQuery: vi.fn(),
@@ -25,6 +25,7 @@ vi.mock("../../convex/_generated/api", () => ({
 
 import { useQuery } from "convex/react";
 import { OperationalPanel } from "../../src/components/operational/OperationalPanel";
+import { clearReportPrintContainer } from "../../src/lib/reportPrint";
 
 const mockedUseQuery = vi.mocked(useQuery);
 
@@ -208,5 +209,40 @@ describe("OperationalPanel — exportação dos relatórios (S6-1)", () => {
     expect(downloads[0]).toMatch(
       /^relatorio-operacional-unicap-\d{4}-\d{2}-\d{2}\.csv$/,
     );
+  });
+});
+
+describe("OperationalPanel — exportação PDF (S6-2)", () => {
+  afterEach(() => {
+    clearReportPrintContainer(document);
+    document.getElementById("unicap-report-print-style")?.remove();
+  });
+
+  it("oferece o botão Baixar PDF no painel", () => {
+    render(<OperationalPanel />);
+    expect(
+      screen.getByRole("button", { name: /baixar pdf/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("abre a prévia de impressão com o template UNICAP e os dados vigentes", async () => {
+    const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
+    render(<OperationalPanel />);
+
+    await userEvent.click(screen.getByRole("button", { name: /baixar pdf/i }));
+
+    // PDF nativo: prévia renderizada + window.print() chamado.
+    expect(printSpy).toHaveBeenCalledTimes(1);
+    const doc = document.querySelector(
+      "#unicap-report-print-root .unicap-report-doc",
+    );
+    expect(doc).not.toBeNull();
+    // CA 2 — identidade UNICAP no template.
+    expect(doc).toHaveTextContent("Relatório Operacional UNICAP");
+    expect(doc).toHaveTextContent("UNICAP");
+    expect(doc).toHaveTextContent(/Gerado em \d{2}\/\d{2}\/\d{4}/);
+    // CA 1 — fiel aos dados filtrados vigentes.
+    expect(doc).toHaveTextContent("Vagas abertas");
+    expect(doc).toHaveTextContent("Inscrito");
   });
 });

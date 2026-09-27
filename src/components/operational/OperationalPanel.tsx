@@ -8,6 +8,7 @@ import {
   formatEmployabilityRate,
 } from "../../lib/operationalPanel";
 import { downloadReport } from "../../lib/reportExport";
+import { printOperationalReport } from "../../lib/reportPrint";
 import type { FunnelStep } from "../../lib/funnel";
 import {
   hasActiveFilters,
@@ -486,39 +487,42 @@ export function OperationalPanel() {
   }
 
   /**
-   * [S6-1] Exporta o relatório com os dados FILTRADOS vigentes: monta as
-   * seções a partir do estado atual das 4 queries e dispara o download
-   * nativo (CSV UTF-8+BOM ou XLSX OOXML — ambos sem dependências).
+   * [S6-1/S6-2] Exporta o relatório com os dados FILTRADOS vigentes:
+   * monta as seções a partir do estado atual das 4 queries e entrega em
+   * CSV (UTF-8+BOM), XLSX (OOXML) ou PDF (template UNICAP impresso pelo
+   * navegador) — todos sem dependências externas.
    */
+  const report = buildOperationalReport({
+    summary: {
+      jobs: summary.jobs,
+      applications: summary.applications,
+      employability: { rate: summary.employability.rate },
+    },
+    timeToHire:
+      tth === undefined
+        ? undefined
+        : { averageDays: tth.averageDays, samplesCount: tth.samplesCount },
+    funnel:
+      funnel === undefined
+        ? undefined
+        : {
+            steps: funnel.steps,
+            totalApplications: funnel.totalApplications,
+          },
+    rankings:
+      rankings === undefined
+        ? undefined
+        : {
+            topCompanies: rankings.topCompanies,
+            topJobs: rankings.topJobs,
+          },
+  });
   const exportReport = (format: "csv" | "xlsx") => {
-    downloadReport(
-      buildOperationalReport({
-        summary: {
-          jobs: summary.jobs,
-          applications: summary.applications,
-          employability: { rate: summary.employability.rate },
-        },
-        timeToHire:
-          tth === undefined
-            ? undefined
-            : { averageDays: tth.averageDays, samplesCount: tth.samplesCount },
-        funnel:
-          funnel === undefined
-            ? undefined
-            : {
-                steps: funnel.steps,
-                totalApplications: funnel.totalApplications,
-              },
-        rankings:
-          rankings === undefined
-            ? undefined
-            : {
-                topCompanies: rankings.topCompanies,
-                topJobs: rankings.topJobs,
-              },
-      }),
-      format,
-    );
+    downloadReport(report, format);
+  };
+  /** [S6-2] PDF institucional via impressão nativa do navegador. */
+  const printPdf = () => {
+    printOperationalReport(report);
   };
 
   return (
@@ -554,6 +558,13 @@ export function OperationalPanel() {
             title="Pasta de trabalho Excel (.xlsx) com os indicadores filtrados"
           >
             Baixar Excel
+          </Button>
+          <Button
+            variant="accent"
+            onClick={printPdf}
+            title="Relatório em PDF com o template institucional UNICAP (usa a impressão do navegador)"
+          >
+            Baixar PDF
           </Button>
         </div>
       </header>
