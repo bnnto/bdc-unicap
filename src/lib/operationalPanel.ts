@@ -217,3 +217,142 @@ export function formatTimeToHire(days: number | null): string {
   if (days === null) return "—";
   return days === 1 ? "1 dia" : `${days} dias`;
 }
+
+/**
+ * Exportação dos relatórios (issue [S6-1]) — mapeamento puro das métricas
+ * JÁ FILTRADAS pelo painel (S5-5) para as seções do arquivo. A UI passa
+ * o estado vigente das 4 queries; nada é rebuscado do servidor, então o
+ * download reflete exatamente o que o usuário está vendo (CA 1).
+ */
+import type { ExportReport, ReportRow, ReportSection } from "./reportExport";
+import type { FunnelStep } from "./funnel";
+
+/** Entrada: estado vigente das métricas do painel (podem estar ausentes). */
+export type OperationalReportInput = {
+  summary: {
+    jobs: JobSummary;
+    applications: {
+      total: number;
+      inProgress: number;
+      finalized: number;
+      approved: number;
+      rejected: number;
+    };
+    employability: { rate: number | null };
+  };
+  timeToHire?: { averageDays: number | null; samplesCount: number };
+  funnel?: { steps: readonly FunnelStep[]; totalApplications: number };
+  rankings?: {
+    topCompanies: readonly {
+      companyName: string;
+      publishedJobs: number;
+      applicationsCount: number;
+    }[];
+    topJobs: readonly {
+      title: string;
+      companyName: string;
+      applicationsCount: number;
+    }[];
+  };
+};
+
+/** Linha de ranking com posição (1-based) na frente. */
+function rankedRows(
+  rows: readonly {
+    label: string;
+    secondary?: string;
+    publishedJobs?: number;
+    applicationsCount: number;
+  }[],
+): ReportRow[] {
+  return rows.map((row, index) => [
+    index + 1,
+    row.label,
+    row.secondary ?? row.publishedJobs ?? "",
+    row.applicationsCount,
+  ]);
+}
+
+/**
+ * Monta o relatório operacional completo: 6 seções na mesma ordem de
+ * exibição do painel (cards → candidaturas → funil → rankings → TTH).
+ */
+export function buildOperationalReport(
+  input: OperationalReportInput,
+): ExportReport {
+  const { summary } = input;
+  const sections: ReportSection[] = [
+    {
+      title: "Resumo de Vagas",
+      columns: ["Métrica", "Valor"],
+      rows: [
+        ["Vagas abertas", summary.jobs.open],
+        ["Vagas fechadas", summary.jobs.closed],
+        ["Vagas preenchidas", summary.jobs.filled],
+        ["Total de vagas", summary.jobs.total],
+      ],
+    },
+    {
+      title: "Candidaturas",
+      columns: ["Métrica", "Valor"],
+      rows: [
+        ["Total de candidaturas", summary.applications.total],
+        ["Em andamento", summary.applications.inProgress],
+        ["Finalizadas", summary.applications.finalized],
+        ["Aprovados", summary.applications.approved],
+        ["Reprovados", summary.applications.rejected],
+        ["Taxa de empregabilidade (%)", summary.employability.rate],
+      ],
+    },
+  ];
+
+  if (input.funnel !== undefined) {
+    sections.push({
+      title: "Funil de Conversão",
+      columns: ["Etapa", "Candidaturas", "Conversão da etapa anterior (%)"],
+      rows: input.funnel.steps.map((step): ReportRow => [
+        step.label,
+        step.count,
+        step.conversionFromPrevious ?? "",
+      ]),
+    });
+  }
+
+  if (input.rankings !== undefined) {
+    sections.push({
+      title: "Empresas Mais Ativas",
+      columns: ["#", "Empresa", "Vagas publicadas", "Candidatos"],
+      rows: rankedRows(
+        input.rankings.topCompanies.map((company) => ({
+          label: company.companyName,
+          publishedJobs: company.publishedJobs,
+          applicationsCount: company.applicationsCount,
+        })),
+      ),
+    });
+    sections.push({
+      title: "Vagas Mais Procuradas",
+      columns: ["#", "Vaga", "Empresa", "Candidatos"],
+      rows: rankedRows(
+        input.rankings.topJobs.map((job) => ({
+          label: job.title,
+          secondary: job.companyName,
+          applicationsCount: job.applicationsCount,
+        })),
+      ),
+    });
+  }
+
+  if (input.timeToHire !== undefined) {
+    sections.push({
+      title: "Time to Hire",
+      columns: ["Métrica", "Valor"],
+      rows: [
+        ["TTH médio (dias)", input.timeToHire.averageDays],
+        ["Contratações na amostra", input.timeToHire.samplesCount],
+      ],
+    });
+  }
+
+  return { reportName: "Relatório Operacional UNICAP", sections };
+}
