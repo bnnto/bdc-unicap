@@ -16,7 +16,7 @@ import {
   summarizeJobs,
   type JobRow,
 } from "../src/lib/operationalPanel";
-import { buildFunnel, type FunnelApplicationRow } from "../src/lib/funnel";
+import { buildFunnel } from "../src/lib/funnel";
 import {
   aggregateCompanyActivity,
   rankCompanies,
@@ -24,19 +24,26 @@ import {
   type CompanyActivityRow,
   type JobActivityRow,
 } from "../src/lib/activeRanking";
+import {
+  filterApplicationsForDashboard,
+  filterJobsForDashboard,
+  normalizeDashboardFilters,
+} from "../src/lib/dashboardFilters";
 
 /**
- * Painel Operacional (issue [S5-1]) — agregações no SERVIDOR.
+ * Painel Operacional (issues [S5-1] a [S5-5]) — agregações no SERVIDOR.
  *
- * CA 1 — os números dos cards são calculados aqui, direto do banco
- * (jobs por status via índice `by_status`; candidaturas por etapa via
- * índice `by_stage`), nunca na UI — o painel exibe exatamente o que o
- * banco responde.
- * CA 2 — a taxa de empregabilidade é calculada a partir de APROVAÇÕES
- * com a regra pura de S5-1 (aprovados / finalizados).
+ * S5-1: cards de vagas por status + taxa de empregabilidade (CA 1/CA 2).
+ * S5-2: time-to-hire médio (filledAt − appliedAt) por contratação.
+ * S5-3: funil de conversão por etapa do pipeline.
+ * S5-4: ranking de empresas/vagas mais ativas.
+ * S5-5: FILTROS COMBINÁVEIS (período, curso, empresa e status) aplicados
+ * a TODAS as métricas — as mesmas regras puras de dashboardFilters
+ * rodam em cada query, e a UI reage via subscriptions do Convex.
  *
  * Guard (R7): usuário autenticado com consentimento vigente e papel
- * operacional (gestor, recrutador ou empresa) — dados globais do portal.
+ * operacional (gestor, recrutador ou empresa) — dados globais do portal,
+ * expostos apenas como contagens/médias agregadas (LGPD).
  */
 
 /** Papéis autorizados a ver o painel operacional. */
@@ -72,17 +79,67 @@ async function requireOperationalViewer(ctx: QueryCtx): Promise<Doc<"users">> {
   return user;
 }
 
+/** [S5-5] Argumentos de filtros combináveis — compartilhados pelas queries. */
+const dashboardFiltersArgs = {
+  from: v.optional(v.number()),
+  to: v.optional(v.number()),
+  course: v.optional(v.string()),
+  company: v.optional(v.string()),
+  status: v.optional(
+    v.union(v.literal("aberta"), v.literal("fechada"), v.literal("encerrada")),
+  ),
+};
+
 /**
- * Resumo operacional global: vagas por status + candidaturas por etapa
- * + taxa de empregabilidade (aprovações). Reativo: qualquer movimentação
- * no Kanban ou mudança de status de vaga atualiza os cards em tempo real.
+ * Contexto compartilhado dos filtros: mapa de curso por aluno, usado
+ * pelas regras puras de S5-5 nas métricas de candidaturas. Filtros de
+ * empresa/status/período são aplicados pelas regras puras diretamente.
+ */
+type FilterContext = {
+  filters: ReturnType<typeof normalizeDashboardFilters>;
+  studentCourseById: Map<string, string>;
+};
+
+/** Filtra candidaturas por curso (perfil do aluno) — regra S5-5. */
+function filterAppsByCourseAndCompany(
+  docs: readonly Doc<"applications">[],
+  ctxOf: FilterContext,
+): Doc<"applications">[] {
+  const { filters, studentCourseById } = ctxOf;
+  if (filters.course === undefined) return [...docs];
+  return docs.filter(
+    (doc) => studentCourseById.get(doc.studentId) === filters.course,
+  );
+}
+
+/**
+ * [S5-5] Conjunto de ids de vagas permitidos pelo filtro de empresa
+ * (recrutador responsável — mesma convenção da S5-2/S5-4).
+ */
+function jobIdsForCompany(
+  allJobs: readonly Doc<"jobs">[],
+  filters: ReturnType<typeof normalizeDashboardFilters>,
+  companyNameFor: (recruiterId: string) => string,
+): Set<string> | null {
+  if (filters.company === undefined) return null;
+  return new Set(
+    allJobs
+      .filter((job) => companyNameFor(job.recruiterId) === filters.company)
+      .map((job) => job._id),
+  );
+}
+
+/**
+ * S5-1 — Resumo operacional: vagas por status + candidaturas por etapa
+ * + taxa de empregabilidade. Reativo e, desde S5-5, filtrável.
  */
 export const operationalSummary = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { ...dashboardFiltersArgs },
+  handler: async (ctx, rawArgs) => {
     await requireOperationalViewer(ctx);
+    const filters = normalizeDashboardFilters(rawArgs);
 
-    // CA 1 — vagas por status, uma consulta por valor do índice `by_status`.
+    // Vagas por status (índice by_status) — base de todos os filtros.
     const [openJobs, closedJobs, filledJobs] = await Promise.all([
       ctx.db
         .query("jobs")
@@ -97,14 +154,69 @@ export const operationalSummary = query({
         .withIndex("by_status", (q) => q.eq("status", "encerrada"))
         .collect(),
     ]);
-    const jobRows: JobRow[] = [openJobs, closedJobs, filledJobs]
-      .flat()
-      .map((job) => ({ jobId: job._id, status: job.status }));
+    const allJobs = [...openJobs, ...closedJobs, ...filledJobs];
+
+    // S5-5 — filtros de vaga: status + período de publicação.
+    // A regra pura decide os IDs (projeção mínima); docs completos seguem.
+    const visibleJobIds = new Set(
+      filterJobsForDashboard(
+        allJobs.map((job) => ({
+          jobId: job._id,
+          status: job.status,
+          publishedAt: job.publishedAt,
+        })),
+        filters,
+      ).map((row) => row.jobId),
+    );
+    const visibleJobs = allJobs.filter((job) => visibleJobIds.has(job._id));
+    const jobRows: JobRow[] = visibleJobs.map((job) => ({
+      jobId: job._id,
+      status: job.status,
+    }));
     const jobs = summarizeJobs(jobRows);
 
-    // Candidaturas por etapa (pipeline de 5 colunas, S4-1), via índice
-    // `by_stage`. Escala de MVP: uma leitura por etapa mantém os números
-    // consistentes sem varredura completa da tabela.
+    // Contexto dos filtros de candidatura.
+    const jobStatusById = new Map(allJobs.map((job) => [job._id, job.status]));
+    const studentCourseById = new Map(
+      (await ctx.db.query("students").collect()).map((s) => [s._id, s.course]),
+    );
+    const userById = new Map(
+      (await ctx.db.query("users").collect()).map((u) => [u._id, u]),
+    );
+    const companyNameFor = (recruiterId: string): string => {
+      const recruiter = userById.get(recruiterId as Doc<"users">["_id"]);
+      return recruiter?.name ?? recruiter?.email ?? "Empresa";
+    };
+    const ctxOf: FilterContext = {
+      filters,
+      studentCourseById,
+    };
+
+    // Candidaturas por etapa (índice by_stage), com filtros combináveis:
+    // curso → empresa (via vaga) → status (via vaga) → período (appliedAt).
+    let stageDocs: Doc<"applications">[] = [];
+    for (const stage of APPLICATION_STAGES) {
+      const docs = await ctx.db
+        .query("applications")
+        .withIndex("by_stage", (q) => q.eq("stage", stage))
+        .collect();
+      stageDocs = stageDocs.concat(docs);
+    }
+    const companyJobIds = jobIdsForCompany(allJobs, filters, companyNameFor);
+    let visibleApps = filterAppsByCourseAndCompany(stageDocs, ctxOf);
+    if (companyJobIds !== null) {
+      visibleApps = visibleApps.filter((doc) => companyJobIds.has(doc.jobId));
+    }
+    const filteredApps = filterApplicationsForDashboard(
+      visibleApps.map((doc) => ({
+        jobId: doc.jobId,
+        stage: doc.stage,
+        appliedAt: doc.appliedAt,
+      })),
+      jobStatusById,
+      filters,
+    );
+
     const stageCounts: Record<ApplicationStage, number> = {
       inscrito: 0,
       triagem: 0,
@@ -112,37 +224,27 @@ export const operationalSummary = query({
       aprovado: 0,
       reprovado: 0,
     };
-    let totalApplications = 0;
-    let approvedRows: ApplicationStage[] = [];
-    let rejectedRows: ApplicationStage[] = [];
-    for (const stage of APPLICATION_STAGES) {
-      const rows = await ctx.db
-        .query("applications")
-        .withIndex("by_stage", (q) => q.eq("stage", stage))
-        .collect();
-      stageCounts[stage] = rows.length;
-      totalApplications += rows.length;
-      // CA 2 — só resultados finais alimentam a taxa (regra pura S5-1).
-      if (stage === "aprovado") {
-        approvedRows = rows.map((r) => r.stage);
-      } else if (stage === "reprovado") {
-        rejectedRows = rows.map((r) => r.stage);
-      }
+    for (const app of filteredApps) {
+      stageCounts[app.stage] += 1;
     }
 
     const approved = stageCounts.aprovado;
     const rejected = stageCounts.reprovado;
     const finalized = approved + rejected;
-    const inProgress = totalApplications - finalized;
+    const inProgress = filteredApps.length - finalized;
     const rate = employabilityRate(
-      approvedRows.map((stage) => ({ stage })),
-      rejectedRows.map((stage) => ({ stage })),
+      filteredApps
+        .filter((app) => app.stage === "aprovado")
+        .map((app) => ({ stage: app.stage })),
+      filteredApps
+        .filter((app) => app.stage === "reprovado")
+        .map((app) => ({ stage: app.stage })),
     );
 
     return {
       jobs,
       applications: {
-        total: totalApplications,
+        total: filteredApps.length,
         inProgress,
         finalized,
         approved,
@@ -160,28 +262,19 @@ export const operationalSummary = query({
 });
 
 /**
- * [S5-2] Time-to-Hire médio — CA 1: cálculo em dias agregado no
- * SERVIDOR; CA 2: filtros de período/curso/empresa aplicados aos dados
- * antes da agregação. Cada amostra é uma contratação (candidatura
- * aprovada em vaga preenchida) com `filledAt − appliedAt`.
- *
- * R7: mesmo guard da visão operacional. Aluno/egresso nunca expõe
- * dado além do que o papel autoriza (LGPD: só contagens e médias,
- * sem dados pessoais dos contratados).
+ * S5-2 — Time-to-Hire médio: amostras por contratação
+ * (candidatura aprovada em vaga preenchida). Filtros S5-5 combináveis.
  */
 export const timeToHireStats = query({
-  args: {
-    from: v.optional(v.number()),
-    to: v.optional(v.number()),
-    course: v.optional(v.string()),
-    company: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
+  args: { ...dashboardFiltersArgs },
+  handler: async (ctx, rawArgs) => {
     await requireOperationalViewer(ctx);
+    const filters = normalizeDashboardFilters(rawArgs);
 
     // Vagas preenchidas (encerradas) — `filledAt` gravado no encerramento
-    // manual (setJobStatus) ou pelo cron R4.
-    const filledJobs = (
+    // manual (setJobStatus) ou pelo cron R4. Filtro de status: se pediu
+    // outro status, nenhuma vaga preenchida permanece.
+    let filledJobs = (
       await ctx.db
         .query("jobs")
         .withIndex("by_status", (q) => q.eq("status", "encerrada"))
@@ -190,74 +283,80 @@ export const timeToHireStats = query({
       (job): job is Doc<"jobs"> & { filledAt: number } =>
         job.filledAt !== undefined,
     );
-    const filledByJobId = new Map(filledJobs.map((j) => [j._id, j]));
-
-    // Aprovações (pipeline S4-1) — via índice by_stage.
-    const approvals = await ctx.db
-      .query("applications")
-      .withIndex("by_stage", (q) => q.eq("stage", "aprovado"))
-      .collect();
+    if (filters.status !== undefined && filters.status !== "encerrada") {
+      filledJobs = [];
+    }
 
     // Perfis dos contratados e recrutadores (curso e empresa dos filtros).
-    const studentById = new Map(
-      (await ctx.db.query("students").collect()).map((s) => [s._id, s]),
+    const studentCourseById = new Map(
+      (await ctx.db.query("students").collect()).map((s) => [s._id, s.course]),
     );
     const userById = new Map(
       (await ctx.db.query("users").collect()).map((u) => [u._id, u]),
     );
-
-    /** Empresa de uma vaga = recrutador responsável (fallback e-mail). */
-    const companyNameFor = (job: Doc<"jobs">): string => {
-      const recruiter = userById.get(job.recruiterId);
-      return recruiter?.name ?? recruiter?.email ?? "";
+    const companyNameFor = (recruiterId: string): string => {
+      const recruiter = userById.get(recruiterId as Doc<"users">["_id"]);
+      return recruiter?.name ?? recruiter?.email ?? "Empresa";
     };
 
+    /** Empresa de uma vaga = recrutador responsável (fallback e-mail). */
+    const companyNameForJob = (job: Doc<"jobs">): string =>
+      companyNameFor(job.recruiterId);
+
     // Facets SEM filtro: opções para os dropdowns de curso/empresa da UI.
+    const approvalDocs = await ctx.db
+      .query("applications")
+      .withIndex("by_stage", (q) => q.eq("stage", "aprovado"))
+      .collect();
     const courses = [
       ...new Set(
-        approvals.flatMap((a) => {
-          const student = studentById.get(a.studentId);
-          return student === undefined ? [] : [student.course];
+        approvalDocs.flatMap((doc) => {
+          const course = studentCourseById.get(doc.studentId);
+          return course === undefined ? [] : [course];
         }),
       ),
     ].sort((a, b) => a.localeCompare(b));
     const companies = [
-      ...new Set(filledJobs.map(companyNameFor).filter((n) => n !== "")),
+      ...new Set(filledJobs.map(companyNameForJob).filter((n) => n !== "")),
     ].sort((a, b) => a.localeCompare(b));
 
-    // Pareamento aprovação × vaga preenchida (regra pura S5-2) com os
-    // filtros de curso/empresa aplicados antes da agregação.
+    // Filtro de empresa (recrutador da vaga) sobre as vagas preenchidas.
+    const visibleFilledJobs =
+      filters.company === undefined
+        ? filledJobs
+        : filledJobs.filter(
+            (job) => companyNameForJob(job) === filters.company,
+          );
+    const visibleByJobId = new Set(visibleFilledJobs.map((job) => job._id));
+
+    // Pareamento aprovação × vaga preenchida (regra pura S5-2), com
+    // filtros de curso/status aplicados antes da agregação de período.
     const samples = hireSamples(
-      filledJobs.map((job) => ({
+      visibleFilledJobs.map((job) => ({
         jobId: job._id,
         filledAt: job.filledAt,
       })),
-      approvals
-        .filter((a) => {
-          const job = filledByJobId.get(a.jobId);
-          if (job === undefined) return false;
-          const student = studentById.get(a.studentId);
-          if (args.course !== undefined && student?.course !== args.course) {
-            return false;
-          }
+      approvalDocs
+        .filter((doc) => {
+          if (!visibleByJobId.has(doc.jobId)) return false;
           if (
-            args.company !== undefined &&
-            companyNameFor(job) !== args.company
+            filters.course !== undefined &&
+            studentCourseById.get(doc.studentId) !== filters.course
           ) {
             return false;
           }
           return true;
         })
-        .map((a) => ({
-          jobId: a.jobId,
-          studentId: a.studentId,
-          appliedAt: a.appliedAt,
+        .map((doc) => ({
+          jobId: doc.jobId,
+          studentId: doc.studentId,
+          appliedAt: doc.appliedAt,
         })),
     );
 
     const filtered = filterSamplesByPeriod(samples, {
-      from: args.from,
-      to: args.to,
+      from: filters.from,
+      to: filters.to,
     });
     const average = averageTimeToHire(filtered);
 
@@ -271,76 +370,21 @@ export const timeToHireStats = query({
 });
 
 /**
- * [S5-3] Funil de conversão por etapa do pipeline — CA 1: contagem de
- * candidaturas em cada etapa de avanço (Inscrito → Triagem → Entrevista →
- * Aprovado) e conversão % entre degraus, agregadas NO SERVIDOR com a
- * regra pura de S5-3 ("reprovado" é saída, não degrau).
- * CA 2: a resposta já vem pronta para a visualização (ordem + rótulos).
- *
- * R7: mesmo guard da visão operacional — apenas contagens agregadas,
- * sem dados pessoais (LGPD).
+ * S5-3 — Funil de conversão por etapa do pipeline, com filtros
+ * combináveis S5-5 (status via vaga, empresa via recrutador, curso via
+ * perfil do aluno e período por candidatura).
  */
 export const pipelineFunnel = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { ...dashboardFiltersArgs },
+  handler: async (ctx, rawArgs) => {
     await requireOperationalViewer(ctx);
+    const filters = normalizeDashboardFilters(rawArgs);
 
-    // Candidaturas por etapa via índice by_stage (5 leituras indexadas).
-    // Os documentos já satisfazem FunnelApplicationRow ({stage}), então
-    // a regra pura monta os degraus direto da fonte da verdade.
-    const rows: FunnelApplicationRow[] = [];
-    for (const stage of APPLICATION_STAGES) {
-      const docs = await ctx.db
-        .query("applications")
-        .withIndex("by_stage", (q) => q.eq("stage", stage))
-        .collect();
-      for (const doc of docs) {
-        rows.push(doc);
-      }
-    }
-
-    // CA 1 — contagem e conversão % entre degraus (regra pura S5-3);
-    // CA 2 — etapas sem candidatura aparecem zeradas, na ordem de exibição.
-    const steps = buildFunnel(rows);
-
-    return { steps, totalApplications: rows.length };
-  },
-});
-
-/**
- * [S5-4] Empresas/Vagas mais ativas — CA 1: Top N por vagas publicadas
- * e volume de candidaturas, agregado NO SERVIDOR com as regras puras de
- * S5-4 (rankJobs/rankCompanies/aggregateCompanyActivity).
- *
- * Candidaturas por vaga via índice by_job; rollup por empresa usa o
- * recrutador responsável como "empresa" (mesma convenção da S5-2).
- * R7: mesmo guard da visão operacional — apenas contagens agregadas.
- */
-export const activeRankings = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    await requireOperationalViewer(ctx);
-    const limit = args.limit ?? 5;
-
-    // Vagas (todas — o rollup por empresa precisa do total por recrutador).
     const allJobs = await ctx.db.query("jobs").collect();
-
-    // Volume de candidaturas por vaga, via índice by_job.
-    const jobRows: JobActivityRow[] = [];
-    for (const job of allJobs) {
-      const apps = await ctx.db
-        .query("applications")
-        .withIndex("by_job", (q) => q.eq("jobId", job._id))
-        .collect();
-      jobRows.push({
-        jobId: job._id,
-        title: job.title,
-        recruiterId: job.recruiterId,
-        applicationsCount: apps.length,
-      });
-    }
-
-    // Nome de exibição da empresa (recrutador responsável).
+    const jobStatusById = new Map(allJobs.map((job) => [job._id, job.status]));
+    const studentCourseById = new Map(
+      (await ctx.db.query("students").collect()).map((s) => [s._id, s.course]),
+    );
     const userById = new Map(
       (await ctx.db.query("users").collect()).map((u) => [u._id, u]),
     );
@@ -348,6 +392,111 @@ export const activeRankings = query({
       const recruiter = userById.get(recruiterId as Doc<"users">["_id"]);
       return recruiter?.name ?? recruiter?.email ?? "Empresa";
     };
+    const ctxOf: FilterContext = {
+      filters,
+      studentCourseById,
+    };
+    const companyJobIds = jobIdsForCompany(allJobs, filters, companyNameFor);
+
+    // Candidaturas por etapa via índice by_stage + filtros combináveis.
+    let stageDocs: Doc<"applications">[] = [];
+    for (const stage of APPLICATION_STAGES) {
+      const docs = await ctx.db
+        .query("applications")
+        .withIndex("by_stage", (q) => q.eq("stage", stage))
+        .collect();
+      stageDocs = stageDocs.concat(docs);
+    }
+    let visibleDocs = filterAppsByCourseAndCompany(stageDocs, ctxOf);
+    if (companyJobIds !== null) {
+      visibleDocs = visibleDocs.filter((doc) => companyJobIds.has(doc.jobId));
+    }
+    const visibleRows = filterApplicationsForDashboard(
+      visibleDocs.map((doc) => ({
+        jobId: doc.jobId,
+        stage: doc.stage,
+        appliedAt: doc.appliedAt,
+      })),
+      jobStatusById,
+      filters,
+    );
+
+    // CA 1 — contagem e conversão % entre degraus (regra pura S5-3);
+    // CA 2 — etapas sem candidatura aparecem zeradas, na ordem de exibição.
+    const steps = buildFunnel(visibleRows);
+
+    return { steps, totalApplications: visibleRows.length };
+  },
+});
+
+/**
+ * S5-4 — Empresas/Vagas mais ativas: Top N por publicações e candidatos
+ * atraídos, com filtros combináveis S5-5 (vagas filtradas por status/
+ * período/empresa; candidaturas contadas por curso/período).
+ */
+export const activeRankings = query({
+  args: { limit: v.optional(v.number()), ...dashboardFiltersArgs },
+  handler: async (ctx, rawArgs) => {
+    await requireOperationalViewer(ctx);
+    const { limit: rawLimit, ...filterArgs } = rawArgs;
+    const filters = normalizeDashboardFilters(filterArgs);
+    const limit = rawLimit ?? 5;
+
+    const allJobs = await ctx.db.query("jobs").collect();
+    const studentCourseById = new Map(
+      (await ctx.db.query("students").collect()).map((s) => [s._id, s.course]),
+    );
+    const userById = new Map(
+      (await ctx.db.query("users").collect()).map((u) => [u._id, u]),
+    );
+    const companyNameFor = (recruiterId: string): string => {
+      const recruiter = userById.get(recruiterId as Doc<"users">["_id"]);
+      return recruiter?.name ?? recruiter?.email ?? "Empresa";
+    };
+
+    // S5-5 — vagas visíveis: status + período de publicação + empresa.
+    // A regra pura decide os IDs; os docs completos seguem para o ranking.
+    const visibleJobIds = new Set(
+      filterJobsForDashboard(
+        allJobs.map((job) => ({
+          jobId: job._id,
+          status: job.status,
+          publishedAt: job.publishedAt,
+        })),
+        filters,
+      ).map((row) => row.jobId),
+    );
+    const visibleJobs = allJobs.filter(
+      (job) =>
+        visibleJobIds.has(job._id) &&
+        (filters.company === undefined ||
+          companyNameFor(job.recruiterId) === filters.company),
+    );
+
+    // Volume de candidaturas por vaga (índice by_job), contando apenas
+    // candidaturas que passam pelos filtros de curso e período.
+    const jobRows: JobActivityRow[] = [];
+    for (const job of visibleJobs) {
+      const docs = await ctx.db
+        .query("applications")
+        .withIndex("by_job", (q) => q.eq("jobId", job._id))
+        .collect();
+      const counted = filterApplicationsForDashboard(
+        docs.filter(
+          (doc) =>
+            filters.course === undefined ||
+            studentCourseById.get(doc.studentId) === filters.course,
+        ),
+        new Map(),
+        { from: filters.from, to: filters.to },
+      );
+      jobRows.push({
+        jobId: job._id,
+        title: job.title,
+        recruiterId: job.recruiterId,
+        applicationsCount: counted.length,
+      });
+    }
 
     // CA 1 — rankings com as regras puras (desempates determinísticos).
     const companyRows: CompanyActivityRow[] = aggregateCompanyActivity(
