@@ -18,6 +18,7 @@ import type * as crons from "../crons.js";
 import type * as extensionProjects from "../extensionProjects.js";
 import type * as http from "../http.js";
 import type * as jobs from "../jobs.js";
+import type * as lgpd from "../lgpd.js";
 import type * as operational from "../operational.js";
 import type * as password from "../password.js";
 import type * as students from "../students.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   extensionProjects: typeof extensionProjects;
   http: typeof http;
   jobs: typeof jobs;
+  lgpd: typeof lgpd;
   operational: typeof operational;
   password: typeof password;
   students: typeof students;
