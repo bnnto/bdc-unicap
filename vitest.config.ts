@@ -11,8 +11,26 @@ export default defineConfig({
     css: false,
     coverage: {
       provider: "v8",
-      include: ["src/**"],
+      include: ["src/**", "convex/extensionProjects.ts"],
       exclude: ["src/main.tsx"], // bootstrap React
+      /**
+       * [S7-5] CA 2 — cobertura ≥ 80% nas REGRAS do módulo de extensão
+       * (regras puras em src/lib/extension* e funções do servidor em
+       * convex/extensionProjects.ts): critério da issue #38 travado de
+       * forma durável — qualquer queda quebra a suíte.
+       */
+      "src/lib/extension*.ts": {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+      },
+      "convex/extensionProjects.ts": {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+      },
     },
   },
 });

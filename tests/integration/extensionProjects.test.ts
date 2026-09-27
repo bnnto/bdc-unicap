@@ -255,4 +255,130 @@ describe("S7-1 — CRUD de projetos de extensão (integração)", () => {
       t.query(api.extensionProjects.listProjects, {}),
     ).rejects.toThrow(/Não autenticado/i);
   });
+
+  // —— [S7-5] Backfill de cobertura: falhas de referencial e ciclo completo R9 ——
+
+  it("[S7-5] update de projeto inexistente é rejeitado", async () => {
+    const t = convexTest(schema, modules);
+    const { managerId, coordinatorUserId } = await seedWorld(t);
+    const identity = asManager(t, managerId);
+
+    // Cria e remove: o ID é real da tabela (o validador rejeita ids fabricados).
+    const { projectId } = await identity.mutation(
+      api.extensionProjects.upsertProject,
+      { ...VALID_INPUT, coordinatorId: coordinatorUserId },
+    );
+    await identity.mutation(api.extensionProjects.deleteProject, { projectId });
+
+    await expect(
+      identity.mutation(api.extensionProjects.upsertProject, {
+        projectId,
+        ...VALID_INPUT,
+        coordinatorId: coordinatorUserId,
+      }),
+    ).rejects.toThrow(/Projeto não encontrado/i);
+  });
+
+  it("[S7-5] delete de projeto inexistente é rejeitado", async () => {
+    const t = convexTest(schema, modules);
+    const { managerId, coordinatorUserId } = await seedWorld(t);
+    const identity = asManager(t, managerId);
+
+    const { projectId } = await identity.mutation(
+      api.extensionProjects.upsertProject,
+      { ...VALID_INPUT, coordinatorId: coordinatorUserId },
+    );
+    await identity.mutation(api.extensionProjects.deleteProject, { projectId });
+
+    await expect(
+      identity.mutation(api.extensionProjects.deleteProject, { projectId }),
+    ).rejects.toThrow(/Projeto não encontrado/i);
+  });
+
+  it("[S7-5] guard R7 — usuário autenticado sem cadastro local é rejeitado", async () => {
+    const t = convexTest(schema, modules);
+    await seedWorld(t);
+
+    // Identidade válida (e-mail único) cujo e-mail NÃO existe em `users`.
+    await expect(
+      t
+        .withIdentity({
+          email: "fantasma@unicap.br",
+          subject: "fantasma-1",
+          emailVerificationTime: Date.now(),
+          tokenIdentifier: "tid-fantasma-1",
+        })
+        .query(api.extensionProjects.listProjects, {}),
+    ).rejects.toThrow(/Usuário não encontrado/i);
+  });
+
+  it("[S7-5] identidade sem e-mail resolve por tokenIdentifier (fallback do guard)", async () => {
+    const t = convexTest(schema, modules);
+    const { coordinatorUserId } = await seedWorld(t);
+
+    // Grava um usuário cujo e-mail é exatamente o tokenIdentifier do mock.
+    await t.run(async (ctx) => {
+      const userByTid = await ctx.db.insert("users", {
+        email: "tid-gestor-2",
+        name: "Gestor por Token",
+        role: "gestor",
+        active: true,
+      });
+      await ctx.db.insert("consents", {
+        userId: userByTid,
+        termVersion: CURRENT_TERM_VERSION,
+        acceptedAt: Date.now(),
+      });
+    });
+
+    const projects = await t
+      .withIdentity({
+        subject: "gestor-2",
+        tokenIdentifier: "tid-gestor-2",
+      })
+      .mutation(api.extensionProjects.upsertProject, {
+        ...VALID_INPUT,
+        coordinatorId: coordinatorUserId,
+      });
+    expect(projects.created).toBe(true);
+  });
+
+  it("[S7-5] R9 — ciclo completo: ativo divulgado, desativado some da divulgação", async () => {
+    const t = convexTest(schema, modules);
+    const { managerId, coordinatorUserId } = await seedWorld(t);
+    const identity = asManager(t, managerId);
+
+    const { projectId } = await identity.mutation(
+      api.extensionProjects.upsertProject,
+      { ...VALID_INPUT, coordinatorId: coordinatorUserId },
+    );
+
+    // Nascimento não ativo: oculto (R9).
+    expect(await t.query(api.extensionProjects.listPublicProjects, {})).toEqual(
+      [],
+    );
+
+    // Ativação: entra na divulgação.
+    await identity.mutation(api.extensionProjects.setStatus, {
+      projectId,
+      active: true,
+      changedAt: Date.now() + 60_000,
+    });
+    const afterActivation = await t.query(
+      api.extensionProjects.listPublicProjects,
+      {},
+    );
+    expect(afterActivation).toHaveLength(1);
+    expect(afterActivation[0]?.title).toBe(VALID_INPUT.title);
+
+    // Desativação: volta a ficar oculto (nenhum dado restrito exposto).
+    await identity.mutation(api.extensionProjects.setStatus, {
+      projectId,
+      active: false,
+      changedAt: Date.now() + 120_000,
+    });
+    expect(await t.query(api.extensionProjects.listPublicProjects, {})).toEqual(
+      [],
+    );
+  });
 });
