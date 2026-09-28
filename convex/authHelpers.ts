@@ -88,6 +88,7 @@ export const me = query({
   args: {},
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
+    console.log("me identity:", JSON.stringify(identity)); // <-- linha nova
     if (identity === null) return null;
     const email = identity.email ?? identity.tokenIdentifier;
     return (
