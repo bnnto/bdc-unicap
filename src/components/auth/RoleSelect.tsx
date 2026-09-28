@@ -10,9 +10,8 @@ type RoleSelectProps = {
 
 /**
  * Seleção de papel (issue [S1-1]) — radio group acessível com os papéis
- * do sistema. [REFACTOR_UI] O papel "empresa" foi descontinuado: restam
- * aluno, recrutador e gestor. Navegação por teclado nativa (setas) e
- * label por opção.
+ * do sistema: aluno, recrutador e gestor ([REFACTOR_UI] o papel "empresa"
+ * foi removido). Navegação por teclado nativa (setas) e label por opção.
  */
 export function RoleSelect({
   label,

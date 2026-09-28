@@ -7,7 +7,7 @@ import { TalentSearchPage } from "./components/talent/TalentSearchPage";
 import { JobsPanel } from "./components/recruiter/JobsPanel";
 import { JobKanban } from "./components/recruiter/JobKanban";
 import { OperationalPanel } from "./components/operational/OperationalPanel";
-import { ROLES, ROLE_LABELS } from "./lib/roles";
+import { ROLE_LABELS } from "./lib/roles";
 import { ExtensionProjectsPublicPage } from "./components/extension/ExtensionProjectsPublicPage";
 import { ExtensionDashboard } from "./components/extension/ExtensionDashboard";
 
@@ -250,10 +250,6 @@ function AuthGate() {
               </h2>
               <p className="mt-2 text-sm text-slate-600">
                 Painel do papel “{role !== null ? ROLE_LABELS[role] : "—"}”.
-              </p>
-              <p className="mt-1 text-sm text-slate-500">
-                Papéis disponíveis:{" "}
-                {ROLES.map((r) => ROLE_LABELS[r]).join(", ")}.
               </p>
             </section>
           )}
