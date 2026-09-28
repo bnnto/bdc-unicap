@@ -7,6 +7,7 @@ import {
   type ContactExposure,
   type LgpdChecklistReport,
 } from "../src/lib/lgpdAudit";
+import { getCurrentUser } from "./lib/currentUser";
 
 /**
  * Auditoria LGPD end-to-end (issue [S8-1], R6/R7) — camada de servidor.
@@ -25,10 +26,7 @@ async function requireActiveUser(ctx: MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
   if (identity === null) throw new Error("Não autenticado.");
   const email = identity.email ?? identity.tokenIdentifier;
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_email", (q) => q.eq("email", email))
-    .unique();
+  const user = await getCurrentUser(ctx);
   if (user === null) throw new Error("Usuário não encontrado.");
   const consents = await ctx.db
     .query("consents")
@@ -129,10 +127,7 @@ export const myDataReport = query({
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) return null;
     const email = identity.email ?? identity.tokenIdentifier;
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .unique();
+    const user = await getCurrentUser(ctx);
     if (user === null) return null;
 
     const consents = await ctx.db

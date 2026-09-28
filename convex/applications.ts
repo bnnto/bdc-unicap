@@ -19,6 +19,7 @@ import {
   type RejectionReason,
 } from "../src/lib/application";
 import type { LanguageLevel } from "../src/lib/skills";
+import { getCurrentUser } from "./lib/currentUser";
 
 /**
  * Candidaturas (issue [S3-4], R8).
@@ -32,10 +33,7 @@ async function requireActiveUser(ctx: QueryCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
   if (identity === null) throw new Error("Não autenticado.");
   const email = identity.email ?? identity.tokenIdentifier;
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_email", (q) => q.eq("email", email))
-    .unique();
+  const user = await getCurrentUser(ctx);
   if (user === null) throw new Error("Usuário não encontrado.");
   const consents = await ctx.db
     .query("consents")

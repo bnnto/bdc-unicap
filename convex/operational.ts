@@ -29,6 +29,7 @@ import {
   filterJobsForDashboard,
   normalizeDashboardFilters,
 } from "../src/lib/dashboardFilters";
+import { getCurrentUser } from "./lib/currentUser";
 
 /**
  * Painel Operacional (issues [S5-1] a [S5-5]) — agregações no SERVIDOR.
@@ -58,10 +59,7 @@ async function requireOperationalViewer(ctx: QueryCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
   if (identity === null) throw new Error("Não autenticado.");
   const email = identity.email ?? identity.tokenIdentifier;
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_email", (q) => q.eq("email", email))
-    .unique();
+  const user = await getCurrentUser(ctx);
   if (user === null) throw new Error("Usuário não encontrado.");
   const consents = await ctx.db
     .query("consents")

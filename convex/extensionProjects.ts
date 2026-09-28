@@ -11,6 +11,7 @@ import {
   isProjectPubliclyVisible,
   toPublicProjectView,
 } from "../src/lib/extensionProjectPublic";
+import { getCurrentUser } from "./lib/currentUser";
 
 /**
  * [S7-1] Cadastro de projetos de extensão — CRUD no servidor.
@@ -37,10 +38,7 @@ async function requireExtensionManager(ctx: QueryCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (identity === null) throw new Error("Não autenticado.");
   const email = identity.email ?? identity.tokenIdentifier;
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_email", (q) => q.eq("email", email))
-    .unique();
+  const user = await getCurrentUser(ctx);
   if (user === null) throw new Error("Usuário não encontrado.");
   const consents = await ctx.db
     .query("consents")

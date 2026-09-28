@@ -1,6 +1,7 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { CURRENT_TERM_VERSION, isKnownTermVersion } from "./consentTerms";
+import { getCurrentUser } from "./lib/currentUser";
 
 /**
  * Consentimento LGPD versionado (issue [S1-2], R7).
@@ -22,10 +23,7 @@ export const myStatus = query({
       };
     }
     const email = identity.email ?? identity.tokenIdentifier;
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .unique();
+    const user = await getCurrentUser(ctx);
     if (user === null) {
       return {
         authenticated: false as const,
@@ -63,10 +61,7 @@ export const acceptCurrentTerm = mutation({
       throw new Error("Não autenticado.");
     }
     const email = identity.email ?? identity.tokenIdentifier;
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .unique();
+    const user = await getCurrentUser(ctx);
     if (user === null) {
       throw new Error("Usuário não encontrado.");
     }

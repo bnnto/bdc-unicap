@@ -1,5 +1,6 @@
 import { query, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 /**
  * Funções de suporte à autenticação e papéis (issue [S1-1]).
@@ -87,15 +88,8 @@ export const createUser = internalMutation({
 export const me = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    console.log("me identity:", JSON.stringify(identity)); // <-- linha nova
-    if (identity === null) return null;
-    const email = identity.email ?? identity.tokenIdentifier;
-    return (
-      (await ctx.db
-        .query("users")
-        .withIndex("by_email", (q) => q.eq("email", email))
-        .unique()) ?? null
-    );
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return null;
+    return await ctx.db.get(userId);
   },
 });

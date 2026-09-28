@@ -33,6 +33,7 @@ import {
   canRecruiterSeeContact,
   recruiterProjection,
 } from "../src/lib/visibility";
+import { getCurrentUser } from "./lib/currentUser";
 
 /**
  * Perfil do aluno/egresso (issues [S1-3]/[S1-4], R1/R2/R6).
@@ -73,11 +74,8 @@ export const myProfile = query({
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) return null;
     const email = identity.email ?? identity.tokenIdentifier;
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .unique();
-    if (user === null) return null;
+    const user = await getCurrentUser(ctx);
+    if (user === null) return null; 
     return (
       (await ctx.db
         .query("students")
@@ -459,10 +457,7 @@ export const searchTalent = query({
     const email = identity.email ?? identity.tokenIdentifier;
 
     // R7 + papel — uma única resolução do guard por consulta.
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .unique();
+    const user = await getCurrentUser(ctx);
     if (user === null) throw new Error("Usuário não encontrado.");
     const consents = await ctx.db
       .query("consents")
@@ -592,10 +587,7 @@ export const searchTalent = query({
 export const resolveStudent = internalQuery({
   args: { email: v.string() },
   handler: async (ctx, { email }) => {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .unique();
+    const user = await getCurrentUser(ctx);
     if (user === null)
       return { ok: false as const, reason: "usuario_inexistente" as const };
     const student = await ctx.db
@@ -642,10 +634,7 @@ export const deleteMyProfile = mutation({
     const email = identity.email ?? identity.tokenIdentifier;
 
     // R7 — guard comum do módulo: usuário existente e aceite vigente.
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
-      .unique();
+    const user = await getCurrentUser(ctx);
     if (user === null) throw new Error("Usuário não encontrado.");
     const consents = await ctx.db
       .query("consents")
