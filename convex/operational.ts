@@ -47,7 +47,10 @@ import { getCurrentUser } from "./lib/currentUser";
  * expostos apenas como contagens/médias agregadas (LGPD).
  */
 
-/** Papéis autorizados a ver o painel operacional. */
+/**
+ * Papéis autorizados a ver o painel operacional.
+ * [REFACTOR_UI] "empresa" é legado e segue autorizado (≈ recrutador).
+ */
 function canViewOperationalPanel(
   role: string | null | undefined,
 ): role is "recrutador" | "gestor" | "empresa" {

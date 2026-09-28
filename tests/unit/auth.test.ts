@@ -44,13 +44,15 @@ describe("papéis (S1-1)", () => {
     expect(isRole("aluno")).toBe(true);
     expect(isRole("recrutador")).toBe(true);
     expect(isRole("gestor")).toBe(true);
-    expect(isRole("empresa")).toBe(true);
+    // [REFACTOR_UI] O papel "empresa" foi descontinuado.
+    expect(isRole("empresa")).toBe(false);
     expect(isRole("admin")).toBe(false);
     expect(isRole(undefined)).toBe(false);
   });
 
   it("expõe rótulos legíveis para todos os papéis", () => {
     expect(ROLE_LABELS.aluno).toBe("Aluno");
-    expect(ROLE_LABELS.empresa).toBe("Empresa / Recrutador");
+    expect(ROLE_LABELS.recrutador).toBe("Recrutador");
+    expect(ROLE_LABELS).not.toHaveProperty("empresa");
   });
 });

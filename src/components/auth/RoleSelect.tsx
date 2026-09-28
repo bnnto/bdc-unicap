@@ -9,8 +9,10 @@ type RoleSelectProps = {
 };
 
 /**
- * Seleção de papel (issue [S1-1]) — radio group acessível com os 4 papéis
- * do sistema. Navegação por teclado nativa (setas) e label por opção.
+ * Seleção de papel (issue [S1-1]) — radio group acessível com os papéis
+ * do sistema. [REFACTOR_UI] O papel "empresa" foi descontinuado: restam
+ * aluno, recrutador e gestor. Navegação por teclado nativa (setas) e
+ * label por opção.
  */
 export function RoleSelect({
   label,
@@ -31,7 +33,7 @@ export function RoleSelect({
         ) : null}
       </legend>
       <div
-        className="grid grid-cols-2 gap-2"
+        className="grid grid-cols-3 gap-2"
         role="radiogroup"
         aria-label={label}
         id={groupId}
@@ -39,7 +41,7 @@ export function RoleSelect({
         {ROLES.map((role) => (
           <label
             key={role}
-            className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+            className={`flex cursor-pointer items-center justify-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
               value === role
                 ? "border-primary bg-[#FDF2F4] font-semibold text-primary"
                 : "border-slate-300 bg-white text-slate-700 hover:border-primary"

@@ -232,7 +232,7 @@ function TimeToHireSection({ stats }: { stats: TimeToHireStats | undefined }) {
   return (
     <section
       data-testid="time-to-hire"
-      className="mt-3"
+      className="min-w-0"
       aria-label="Time to hire"
     >
       <Card title="Time-to-Hire médio" accent="secondary">
@@ -274,7 +274,7 @@ function FunnelSection({ funnel }: { funnel: FunnelResult | undefined }) {
   return (
     <section
       data-testid="pipeline-funnel"
-      className="mt-3"
+      className="min-w-0"
       aria-label="Funil de conversão"
     >
       <Card title="Funil de Conversão" accent="primary">
@@ -597,7 +597,9 @@ export function OperationalPanel() {
         <KpiCard value={summary.jobs.total} label="Total de vagas" />
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+      {/* [REFACTOR_UI] Painel executivo: cards e gráficos distribuídos em
+          CSS Grid (sem empilhamento vertical de documento). */}
+      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
         <Card title="Taxa de Empregabilidade" accent="secondary">
           <p className="font-serif text-3xl font-bold text-primary">
             {formatEmployabilityRate(summary.employability.rate)}
@@ -625,8 +627,10 @@ export function OperationalPanel() {
         </Card>
       </div>
 
-      <TimeToHireSection stats={tth} />
-      <FunnelSection funnel={funnel} />
+      <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+        <TimeToHireSection stats={tth} />
+        <FunnelSection funnel={funnel} />
+      </div>
       <RankingSection rankings={rankings} />
     </section>
   );
