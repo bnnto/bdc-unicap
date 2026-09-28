@@ -1,4 +1,9 @@
-import { query, mutation, internalQuery } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalQuery,
+  internalMutation,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -23,6 +28,7 @@ import {
   type TalentCandidate,
   type TalentFilters,
 } from "../src/lib/talentSearch";
+import { buildBenchmarkBatch } from "../src/lib/talentBenchmark";
 import {
   canRecruiterSeeContact,
   recruiterProjection,
@@ -680,5 +686,74 @@ export const deleteMyProfile = mutation({
         consents: consents.length,
       },
     };
+  },
+});
+
+/**
+ * [S8-3] E-mail sintético da conta-âncora do seed de benchmark. A conta
+ * não representa pessoa real — apenas fornece um `userId` válido (FK) para
+ * os perfis semeados; nenhum fluxo do portal consulta esse usuário.
+ */
+function benchmarkAnchorEmail(runId: number): string {
+  return `benchmark-run-${String(runId)}@seed.unicap.br`;
+}
+
+/**
+ * [S8-3] Seed determinístico do benchmark do Banco de Talentos: insere
+ * BENCHMARK_UNIT_SIZE perfis por chamada, a partir da regra pura
+ * `buildBenchmarkBatch` (mesma população dos testes). Idempotente por
+ * lote: a matrícula-âncora do primeiro registro existe ⇒ lote já semeado
+ * (retorna 0). População segregada: g%5==0 inativo (R1), g%5==1 privado
+ * (R2), demais elegíveis — as regras continuam valendo em escala.
+ * Internal: executável só por testes/backoffice, nunca pela UI.
+ */
+export const seedTalentBenchmarkBatch = internalMutation({
+  args: { runId: v.number(), unitIndex: v.number() },
+  handler: async (ctx, { runId, unitIndex }): Promise<number> => {
+    const { rows } = buildBenchmarkBatch({ runId, unitIndex });
+    const anchor = rows[0];
+    if (anchor === undefined) return 0;
+
+    // Idempotência: a âncora (primeira matrícula do lote) já existe?
+    const existingAnchor = await ctx.db
+      .query("students")
+      .withIndex("by_enrollment", (q) => q.eq("enrollment", anchor.enrollment))
+      .unique();
+    if (existingAnchor !== null) return 0;
+
+    // Conta-âncora do run (criada na primeira unidade semeada).
+    const anchorEmail = benchmarkAnchorEmail(runId);
+    const anchorUser = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", anchorEmail))
+      .unique();
+    const anchorUserId =
+      anchorUser?._id ??
+      (await ctx.db.insert("users", {
+        email: anchorEmail,
+        name: `Seed Benchmark run ${String(runId)}`,
+        role: "aluno",
+        active: true,
+      }));
+
+    let inserted = 0;
+    for (const row of rows) {
+      await ctx.db.insert("students", {
+        userId: anchorUserId,
+        fullName: row.fullName,
+        enrollment: row.enrollment,
+        status: row.status,
+        course: row.course,
+        graduationYear: row.graduationYear,
+        ...(row.semester !== undefined ? { semester: row.semester } : {}),
+        location: row.location,
+        availability: row.availability,
+        visibility: row.visibility,
+        skills: row.skills,
+        languages: row.languages,
+      });
+      inserted += 1;
+    }
+    return inserted;
   },
 });
