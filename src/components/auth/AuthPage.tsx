@@ -3,7 +3,11 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { RoleSelect } from "./RoleSelect";
-import { ROLES, ROLE_LABELS, type Role } from "../../lib/roles";
+import {
+  PUBLIC_SIGNUP_ROLES,
+  ROLE_LABELS,
+  type PublicSignupRole,
+} from "../../lib/roles";
 import {
   CONSENT_TERM,
   CONSENT_TERM_VERSION,
@@ -22,7 +26,7 @@ export function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [role, setRole] = useState<Role>("aluno");
+  const [role, setRole] = useState<PublicSignupRole>("aluno");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [consentAccepted, setConsentAccepted] = useState(false);
@@ -194,7 +198,7 @@ export function AuthPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-a11y-slate-500">
-          {ROLES.map((r) => ROLE_LABELS[r]).join(" · ")}
+          {PUBLIC_SIGNUP_ROLES.map((r) => ROLE_LABELS[r]).join(" · ")}
         </p>
       </main>
     </div>

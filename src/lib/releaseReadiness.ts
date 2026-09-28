@@ -13,6 +13,8 @@ export const RELEASE_VERSION = "1.0.0";
 /**
  * Gates por entrega: cada issue de SPRINTS.md com CAs verdes via PR
  * mergeado. S8-5 é a própria release — não se auto-declara.
+ * [REFACTOR_GESTOR] Os gates S7-1/S7-2/S7-3 (módulo de extensão) foram
+ * removidos — o módulo foi cancelado e deletado do produto.
  */
 export const RELEASE_GATES: ReadonlyArray<{
   id: string;
@@ -37,9 +39,6 @@ export const RELEASE_GATES: ReadonlyArray<{
   { id: "S5-1", title: "Painel Operacional (métricas)" },
   { id: "S5-2", title: "Time-to-Hire" },
   { id: "S6-1", title: "Exportação CSV/XLSX + PDF institucional" },
-  { id: "S7-1", title: "Cadastro de projetos de extensão" },
-  { id: "S7-2", title: "Acompanhamento ativo/não ativo" },
-  { id: "S7-3", title: "Divulgação pública (R9, whitelist)" },
   { id: "S8-1", title: "Auditoria LGPD end-to-end (art. 18)" },
   { id: "S8-2", title: "Acessibilidade WCAG AA (contraste, foco, landmarks)" },
   { id: "S8-3", title: "Benchmark de busca com 10k+ currículos" },

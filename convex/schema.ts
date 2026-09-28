@@ -3,10 +3,14 @@ import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 
 /**
- * Esquema da iteração S1 — Autenticação e Perfis (LGPD), issue [S1-1].
- * `authTables` (Convex Auth) fornece users/sessions/accounts/refresh tokens etc.
- * As demais tabelas de domínio (students, jobs, applications, extensionProjects)
- * serão adicionadas issue a issue conforme SPRINTS.md. Referência: CEREBRO.md §4.1.
+ * Esquema do portal — Autenticação/Perfis (LGPD), Talentos, Vagas e
+ * Pipeline. `authTables` (Convex Auth) fornece users/sessions/accounts/
+ * refresh tokens etc. As demais tabelas de domínio foram adicionadas
+ * issue a issue conforme SPRINTS.md. Referência: CEREBRO.md §4.1.
+ *
+ * [REFACTOR_GESTOR] Etapa 2 — o módulo de Projetos de Extensão foi
+ * CANCELADO: a tabela `extensionProjects` foi removida do schema (o
+ * módulo inteiro — backend, telas e regras — foi deletado).
  */
 export default defineSchema({
   ...authTables,
@@ -24,9 +28,9 @@ export default defineSchema({
     image: v.optional(v.string()),
     isAnonymous: v.optional(v.boolean()),
     /**
-     * [REFACTOR_UI] Papel único e ativação (R7). O papel "empresa" foi
-     * removido do sistema — restam aluno, recrutador e gestor (os
-     * registros legados já foram excluídos do banco).
+     * [REFACTOR_GESTOR] Papel único e ativação (R7). O cadastro público
+     * só oferece aluno/recrutador — gestor é provisionado manualmente
+     * pela coordenação (Convex Dashboard).
      */
     role: v.optional(
       v.union(v.literal("aluno"), v.literal("recrutador"), v.literal("gestor")),
@@ -255,40 +259,6 @@ export default defineSchema({
      * pipeline (5 colunas) sem varredura completa da tabela.
      */
     .index("by_stage", ["stage"]),
-
-  /**
-   * Projetos de extensão (issue [S7-1], Módulo de Extensão).
-   * `coordinatorId` aponta para `users` (docente/servidor coordenador);
-   * `area` segue o enum fixo das áreas temáticas do RESGES/CENADES;
-   * `active`/`statusChangedAt` ([S7-2]) — acompanhamento ativo/não ativo
-   * com a data da última mudança (não ativo = oculto na divulgação da [S7-3]).
-   */
-  extensionProjects: defineTable({
-    title: v.string(),
-    description: v.string(),
-    coordinatorId: v.id("users"),
-    area: v.union(
-      v.literal("comunicacao"),
-      v.literal("cultura"),
-      v.literal("direitos_humanos_justica"),
-      v.literal("educacao"),
-      v.literal("meio_ambiente"),
-      v.literal("saude"),
-      v.literal("tecnologia_e_producao"),
-      v.literal("trabalho"),
-    ),
-    targetAudience: v.string(),
-    createdAt: v.number(),
-    /**
-     * [S7-2] Acompanhamento ativo/não ativo com registro de data.
-     * Recém-cadastrado nasce não ativo; `statusChangedAt` é a data da
-     * última mudança de estado, gravada apenas pelo toggle idempotente.
-     */
-    active: v.boolean(),
-    statusChangedAt: v.number(),
-  })
-    .index("by_coordinator", ["coordinatorId"])
-    .index("by_created_at", ["createdAt"]),
 
   /**
    * [S8-1] Trilha de auditoria LGPD — snapshot imutável de cada execução

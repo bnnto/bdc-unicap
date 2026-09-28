@@ -7,9 +7,8 @@ import { TalentSearchPage } from "./components/talent/TalentSearchPage";
 import { JobsPanel } from "./components/recruiter/JobsPanel";
 import { JobKanban } from "./components/recruiter/JobKanban";
 import { OperationalPanel } from "./components/operational/OperationalPanel";
+import { ManagerDashboard } from "./components/manager/ManagerDashboard";
 import { ROLE_LABELS } from "./lib/roles";
-import { ExtensionProjectsPublicPage } from "./components/extension/ExtensionProjectsPublicPage";
-import { ExtensionDashboard } from "./components/extension/ExtensionDashboard";
 
 /**
  * Shell da aplicação (issue [S1-1]): usuários autenticados veem o painel
@@ -22,14 +21,11 @@ import { ExtensionDashboard } from "./components/extension/ExtensionDashboard";
  * [REFACTOR_UI] Etapa 2 — o painel do recrutador/gestor usa abas na Navbar
  * (renderização condicional, uma tela visível por vez) em layout de
  * largura total; nada de painéis empilhados no meio da página.
+ *
+ * [REFACTOR_GESTOR] Etapa 2 — o módulo de Projetos de Extensão foi
+ * cancelado: sem rotas públicas (R9/extensão) e sem dashboard de
+ * extensão; a aba Dashboard do gestor exibe o Painel Estratégico.
  */
-
-/** Rotas públicas (R9, [S7-3]): acessíveis sem autenticação. */
-const PUBLIC_PATHS = new Set(["/extensao"]);
-
-function isPublicPath(): boolean {
-  return PUBLIC_PATHS.has(window.location.pathname);
-}
 
 export default function App() {
   return <AuthGate />;
@@ -172,14 +168,13 @@ function AuthGate() {
   }
 
   if (!isAuthenticated || user === null) {
-    // R9 ([S7-3]): a divulgação pública de projetos de extensão é aberta
-    // sem login; qualquer outra rota de visitante cai na autenticação.
-    // [S8-2]: AuthPage e a página pública são donas do próprio landmark
-    // main (com o destino do skip-link) — sem wrapper duplicado aqui.
+    // Visitante cai na autenticação. ([REFACTOR_GESTOR] a divulgação
+    // pública de extensão (R9) não existe mais — módulo cancelado.)
+    // [S8-2]: AuthPage é dona do próprio landmark main.
     return (
       <>
         <SkipLink />
-        {isPublicPath() ? <ExtensionProjectsPublicPage /> : <AuthPage />}
+        <AuthPage />
       </>
     );
   }
@@ -226,14 +221,13 @@ function AuthGate() {
           className="mx-auto w-full max-w-[1440px] px-6 py-6"
         >
           {isRecruiterSide && activeTab === "dashboard" ? (
-            <>
-              {role === "gestor" ? (
-                <div className="mb-6">
-                  <ExtensionDashboard />
-                </div>
-              ) : null}
+            /* [REFACTOR_GESTOR] Etapa 4 — o gestor recebe o Painel
+               Estratégico; o recrutador mantém o Painel Operacional. */
+            role === "gestor" ? (
+              <ManagerDashboard />
+            ) : (
               <OperationalPanel />
-            </>
+            )
           ) : isRecruiterSide && activeTab === "talentos" ? (
             <TalentSearchPage />
           ) : isRecruiterSide && activeTab === "vagas" ? (

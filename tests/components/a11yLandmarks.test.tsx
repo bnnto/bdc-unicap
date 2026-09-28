@@ -45,12 +45,10 @@ import { useQuery, useMutation } from "convex/react";
 import App from "../../src/App";
 import { AuthStateContext } from "../../src/components/auth/authContext";
 import { AuthPage } from "../../src/components/auth/AuthPage";
-import { ExtensionProjectsPublicPage } from "../../src/components/extension/ExtensionProjectsPublicPage";
 import { StudentHomePage } from "../../src/components/student/StudentHomePage";
 import { MyApplicationsPage } from "../../src/components/student/MyApplicationsPage";
 import { TalentSearchPage } from "../../src/components/talent/TalentSearchPage";
 import { OperationalPanel } from "../../src/components/operational/OperationalPanel";
-import { ExtensionDashboard } from "../../src/components/extension/ExtensionDashboard";
 import { Button } from "../../src/components/ui/button";
 import { Card } from "../../src/components/ui/card";
 import { Input } from "../../src/components/ui/input";
@@ -84,9 +82,7 @@ const SUMMARY_CARREGADO = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockedUseQuery.mockImplementation(((query: unknown) => {
-    if (query === "query:extensionProjects.listPublicProjects") return [];
     // Painéis de gestor/recrutador: listas vazias = painel renderizado.
-    if (query === "query:extensionProjects.listProjects") return [];
     if (query === "query:operational.operationalSummary")
       return SUMMARY_CARREGADO;
     if (query === "query:students.searchTalent") {
@@ -298,18 +294,6 @@ describe("S8-2 CA 2 — landmarks corretos (WCAG 1.3.1)", () => {
     ).toBeInTheDocument();
   });
 
-  it("ExtensionProjectsPublicPage — banner/main/contentinfo nomeados (R9)", () => {
-    mockedUseQuery.mockReturnValue([] as never);
-    render(<ExtensionProjectsPublicPage />);
-
-    expect(screen.getByRole("banner")).toHaveAttribute(
-      "aria-label",
-      "Cabeçalho",
-    );
-    expect(screen.getByRole("main")).toBeInTheDocument();
-    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
-  });
-
   it("StudentHomePage — nav de âncoras com nome acessível e títulos sem saltos", () => {
     mockedUseQuery.mockReturnValue([] as never);
     render(
@@ -364,14 +348,6 @@ describe("S8-2 CA 2 — landmarks corretos (WCAG 1.3.1)", () => {
     expect(screen.queryByRole("main")).toBeNull();
     expect(
       screen.getByRole("region", { name: /painel operacional/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("ExtensionDashboard — região nomeada e sem main aninhado", () => {
-    render(<ExtensionDashboard />);
-    expect(screen.queryByRole("main")).toBeNull();
-    expect(
-      screen.getByRole("region", { name: "Painel de extensão" }),
     ).toBeInTheDocument();
   });
 });

@@ -1,17 +1,23 @@
 import { useId } from "react";
-import { ROLES, ROLE_LABELS, type Role } from "../../lib/roles";
+import {
+  PUBLIC_SIGNUP_ROLES,
+  ROLE_LABELS,
+  type PublicSignupRole,
+} from "../../lib/roles";
 
 type RoleSelectProps = {
   label: string;
-  value: Role;
-  onChange: (role: Role) => void;
+  value: PublicSignupRole;
+  onChange: (role: PublicSignupRole) => void;
   required?: boolean;
 };
 
 /**
- * Seleção de papel (issue [S1-1]) — radio group acessível com os papéis
- * do sistema: aluno, recrutador e gestor ([REFACTOR_UI] o papel "empresa"
- * foi removido). Navegação por teclado nativa (setas) e label por opção.
+ * Seleção de papel no cadastro (issue [S1-1]) — radio group acessível.
+ * [REFACTOR_GESTOR] Etapa 3: o público escolhe apenas aluno ou recrutador;
+ * a opção "Gestor" NÃO aparece (contas de gestor são provisionadas
+ * manualmente pela coordenação via Convex Dashboard). Navegação por
+ * teclado nativa (setas) e label por opção.
  */
 export function RoleSelect({
   label,
@@ -32,12 +38,12 @@ export function RoleSelect({
         ) : null}
       </legend>
       <div
-        className="grid grid-cols-3 gap-2"
+        className="grid grid-cols-2 gap-2"
         role="radiogroup"
         aria-label={label}
         id={groupId}
       >
-        {ROLES.map((role) => (
+        {PUBLIC_SIGNUP_ROLES.map((role) => (
           <label
             key={role}
             className={`flex cursor-pointer items-center justify-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
