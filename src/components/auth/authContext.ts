@@ -17,7 +17,7 @@ export type AuthState = {
 };
 
 export const AuthStateContext = createContext<AuthState>({
-  isLoading: false,
+  isLoading: true,
   isAuthenticated: false,
   user: null,
   role: null,
