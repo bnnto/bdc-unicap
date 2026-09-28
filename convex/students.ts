@@ -386,7 +386,7 @@ export const publicProfile = query({
 
 /**
  * [S2-3] Banco de Talentos — busca com filtros avançados e resultados
- * paginados (CAs 1 e 2), para recrutadores/gestores/empresa autenticados
+ * paginados (CAs 1 e 2), para recrutadores e gestores autenticados
  * (R7). R1 (apenas ativo/egresso) e R2 (apenas `visibility: publico`)
  * são aplicados no servidor via índice `by_visibility_status` e
  * re-verificados por `canAppearInTalentBank` antes de expor cada card.
@@ -407,6 +407,19 @@ export const searchTalent = query({
     ),
     location: v.optional(v.string()),
     skill: v.optional(v.string()),
+    /** [REFACTOR_UI] Competências em chips (casa com pelo menos uma). */
+    skills: v.optional(v.array(v.string())),
+    /** [REFACTOR_UI] Faixa de previsão de conclusão (anos inclusivos). */
+    graduationYearFrom: v.optional(v.number()),
+    graduationYearTo: v.optional(v.number()),
+    /** [REFACTOR_UI] Ordenação do dropdown "Ordenar por". */
+    sort: v.optional(
+      v.union(
+        v.literal("relevancia"),
+        v.literal("nome"),
+        v.literal("conclusao_proxima"),
+      ),
+    ),
     language: v.optional(v.string()),
     languageLevel: v.optional(
       v.union(
@@ -435,6 +448,7 @@ export const searchTalent = query({
     if (!hasConsent) {
       throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
     }
+    // [REFACTOR_UI] "empresa" é legado e segue acessando (≈ recrutador).
     if (
       user.role !== "recrutador" &&
       user.role !== "gestor" &&
@@ -452,8 +466,12 @@ export const searchTalent = query({
       availability: args.availability,
       location: args.location?.trim() || undefined,
       skill: args.skill?.trim() || undefined,
+      skills: args.skills,
       language: args.language?.trim() || undefined,
       languageLevel: args.languageLevel,
+      graduationYearFrom: args.graduationYearFrom,
+      graduationYearTo: args.graduationYearTo,
+      sort: args.sort,
       page: args.page,
     };
 

@@ -21,12 +21,17 @@ import { getCurrentUser } from "./lib/currentUser";
 
 /**
  * Vagas do recrutador (issue [S3-1]).
- * Toda operação exige consentimento vigente (R7) e papel de recrutador/
- * gestor/empresa. A validação usa a mesma regra pura do formulário
+ * Toda operação exige consentimento vigente (R7) e papel de recrutador
+ * ou gestor ([REFACTOR_UI] "empresa" descontinuado — é "recrutador").
+ * A validação usa a mesma regra pura do formulário
  * (src/lib/job.ts) — erros claros no servidor, não apenas na UI.
  */
 
-/** Papéis autorizados a publicar/gerenciar vagas. */
+/**
+ * Papéis autorizados a publicar/gerenciar vagas.
+ * [REFACTOR_UI] "empresa" é legado (descontinuado no cadastro) e continua
+ * autorizado, tratado como recrutador — não quebra contas antigas.
+ */
 function canManageJobs(
   role: string | null | undefined,
 ): role is "recrutador" | "gestor" | "empresa" {

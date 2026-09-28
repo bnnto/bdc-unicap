@@ -23,6 +23,14 @@ export default defineSchema({
     phoneVerificationTime: v.optional(v.number()),
     image: v.optional(v.string()),
     isAnonymous: v.optional(v.boolean()),
+    /**
+     * [REFACTOR_UI] Papel único e ativação (R7). O papel "empresa" foi
+     * DESCONTINUADO na UI/cadastro (novo registros nunca o criam), mas o
+     * literal permanece no union como valor legado: a validação de schema
+     * do Convex confere TODOS os documentos existentes no deploy — remover
+     * o literal sem migrar os dados quebraria o push em produção.
+     * Os guards de negócio mapeiam "empresa" → "recrutador".
+     */
     role: v.optional(
       v.union(
         v.literal("aluno"),

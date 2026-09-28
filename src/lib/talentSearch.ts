@@ -33,6 +33,19 @@ export const TALENT_SCAN_SCHEMA = {
 export type TalentScanIndex = keyof typeof TALENT_SCAN_SCHEMA;
 
 /**
+ * [REFACTOR_UI] Opções do dropdown "Ordenar por" do Banco de Talentos.
+ * "relevancia" preserva a ordem da varredura indexada (padrão); as demais
+ * ordenam após os filtros, antes da paginação.
+ */
+export const TALENT_SORT_OPTIONS = [
+  "relevancia",
+  "nome",
+  "conclusao_proxima",
+] as const;
+
+export type TalentSortOption = (typeof TALENT_SORT_OPTIONS)[number];
+
+/**
  * Escolhe o índice de entrada a partir dos filtros (regra pura, testável).
  * Disponibilidade → `by_status_availability`; caso contrário, a entrada
  * padrão `by_visibility_status` (R1+R2 na varredura). Em ambos os casos
@@ -88,9 +101,22 @@ export type TalentFilters = {
   availability?: Availability;
   location?: string;
   skill?: string;
+  /**
+   * [REFACTOR_UI] Competências em chips — o candidato precisa casar com
+   * pelo menos uma (OU dentro do grupo; E entre categorias de filtro).
+   */
+  skills?: readonly string[];
   language?: string;
   /** Nível mínimo exigido do idioma informado (aceita superiores). */
   languageLevel?: LanguageLevel;
+  /**
+   * [REFACTOR_UI] Faixa de "Previsão de Conclusão" — ano de graduação
+   * inclusivo nos dois extremos.
+   */
+  graduationYearFrom?: number;
+  graduationYearTo?: number;
+  /** [REFACTOR_UI] Ordenação do dropdown "Ordenar por" (padrão: relevância). */
+  sort?: TalentSortOption;
   /** Página atual (0-based). */
   page?: number;
 };
@@ -176,6 +202,18 @@ function matchesTextFilters(
   if (filters.status !== undefined && candidate.status !== filters.status)
     return false;
 
+  // [REFACTOR_UI] Faixa de previsão de conclusão (anos inclusivos).
+  if (
+    filters.graduationYearFrom !== undefined &&
+    candidate.graduationYear < filters.graduationYearFrom
+  )
+    return false;
+  if (
+    filters.graduationYearTo !== undefined &&
+    candidate.graduationYear > filters.graduationYearTo
+  )
+    return false;
+
   if (
     filters.availability !== undefined &&
     candidate.availability !== filters.availability
@@ -195,6 +233,18 @@ function matchesTextFilters(
       normalizeForSearch(s).includes(wanted),
     );
     if (!has) return false;
+  }
+
+  // [REFACTOR_UI] Chips de competências: casa com pelo menos uma (OU).
+  const chips = (filters.skills ?? []).filter((c) => c.trim().length > 0);
+  if (chips.length > 0) {
+    const hasAny = chips.some((chip) => {
+      const wanted = normalizeForSearch(chip);
+      return candidate.skills.some((s) =>
+        normalizeForSearch(s).includes(wanted),
+      );
+    });
+    if (!hasAny) return false;
   }
 
   const language = filters.language ?? "";
@@ -226,9 +276,20 @@ function matchesTextFilters(
   return true;
 }
 
+const SORT_COMPARATORS: Record<
+  TalentSortOption,
+  (a: TalentCandidate, b: TalentCandidate) => number
+> = {
+  relevancia: () => 0,
+  nome: (a, b) =>
+    a.fullName.localeCompare(b.fullName, "pt-BR", { sensitivity: "base" }),
+  conclusao_proxima: (a, b) => a.graduationYear - b.graduationYear,
+};
+
 /**
  * Aplica filtros combináveis (E lógico entre categorias), mantendo apenas
- * candidatos elegíveis (R1/R2) e paginando o resultado.
+ * candidatos elegíveis (R1/R2), ordenando pelo "Ordenar por" escolhido e
+ * paginando o resultado.
  */
 export function filterTalentCandidates(
   candidates: readonly TalentCandidate[],
@@ -237,14 +298,20 @@ export function filterTalentCandidates(
   const eligible = candidates.filter((c) => canAppearInTalentBank(c));
   const matching = eligible.filter((c) => matchesTextFilters(c, filters));
 
-  const total = matching.length;
+  // [REFACTOR_UI] Ordenação estável (Array.sort) aplicada antes da paginação.
+  const sort = filters.sort ?? "relevancia";
+  const comparator = SORT_COMPARATORS[sort];
+  const sorted =
+    comparator === undefined ? matching : [...matching].sort(comparator);
+
+  const total = sorted.length;
   const pageCount = Math.max(1, Math.ceil(total / TALENT_PAGE_SIZE));
   const requestedPage = filters.page ?? 0;
   const page = Math.min(Math.max(0, Math.floor(requestedPage)), pageCount - 1);
   const start = page * TALENT_PAGE_SIZE;
 
   return {
-    items: matching.slice(start, start + TALENT_PAGE_SIZE),
+    items: sorted.slice(start, start + TALENT_PAGE_SIZE),
     total,
     page,
     pageCount,

@@ -46,7 +46,11 @@ function lcg(seed: number): () => number {
   };
 }
 
-const COURSES = [
+/**
+ * Catálogo de cursos UNICAP — compartilhado com a UI (facets do Banco de
+ * Talentos) e com o seed do benchmark.
+ */
+export const COURSES = [
   "Ciência da Computação",
   "Sistemas para Internet",
   "Engenharia de Computação",
