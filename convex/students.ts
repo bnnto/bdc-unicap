@@ -448,12 +448,7 @@ export const searchTalent = query({
     if (!hasConsent) {
       throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
     }
-    // [REFACTOR_UI] "empresa" é legado e segue acessando (≈ recrutador).
-    if (
-      user.role !== "recrutador" &&
-      user.role !== "gestor" &&
-      user.role !== "empresa"
-    ) {
+    if (user.role !== "recrutador" && user.role !== "gestor") {
       throw new Error(
         "Apenas recrutadores e gestores acessam o Banco de Talentos.",
       );

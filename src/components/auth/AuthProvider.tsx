@@ -4,22 +4,7 @@ import { useQuery } from "convex/react";
 import type { ConvexReactClient } from "convex/react";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { api } from "../../../convex/_generated/api";
-import { isRole, type Role } from "../../lib/roles";
 import { AuthStateContext, type AuthState } from "./authContext";
-
-type UserDoc = Doc<"users">;
-type RawRole = UserDoc["role"];
-
-/**
- * [REFACTOR_UI] O papel "empresa" foi descontinuado no cadastro; contas
- * antigas (dado legado) continuam autenticando e são apresentadas como
- * "recrutador" na UI.
- */
-function toUiRole(rawRole: RawRole): Role | null {
-  if (rawRole === undefined) return null;
-  if (rawRole === "empresa") return "recrutador";
-  return isRole(rawRole) ? rawRole : null;
-}
 
 /**
  * Camada de autenticação/papéis (issue [S1-1]).
@@ -40,7 +25,7 @@ function AuthStateProvider({ children }: { children: ReactNode }) {
       isLoading: isLoading || (isAuthenticated && user === undefined),
       isAuthenticated,
       user: user ?? null,
-      role: toUiRole(user?.role),
+      role: user?.role ?? null,
     }),
     [isLoading, isAuthenticated, user],
   );

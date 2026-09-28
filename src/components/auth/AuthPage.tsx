@@ -12,7 +12,7 @@ import {
 
 /**
  * Página de autenticação (issue [S1-1]): entrada única com abas Entrar/Criar
- * conta. O cadastro exige nome e papel (aluno, recrutador, gestor, empresa).
+ * conta. O cadastro exige nome e papel (aluno, recrutador, gestor).
  * Identidade UNICAP: bordô primário, dourado no destaque (DESIGN.md).
  */
 export function AuthPage() {

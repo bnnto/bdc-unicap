@@ -48,11 +48,7 @@ export const createUser = internalMutation({
   args: {
     email: v.string(),
     name: v.string(),
-    /**
-     * [REFACTOR_UI] O papel "empresa" foi descontinuado — novos cadastros
-     * são aluno, recrutador ou gestor (recrutadores de empresas usam
-     * "recrutador").
-     */
+    /** [REFACTOR_UI] Cadastro com os papéis vigentes do sistema. */
     role: v.union(
       v.literal("aluno"),
       v.literal("recrutador"),
