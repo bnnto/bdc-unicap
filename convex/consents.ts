@@ -1,7 +1,7 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { CURRENT_TERM_VERSION, isKnownTermVersion } from "./consentTerms";
-import { getCurrentUser } from "./lib/currentUser";
+import { getCurrentUser, requireActiveConsentUser } from "./lib/currentUser";
 
 /**
  * Consentimento LGPD versionado (issue [S1-2], R7).
@@ -22,7 +22,17 @@ export const myStatus = query({
         active: false,
       };
     }
-    const email = identity.email ?? identity.tokenIdentifier;
+    // Resolução pelo token (getAuthUserId + fallback) — não pelo e-mail da
+    // identidade, que falhava no signUp do provider Credentials.
+    const guard = await requireActiveConsentUser(ctx);
+    if (guard.ok === false && guard.reason === "usuario_inexistente") {
+      return {
+        authenticated: false as const,
+        consents: [],
+        currentVersion: CURRENT_TERM_VERSION,
+        active: false,
+      };
+    }
     const user = await getCurrentUser(ctx);
     if (user === null) {
       return {
@@ -60,7 +70,6 @@ export const acceptCurrentTerm = mutation({
     if (identity === null) {
       throw new Error("Não autenticado.");
     }
-    const email = identity.email ?? identity.tokenIdentifier;
     const user = await getCurrentUser(ctx);
     if (user === null) {
       throw new Error("Usuário não encontrado.");
@@ -82,9 +91,10 @@ export const acceptCurrentTerm = mutation({
 });
 
 /**
- * Guard interno (R7): retorna o usuário se ele possui aceite vigente.
- * Usado por mutations de negócio (perfis, candidaturas) para bloquear o uso
- * do portal sem aceite atual — checagem no servidor, não apenas na UI.
+ * Guard interno (R7) legado: resolve o usuário pelo E-MAIL informado
+ * (chamado por mutations que já resolveram o e-mail da identidade).
+ * O caminho preferencial é `requireActiveConsentUser` (lib/currentUser),
+ * que resolve pelo token e não depende do e-mail.
  */
 export const requireActiveConsent = internalQuery({
   args: { email: v.string() },

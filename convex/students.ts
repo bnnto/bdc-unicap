@@ -5,7 +5,6 @@ import {
   internalMutation,
 } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { CURRENT_TERM_VERSION } from "./consentTerms";
 import {
@@ -33,7 +32,7 @@ import {
   canRecruiterSeeContact,
   recruiterProjection,
 } from "../src/lib/visibility";
-import { getCurrentUser } from "./lib/currentUser";
+import { getCurrentUser, requireActiveConsentUser } from "./lib/currentUser";
 
 /**
  * Perfil do aluno/egresso (issues [S1-3]/[S1-4], R1/R2/R6).
@@ -73,9 +72,8 @@ export const myProfile = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) return null;
-    const email = identity.email ?? identity.tokenIdentifier;
     const user = await getCurrentUser(ctx);
-    if (user === null) return null; 
+    if (user === null) return null;
     return (
       (await ctx.db
         .query("students")
@@ -133,23 +131,11 @@ export const upsertProfile = mutation({
     ctx,
     args,
   ): Promise<{ studentId: Id<"students">; created: boolean }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) {
-      throw new Error("Não autenticado.");
-    }
-    const email = identity.email ?? identity.tokenIdentifier;
-
     // R7 — uso do portal bloqueado sem aceite vigente do termo LGPD.
-    const consent = (await ctx.runQuery(
-      internal.consents.requireActiveConsent,
-      { email },
-    )) as {
-      ok: boolean;
-      reason?: string;
-      userId?: Id<"users">;
-      role?: string | null;
-    };
-    if (!consent.ok || consent.userId === undefined) {
+    // Resolução pelo token (getAuthUserId + fallback) e não pelo e-mail
+    // da identidade: tokens do signUp não carregam e-mail casável.
+    const consent = await requireActiveConsentUser(ctx);
+    if (!consent.ok) {
       throw new Error(
         consent.reason === "usuario_inexistente"
           ? "Usuário não encontrado."
@@ -250,14 +236,8 @@ export const setVisibility = mutation({
     ),
   },
   handler: async (ctx, { visibility }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) throw new Error("Não autenticado.");
-    const email = identity.email ?? identity.tokenIdentifier;
-    const consent = (await ctx.runQuery(
-      internal.consents.requireActiveConsent,
-      { email },
-    )) as { ok: boolean; userId?: Id<"users">; role?: string | null };
-    if (!consent.ok || consent.userId === undefined) {
+    const consent = await requireActiveConsentUser(ctx);
+    if (!consent.ok) {
       throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
     }
     const studentUserId = consent.userId;
@@ -285,14 +265,8 @@ export const setVisibility = mutation({
 export const setContactConsent = mutation({
   args: { allow: v.boolean() },
   handler: async (ctx, { allow }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) throw new Error("Não autenticado.");
-    const email = identity.email ?? identity.tokenIdentifier;
-    const consent = (await ctx.runQuery(
-      internal.consents.requireActiveConsent,
-      { email },
-    )) as { ok: boolean; userId?: Id<"users">; role?: string | null };
-    if (!consent.ok || consent.userId === undefined) {
+    const consent = await requireActiveConsentUser(ctx);
+    if (!consent.ok) {
       throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
     }
     const studentUserId = consent.userId;
@@ -340,17 +314,11 @@ export const saveResumeData = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) throw new Error("Não autenticado.");
-    const email = identity.email ?? identity.tokenIdentifier;
-    const consent = (await ctx.runQuery(
-      internal.consents.requireActiveConsent,
-      { email },
-    )) as { ok: boolean; userId?: Id<"users">; role?: string | null };
-    if (!consent.ok || consent.userId === undefined) {
+    const consent = await requireActiveConsentUser(ctx);
+    if (!consent.ok) {
       throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
     }
-    if (consent.role !== "aluno" || consent.userId === undefined) {
+    if (consent.role !== "aluno") {
       throw new Error("Apenas alunos editam o próprio currículo.");
     }
     const studentUserId = consent.userId;
@@ -454,8 +422,6 @@ export const searchTalent = query({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) throw new Error("Não autenticado.");
-    const email = identity.email ?? identity.tokenIdentifier;
-
     // R7 + papel — uma única resolução do guard por consulta.
     const user = await getCurrentUser(ctx);
     if (user === null) throw new Error("Usuário não encontrado.");
@@ -581,12 +547,12 @@ export const searchTalent = query({
 });
 
 /**
- * Guard interno: resolve o estudante a partir do e-mail autenticado.
+ * Guard interno: resolve o estudante do usuário autenticado (pelo token).
  * Consumido por issues futuras (currículo S2, candidaturas S3).
  */
 export const resolveStudent = internalQuery({
-  args: { email: v.string() },
-  handler: async (ctx, { email }) => {
+  args: { email: v.optional(v.string()) },
+  handler: async (ctx, _args) => {
     const user = await getCurrentUser(ctx);
     if (user === null)
       return { ok: false as const, reason: "usuario_inexistente" as const };
@@ -631,8 +597,6 @@ export const deleteMyProfile = mutation({
   }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) throw new Error("Não autenticado.");
-    const email = identity.email ?? identity.tokenIdentifier;
-
     // R7 — guard comum do módulo: usuário existente e aceite vigente.
     const user = await getCurrentUser(ctx);
     if (user === null) throw new Error("Usuário não encontrado.");

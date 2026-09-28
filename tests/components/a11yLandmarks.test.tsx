@@ -221,7 +221,18 @@ describe("S8-2 CA 2 — landmarks corretos (WCAG 1.3.1)", () => {
   });
 
   it("App — visitante: AuthPage como main único e sem banner", () => {
-    render(<App />);
+    render(
+      <AuthStateContext.Provider
+        value={{
+          isLoading: false,
+          isAuthenticated: false,
+          user: null,
+          role: null,
+        }}
+      >
+        <App />
+      </AuthStateContext.Provider>,
+    );
 
     const mains = screen.getAllByRole("main");
     expect(mains).toHaveLength(1);
@@ -231,7 +242,18 @@ describe("S8-2 CA 2 — landmarks corretos (WCAG 1.3.1)", () => {
 
   it("App — skip-link é o primeiro focável, pula o header e some até receber foco", async () => {
     const { userEvent } = await import("@testing-library/user-event");
-    render(<App />);
+    render(
+      <AuthStateContext.Provider
+        value={{
+          isLoading: false,
+          isAuthenticated: false,
+          user: null,
+          role: null,
+        }}
+      >
+        <App />
+      </AuthStateContext.Provider>,
+    );
 
     const skip = screen.getByRole("link", { name: /pular para o conteúdo/i });
     expect(skip).toHaveAttribute("href", "#conteudo");
