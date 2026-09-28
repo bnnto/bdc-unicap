@@ -13,14 +13,34 @@
   --color-success: #047857;
   --color-warning: #b45309;
   --color-danger: #dc2626;
+
+  /* [S8-2] Variantes AA para TEXTO sobre fundo claro (WCAG 1.4.3 ≥ 4.5:1)
+     — espelham as cores "a11y-*" do tailwind.config.ts. O dourado puro
+     (#C89D3C) fica reservado a fundos/decoração; como texto usa-se o
+     "secondary-dark" AA (#7A5A16, 6,2:1 com branco). */
+  --color-a11y-secondary: #7a5a16;
+  --color-a11y-slate-500: #64748b;
+  --color-a11y-slate-600: #475569;
+  --color-a11y-slate-700: #334155;
+  --color-a11y-success: #047857;
+  --color-a11y-danger: #dc2626;
+  --color-a11y-primary: #6b1426;
 }
 
 body {
   @apply bg-canvas font-sans text-slate-900 antialiased;
 }
 
-/* Foco visível com halo dourado — acessibilidade (CEREBRO.md §6.3) */
+/* [S8-2] Foco visível com contraste AA (WCAG 2.4.7 + 1.4.11): anel bordô
+   sólido — ≥ 3:1 sobre branco/canvas — no lugar do dourado puro (2,44:1).
+   O halo dourado permanece apenas sobre superfícies primárias. */
 :focus-visible {
-  outline: 2px solid theme("colors.secondary");
+  outline: 2px solid theme("colors.primary");
   outline-offset: 2px;
+}
+
+.bg-primary :focus-visible,
+.bg-primary.focus-visible:focus-visible,
+.bg-primary:focus-visible {
+  outline-color: theme("colors.secondary");
 }

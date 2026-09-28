@@ -84,7 +84,11 @@ export function JobOpportunities() {
   }
 
   return (
-    <Card title="Oportunidades (vagas abertas)" accent="secondary">
+    <Card
+      title="Oportunidades (vagas abertas)"
+      accent="secondary"
+      headingLevel={2}
+    >
       {notice !== null ? (
         <p
           role="status"
@@ -112,9 +116,9 @@ export function JobOpportunities() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <h4 className="font-serif text-base font-bold text-primary">
+                    <h3 className="font-serif text-base font-bold text-primary">
                       {job.title}
-                    </h4>
+                    </h3>
                     <p className="mt-0.5 text-xs text-slate-500">
                       {CONTRACT_LABELS[job.contractType]} ·{" "}
                       {formatSalaryRange(
@@ -208,9 +212,9 @@ export function JobOpportunities() {
       )}
 
       <div className="mt-6 border-t border-slate-200 pt-4">
-        <h4 className="font-serif text-sm font-bold text-primary">
+        <h3 className="font-serif text-sm font-bold text-primary">
           Minhas candidaturas
-        </h4>{" "}
+        </h3>{" "}
         {(myApplications ?? []).length === 0 ? (
           <p className="mt-1 text-xs text-slate-500">
             Nenhuma candidatura ainda. Candidate-se às vagas acima — o % de

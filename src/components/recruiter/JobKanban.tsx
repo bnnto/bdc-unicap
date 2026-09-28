@@ -226,7 +226,7 @@ export function JobKanban() {
                 setDraggingId(null);
               }}
             >
-              <h4 className="flex items-center justify-between font-serif text-sm font-bold text-primary">
+              <h3 className="flex items-center justify-between font-serif text-sm font-bold text-primary">
                 {STAGE_LABELS[stage]}
                 <span
                   className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700"
@@ -234,10 +234,10 @@ export function JobKanban() {
                 >
                   {grouped[stage].length}
                 </span>
-              </h4>
+              </h3>
 
               {grouped[stage].length === 0 ? (
-                <p className="text-xs text-slate-400">Sem cards</p>
+                <p className="text-xs text-a11y-slate-500">Sem cards</p>
               ) : null}
 
               {grouped[stage].map((application) => {
@@ -291,7 +291,7 @@ export function JobKanban() {
                       {MATCH_BAND_LABELS[matchBand(application.matchScore)]}
                     </p>
                     {/* [UX-P3] H6-2 — idade do processo no próprio card. */}
-                    <p className="mt-0.5 text-xs text-slate-400">
+                    <p className="mt-0.5 text-xs text-a11y-slate-500">
                       Candidatou-se em {formatDay(application.appliedAt)}
                     </p>
                     <p className="mt-1 text-xs font-semibold">
@@ -392,7 +392,7 @@ export function JobKanban() {
                               e.target.value as RejectionReason | "",
                             )
                           }
-                          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+                          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                         >
                           <option value="">Selecione…</option>
                           {REJECTION_REASONS.map((reason) => (

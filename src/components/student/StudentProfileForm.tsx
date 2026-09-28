@@ -363,7 +363,7 @@ export function StudentProfileForm() {
               }
             }}
             placeholder="Ex.: React, SQL, Figma…"
-            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             aria-label="Nova competência"
           />
           <Button
@@ -398,7 +398,9 @@ export function StudentProfileForm() {
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-slate-400">Nenhuma competência ainda.</p>
+          <p className="text-xs text-a11y-slate-500">
+            Nenhuma competência ainda.
+          </p>
         )}
       </fieldset>
 
@@ -415,13 +417,13 @@ export function StudentProfileForm() {
             value={languageName}
             onChange={(e) => setLanguageName(e.target.value)}
             placeholder="Ex.: Inglês"
-            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15 sm:max-w-48"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 sm:max-w-48"
             aria-label="Novo idioma"
           />
           <select
             value={languageLevel}
             onChange={(e) => setLanguageLevel(e.target.value as LanguageLevel)}
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             aria-label="Nível do idioma"
           >
             {LANGUAGE_LEVELS.map((level) => (
@@ -463,7 +465,7 @@ export function StudentProfileForm() {
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-slate-400">Nenhum idioma ainda.</p>
+          <p className="text-xs text-a11y-slate-500">Nenhum idioma ainda.</p>
         )}
       </fieldset>
 

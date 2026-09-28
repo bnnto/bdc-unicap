@@ -227,7 +227,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
           placeholder="Responsabilidades, rotinas, etapa do processo seletivo…"
           maxLength={DESCRIPTION_MAX}
           aria-describedby="job-description-count"
-          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
         />
         <p
           id="job-description-count"
@@ -308,7 +308,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
           <select
             value={contractType}
             onChange={(e) => setContractType(e.target.value as ContractType)}
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             {CONTRACT_TYPES.map((type) => (
               <option key={type} value={type}>
@@ -356,7 +356,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             placeholder="Idioma exigido (ex.: Inglês)"
             aria-label="Idioma exigido"
             list="job-language-options"
-            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           />
           <datalist id="job-language-options">
             {KNOWN_LANGUAGES.map((language) => (
@@ -367,7 +367,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             value={languageLevel}
             onChange={(e) => setLanguageLevel(e.target.value as LanguageLevel)}
             aria-label="Nível mínimo do idioma"
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             {LANGUAGE_LEVELS.map((level) => (
               <option key={level} value={level}>
@@ -383,7 +383,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
               )
             }
             aria-label="Disponibilidade desejada"
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15"
+            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             <option value="">Disponibilidade: qualquer</option>
             {AVAILABILITY.map((value) => (

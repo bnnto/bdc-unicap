@@ -3,18 +3,19 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const VARIANT_CLASSES: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  // Bordô institucional — hover #520F1D, foco com halo dourado (DESIGN.md)
+  // Bordô institucional — hover #520F1D; foco com anel bordô AA ([S8-2],
+  // WCAG 1.4.11: o dourado puro sobre claro não atinge 3:1)
   primary:
-    "bg-primary text-white hover:bg-[#520F1D] focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2",
+    "bg-primary text-white hover:bg-[#520F1D] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
   // Contorno bordô sobre branco — hover #FDF2F4 (DESIGN.md)
   secondary:
-    "border border-primary bg-white text-primary hover:bg-[#FDF2F4] focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2",
+    "border border-primary bg-white text-primary hover:bg-[#FDF2F4] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
   // Dourado premium com texto escuro — contraste AA auditado em S0-4
   accent:
     "bg-secondary text-slate-900 hover:brightness-95 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
   // [UX-P3] H8-2 — ações destrutivas se destacam (contorno vermelho)
   danger:
-    "border border-danger bg-white text-danger hover:bg-[#FEF2F2] focus-visible:ring-2 focus-visible:ring-secondary focus-visible:ring-offset-2",
+    "border border-danger bg-white text-danger hover:bg-[#FEF2F2] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
 };
 
 /**

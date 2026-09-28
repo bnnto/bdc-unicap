@@ -42,7 +42,7 @@ const STATUS_OPTIONS = [
 ] as const;
 
 const SELECT_CLASS =
-  "rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15";
+  "rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
 
 type KpiCardProps = {
   testId: string;
@@ -62,7 +62,7 @@ function KpiCard({ testId, value, label, hint }: KpiCardProps) {
         {label}
       </p>
       {hint !== undefined ? (
-        <p className="mt-0.5 text-xs text-slate-400">{hint}</p>
+        <p className="mt-0.5 text-xs text-a11y-slate-500">{hint}</p>
       ) : null}
     </div>
   );
@@ -106,10 +106,16 @@ export function ExtensionDashboard() {
   const maxArea = Math.max(1, ...Object.values(byArea));
   const visibleAreas = Object.entries(byArea).filter(([, count]) => count > 0);
 
+  // [S8-2]: role=region explícito — o main da página é único, no App (1.3.1).
   return (
-    <section data-testid="extension-dashboard" aria-label="Painel de extensão">
-      <header className="mb-4">
-        <p className="font-serif text-xs uppercase tracking-widest text-secondary">
+    <section
+      data-testid="extension-dashboard"
+      role="region"
+      aria-label="Painel de extensão"
+    >
+      {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
+      <div className="mb-4">
+        <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
           Setor de Extensão
         </p>
         <h2 className="font-serif text-2xl font-bold text-primary">
@@ -119,7 +125,7 @@ export function ExtensionDashboard() {
           Projetos cadastrados, status de divulgação e distribuição por área
           temática — atualizado em tempo real com o banco do portal.
         </p>
-      </header>
+      </div>
 
       <section
         aria-label="Filtros do painel de extensão"
@@ -138,12 +144,12 @@ export function ExtensionDashboard() {
                 setStatus("");
                 setPeriod("");
               }}
-              className="rounded border border-primary px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#FDF2F4] focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="rounded border border-primary px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#FDF2F4] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             >
               Limpar filtros
             </button>
           ) : (
-            <span className="text-xs text-slate-400">
+            <span className="text-xs text-a11y-slate-500">
               aplicam-se a todas as métricas
             </span>
           )}

@@ -173,9 +173,9 @@ export function JobsPanel() {
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <h4 className="font-serif text-base font-bold text-primary">
+                  <h3 className="font-serif text-base font-bold text-primary">
                     {job.title}
-                  </h4>
+                  </h3>
                   <p className="mt-0.5 text-xs text-slate-500">
                     {CONTRACT_LABELS[job.contractType]} ·{" "}
                     {formatSalaryRange(

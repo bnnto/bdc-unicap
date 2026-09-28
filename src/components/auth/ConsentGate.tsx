@@ -56,7 +56,7 @@ function ConsentRequiredScreen() {
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
       <div className="w-full max-w-2xl">
         <header className="mb-6 text-center">
-          <p className="font-serif text-xs uppercase tracking-widest text-secondary">
+          <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
             Universidade Católica de Pernambuco
           </p>
           <h1 className="mt-2 font-serif text-2xl font-bold text-primary">

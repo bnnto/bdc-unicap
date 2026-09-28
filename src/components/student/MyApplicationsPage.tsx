@@ -28,7 +28,7 @@ const MATCH_CHIP: Record<
 const STEP_CLASSES: Record<TimelineStep["state"], string> = {
   done: "border-success bg-white text-success",
   current: "border-primary bg-[#FDF2F4] font-semibold text-primary",
-  upcoming: "border-slate-200 bg-white text-slate-400",
+  upcoming: "border-slate-200 bg-white text-a11y-slate-500",
 };
 
 type ApplicationRow = {
@@ -57,9 +57,16 @@ export function MyApplicationsPage() {
   const kpis = myApplicationsKpis(applications);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <header className="mb-4">
-        <p className="font-serif text-xs uppercase tracking-widest text-secondary">
+    // [S8-2]: região nomeada em vez de <main> aninhado (o main da página é
+    // único, no App — WCAG 1.3.1).
+    <div
+      role="region"
+      aria-label="Minhas candidaturas"
+      className="mx-auto max-w-4xl px-4 py-8"
+    >
+      {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
+      <div className="mb-4">
+        <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
           Portal do Aluno
         </p>
         <h1 className="font-serif text-2xl font-bold text-primary">
@@ -69,7 +76,7 @@ export function MyApplicationsPage() {
           Acompanhe a etapa atual do pipeline e o % de compatibilidade de cada
           candidatura — atualizado em tempo real.
         </p>
-      </header>
+      </div>
 
       <div className="mb-4 grid grid-cols-3 gap-3">
         <div className="rounded-lg border border-slate-200 bg-white p-3 text-center shadow-level1">
