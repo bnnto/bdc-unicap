@@ -25,7 +25,6 @@ import { getCurrentUser } from "./lib/currentUser";
 async function requireActiveUser(ctx: MutationCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
   if (identity === null) throw new Error("Não autenticado.");
-  const email = identity.email ?? identity.tokenIdentifier;
   const user = await getCurrentUser(ctx);
   if (user === null) throw new Error("Usuário não encontrado.");
   const consents = await ctx.db
@@ -126,7 +125,6 @@ export const myDataReport = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (identity === null) return null;
-    const email = identity.email ?? identity.tokenIdentifier;
     const user = await getCurrentUser(ctx);
     if (user === null) return null;
 
@@ -170,7 +168,10 @@ export const myDataReport = query({
     }
 
     return {
-      user: { email: user.email ?? email, role: user.role ?? null },
+      user: {
+        email: user.email ?? identity.email ?? null,
+        role: user.role ?? null,
+      },
       data: {
         profile:
           student === null

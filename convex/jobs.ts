@@ -37,7 +37,6 @@ function canManageJobs(
 async function requireRecruiter(ctx: QueryCtx): Promise<Doc<"users">> {
   const identity = await ctx.auth.getUserIdentity();
   if (identity === null) throw new Error("Não autenticado.");
-  const email = identity.email ?? identity.tokenIdentifier;
   const user = await getCurrentUser(ctx);
   if (user === null) throw new Error("Usuário não encontrado.");
   const consents = await ctx.db
