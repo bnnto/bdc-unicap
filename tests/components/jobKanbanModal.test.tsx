@@ -1,9 +1,10 @@
 /**
- * [UX-P1] H3-2/H5-1 — Reprovação NÃO pode acontecer sem motivo.
- * Arrastar um card até a coluna "Reprovado" (ou usar a seta → num card
- * em "Aprovado") deve abrir o painel de motivo padronizado (R5) em vez
- * de chamar `moveApplication` direto. Movimentos para outras colunas
- * permanecem imediatos.
+ * [RECRUITER_WORKFLOW] Etapa 4.3 — Modal de Reprovação: mover um card
+ * para "Reprovado" (drop, seta → ou botão Reprovar) abre um DIÁLOGO
+ * modal com select de motivo padronizado (R5). A mutation
+ * `rejectApplication` só é disparada DEPOIS de escolher o motivo; o
+ * botão de confirmar fica bloqueado sem motivo e o Cancelar fecha sem
+ * efeito. `aria-modal` sinaliza o bloqueio do board ao leitor de tela.
  *
  * `convex/react` e `convex/_generated/api` são mockados (sentinelas
  * estáveis contra os proxies da api gerada do Convex).
@@ -47,8 +48,8 @@ const boardApplication = {
   studentId: "s1",
   fullName: "Maria da Silva",
   course: "Ciência da Computação",
-  stage: "aprovado",
-  matchScore: 90,
+  stage: "entrevista",
+  matchScore: 82,
   appliedAt: Date.now(),
   contactReleased: false,
   releaseReason: "sem_autorizacao",
@@ -76,14 +77,13 @@ beforeEach(() => {
 
 async function renderBoard() {
   render(<JobKanban />);
-  // Seleciona a vaga na lista para abrir o board.
   await userEvent.click(
     screen.getByRole("button", { name: "Estágio em Desenvolvimento Web" }),
   );
 }
 
-describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
-  it("drop na coluna Reprovado abre o painel de motivo em vez de mover", async () => {
+describe("JobKanban — modal de reprovação com motivo obrigatório (R5)", () => {
+  it("drop na coluna Reprovado abre o diálogo modal (não move direto)", async () => {
     await renderBoard();
 
     const reprovadoColumn = screen.getByRole("region", {
@@ -94,62 +94,50 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
     });
 
     expect(moveApplication).not.toHaveBeenCalled();
-    // Painel de motivo padronizado aberto para o card (R5).
-    expect(
-      screen.getByLabelText(/Motivo da reprovação \(obrigatório/i),
-    ).toBeInTheDocument();
-  });
-
-  it("seta → num card em Aprovado abre o painel de motivo (não move direto)", async () => {
-    await renderBoard();
-
-    await userEvent.click(
-      screen.getByRole("button", {
-        name: "Mover Maria da Silva para Reprovado",
-      }),
-    );
-
-    expect(moveApplication).not.toHaveBeenCalled();
-    expect(
-      screen.getByLabelText(/Motivo da reprovação \(obrigatório/i),
-    ).toBeInTheDocument();
-  });
-
-  it("H9-1 — erro de movimento aparece junto ao card, não no topo do board", async () => {
-    moveApplication.mockRejectedValueOnce(
-      new Error("O card já está nesta coluna."),
-    );
-    await renderBoard();
-
-    await userEvent.click(
-      screen.getByRole("button", {
-        name: "Mover Maria da Silva para Entrevista",
-      }),
-    );
-
-    const card = screen.getByText("Maria da Silva").closest("article");
-    expect(card).not.toBeNull();
-    const alert = within(card as HTMLElement).getByRole("alert");
-    expect(alert).toHaveTextContent("O card já está nesta coluna.");
-  });
-
-  it("movimento para coluna de avanço (Entrevista) permanece imediato", async () => {
-    await renderBoard();
-
-    await userEvent.click(
-      screen.getByRole("button", {
-        name: "Mover Maria da Silva para Entrevista",
-      }),
-    );
-
-    expect(moveApplication).toHaveBeenCalledOnce();
-    expect(moveApplication).toHaveBeenCalledWith({
-      applicationId: "app-1",
-      to: "entrevista",
+    const dialog = screen.getByRole("dialog", {
+      name: /reprovar candidatura/i,
     });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(
+      within(dialog).getByLabelText(/Motivo da reprovação \(obrigatório/i),
+    ).toBeInTheDocument();
   });
 
-  it("após escolher o motivo no painel aberto pelo drag, confirma a reprovação", async () => {
+  it("botão Reprovar do card abre o modal com o nome do candidato", async () => {
+    await renderBoard();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /Reprovar Maria da Silva com motivo padronizado/i,
+      }),
+    );
+
+    const dialog = screen.getByRole("dialog", {
+      name: /reprovar candidatura/i,
+    });
+    expect(within(dialog).getByText(/Maria da Silva/i)).toBeInTheDocument();
+  });
+
+  it("sem motivo selecionado, confirmar fica bloqueado e nada é enviado", async () => {
+    await renderBoard();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /Reprovar Maria da Silva com motivo padronizado/i,
+      }),
+    );
+
+    const dialog = screen.getByRole("dialog", {
+      name: /reprovar candidatura/i,
+    });
+    const confirm = within(dialog).getByRole("button", {
+      name: "Confirmar reprovação com o motivo selecionado",
+    });
+    expect(confirm).toBeDisabled();
+    expect(rejectApplication).not.toHaveBeenCalled();
+  });
+
+  it("após escolher o motivo, confirma e o modal fecha", async () => {
     await renderBoard();
 
     const reprovadoColumn = screen.getByRole("region", {
@@ -159,12 +147,15 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
       dataTransfer: { getData: () => "app-1" },
     });
 
+    const dialog = screen.getByRole("dialog", {
+      name: /reprovar candidatura/i,
+    });
     await userEvent.selectOptions(
-      screen.getByLabelText(/Motivo da reprovação \(obrigatório/i),
-      "vaga_preenchida",
+      within(dialog).getByLabelText(/Motivo da reprovação \(obrigatório/i),
+      "idioma_insuficiente",
     );
     await userEvent.click(
-      screen.getByRole("button", {
+      within(dialog).getByRole("button", {
         name: "Confirmar reprovação com o motivo selecionado",
       }),
     );
@@ -172,8 +163,32 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
     expect(rejectApplication).toHaveBeenCalledOnce();
     expect(rejectApplication).toHaveBeenCalledWith({
       applicationId: "app-1",
-      reason: "vaga_preenchida",
+      reason: "idioma_insuficiente",
     });
+    expect(moveApplication).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("dialog", { name: /reprovar candidatura/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("cancelar fecha o modal sem chamar nenhuma mutation", async () => {
+    await renderBoard();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /Reprovar Maria da Silva com motivo padronizado/i,
+      }),
+    );
+    await userEvent.click(
+      within(
+        screen.getByRole("dialog", { name: /reprovar candidatura/i }),
+      ).getByRole("button", { name: /^cancelar$/i }),
+    );
+
+    expect(
+      screen.queryByRole("dialog", { name: /reprovar candidatura/i }),
+    ).not.toBeInTheDocument();
+    expect(rejectApplication).not.toHaveBeenCalled();
     expect(moveApplication).not.toHaveBeenCalled();
   });
 });

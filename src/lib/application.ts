@@ -120,6 +120,79 @@ export function formatMissingPrerequisites(missing: readonly string[]): string {
 }
 
 /**
+ * [RECRUITER_WORKFLOW] Etapa 2 — decisão pura da movimentação do card do
+ * Kanban, usada pela mutation `moveApplication` (fonte da verdade):
+ *
+ * R5 — mover para "reprovado" EXIGE motivo do enum fixo: sem motivo ou
+ * com motivo fora do catálogo a decisão falha (defesa em profundidade —
+ * o modal da UI também exige antes de disparar a mutation).
+ * [S5-2] — a aprovação marca o preenchimento da vaga (`filledAt`, base
+ * do time-to-hire) e desfazer a aprovação o limpa; sair da coluna
+ * "Reprovado" limpa o motivo gravado (o aluno voltou ao pipeline).
+ */
+export type MoveStageDecision =
+  | {
+      ok: true;
+      nextStage: ApplicationStage;
+      /** Gravar `filledAt = now` na vaga (primeira aprovação). */
+      jobFilled: boolean;
+      /** Limpar `filledAt` da vaga (saiu de "aprovado"). */
+      jobUnfilled: boolean;
+      /** Motivo a gravar (reprovação) ou a limpar (null); ausente = intocado. */
+      rejectionReason?: RejectionReason | null;
+    }
+  | { ok: false; error: string };
+
+export function moveStageDecision(input: {
+  stage: ApplicationStage;
+  to: ApplicationStage;
+  rejectionReason?: unknown;
+}): MoveStageDecision {
+  const { stage, to, rejectionReason } = input;
+  if (stage === to) {
+    return { ok: false, error: "O card já está nesta coluna." };
+  }
+  if (to === "reprovado") {
+    if (typeof rejectionReason !== "string" || rejectionReason.length === 0) {
+      return {
+        ok: false,
+        error: "Motivo de reprovação é obrigatório (R5).",
+      };
+    }
+    if (!isRejectionReason(rejectionReason)) {
+      return {
+        ok: false,
+        error:
+          "Motivo de reprovação inválido — escolha um motivo da lista padronizada.",
+      };
+    }
+    return {
+      ok: true,
+      nextStage: "reprovado",
+      rejectionReason,
+      jobFilled: false,
+      jobUnfilled: false,
+    };
+  }
+  if (stage === "reprovado") {
+    // Reativação: o motivo antigo não faz sentido na nova coluna.
+    return {
+      ok: true,
+      nextStage: to,
+      rejectionReason: null,
+      jobFilled: false,
+      jobUnfilled: false,
+    };
+  }
+  return {
+    ok: true,
+    nextStage: to,
+    jobFilled: to === "aprovado",
+    jobUnfilled: stage === "aprovado",
+  };
+}
+
+/**
  * [S4-2] R5 — Motivo padronizado de reprovação (enum fixo) para auditoria
  * e métricas. Nada de texto livre: a mutation só grava com um motivo do
  * catálogo abaixo.

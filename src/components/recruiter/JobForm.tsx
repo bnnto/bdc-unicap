@@ -49,7 +49,10 @@ type JobFormProps = {
  * com a mesma regra pura do servidor (src/lib/job.ts).
  */
 export function JobForm({ initial = null, onDone }: JobFormProps) {
+  // [RECRUITER_WORKFLOW] Etapa 3 — publicação usa `createJob` (mesma
+  // validação/guard do upsert, sem jobId); edição segue no `upsertJob`.
   const upsert = useMutation(api.jobs.upsertJob);
+  const create = useMutation(api.jobs.createJob);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -136,10 +139,14 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
 
     setPending(true);
     try {
-      await upsert({
-        jobId: initial?._id,
-        ...validation.normalized,
-      });
+      if (initial !== null) {
+        await upsert({
+          jobId: initial._id,
+          ...validation.normalized,
+        });
+      } else {
+        await create(validation.normalized);
+      }
       /**
        * [UX-P3] H3-4 — sucesso retorna à lista imediatamente: evita duplo
        * salvamento acidental e devolve o contexto de navegação (a lista

@@ -167,6 +167,20 @@ export const myJobs = query({
 });
 
 /**
+ * [RECRUITER_WORKFLOW] Etapa 1 — alias semântico de `myJobs` (mesma
+ * query, mesmo guard `requireRecruiter`): as vagas do recrutador logado
+ * via índice `by_recruiter`, nunca as de outro recrutador.
+ */
+export const getMyJobs = myJobs;
+
+/**
+ * [RECRUITER_WORKFLOW] Etapa 1 — alias semântico de `upsertJob` sem
+ * `jobId` (mesma validação e guard): publica a vaga do recrutador logado
+ * como "aberta", com `publishedAt` agora e `expiresAt` em 30 dias (R4).
+ */
+export const createJob = upsertJob;
+
+/**
  * Detalhe de uma vaga para edição — apenas o recrutador dono a lê aqui.
  */
 export const getJob = query({

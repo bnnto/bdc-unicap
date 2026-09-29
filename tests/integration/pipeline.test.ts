@@ -370,3 +370,208 @@ describe("S4-5 — liberação de contato LGPD (R6, integração)", () => {
     expect(card?.contactReleased).toBe(false);
   });
 });
+
+describe("[RECRUITER_WORKFLOW] R5 no servidor — mover para Reprovado exige motivo", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("moveApplication para 'reprovado' SEM motivo falha (furo R5 fechado)", async () => {
+    const t = convexTest({ schema, modules });
+    const { jobId, recruiterId, studentUserId } = await seedWorld(t);
+    const { applicationId } = await asStudent(t, studentUserId).mutation(
+      api.applications.applyToJob,
+      { jobId },
+    );
+
+    await expect(
+      asRecruiter(t, recruiterId).mutation(api.applications.moveApplication, {
+        applicationId,
+        to: "reprovado",
+      }),
+    ).rejects.toThrow(/Motivo de reprovação é obrigatório/i);
+
+    // Nada mudou no banco — a candidatura permanece onde estava.
+    const doc = await t.run(async (ctx) => await ctx.db.get(applicationId));
+    expect(doc?.stage).toBe("inscrito");
+    expect(doc?.rejectionReason).toBeUndefined();
+  });
+
+  it("moveApplication para 'reprovado' COM motivo do enum grava stage e motivo", async () => {
+    const t = convexTest({ schema, modules });
+    const { jobId, recruiterId, studentUserId } = await seedWorld(t);
+    const { applicationId } = await asStudent(t, studentUserId).mutation(
+      api.applications.applyToJob,
+      { jobId },
+    );
+
+    await asRecruiter(t, recruiterId).mutation(
+      api.applications.moveApplication,
+      {
+        applicationId,
+        to: "reprovado",
+        rejectionReason: "disponibilidade_incompativel",
+      },
+    );
+
+    const doc = await t.run(async (ctx) => await ctx.db.get(applicationId));
+    expect(doc?.stage).toBe("reprovado");
+    expect(doc?.rejectionReason).toBe("disponibilidade_incompativel");
+  });
+
+  it("aprovação grava filledAt na vaga; desfazer aprovação limpa (S5-2)", async () => {
+    const t = convexTest({ schema, modules });
+    const { jobId, recruiterId, studentUserId } = await seedWorld(t);
+    const { applicationId } = await asStudent(t, studentUserId).mutation(
+      api.applications.applyToJob,
+      { jobId },
+    );
+    const recruiter = asRecruiter(t, recruiterId);
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
+      to: "triagem",
+    });
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
+      to: "aprovado",
+    });
+
+    let job = await t.run(async (ctx) => await ctx.db.get(jobId));
+    expect(job?.filledAt).toBeDefined();
+
+    // Recrutador desfaz a aprovação — o preenchimento deixa de existir.
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
+      to: "entrevista",
+    });
+    job = await t.run(async (ctx) => await ctx.db.get(jobId));
+    expect(job?.filledAt).toBeUndefined();
+  });
+
+  it("outro recrutador não reprova candidaturas de vaga alheia", async () => {
+    const t = convexTest({ schema, modules });
+    const { jobId, studentUserId } = await seedWorld(t);
+    const { applicationId } = await asStudent(t, studentUserId).mutation(
+      api.applications.applyToJob,
+      { jobId },
+    );
+    const otherRecruiterId = await t.run(async (ctx) => {
+      const other = await ctx.db.insert("users", {
+        email: "intruso@empresa.br",
+        name: "Recrutador Intruso",
+        role: "recrutador",
+        active: true,
+      });
+      await ctx.db.insert("consents", {
+        userId: other,
+        termVersion: CURRENT_TERM_VERSION,
+        acceptedAt: Date.now(),
+      });
+      return other;
+    });
+
+    // Identidade PRÓPRIA do intruso (e-mail diferente — o fallback do
+    // getCurrentUser resolve pelo e-mail da identidade).
+    const asOther = t.withIdentity({
+      email: "intruso@empresa.br",
+      subject: "intruso-1",
+      emailVerificationTime: Date.now(),
+      tokenIdentifier: `tid-${otherRecruiterId}`,
+    });
+
+    await expect(
+      asOther.mutation(api.applications.rejectApplication, {
+        applicationId,
+        reason: "outro",
+      }),
+    ).rejects.toThrow(/recrutador da vaga/i);
+  });
+});
+
+describe("[RECRUITER_WORKFLOW] createJob/getMyJobs e getJobApplications", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("createJob publica vaga própria (aberta, 30 dias); getMyJobs lista só as do dono", async () => {
+    const t = convexTest({ schema, modules });
+    const { recruiterId } = await seedWorld(t);
+
+    const { jobId } = await asRecruiter(t, recruiterId).mutation(
+      api.jobs.createJob,
+      {
+        title: "Vaga Nova do Workflow",
+        description:
+          "Descrição da vaga criada no fluxo do recrutador para o teste.",
+        prerequisites: [{ item: "React", required: true }],
+        contractType: "estagio",
+      },
+    );
+
+    const doc = await t.run(async (ctx) => {
+      const job = await ctx.db.get(jobId);
+      return job === null
+        ? null
+        : {
+            status: job.status,
+            publishedAt: job.publishedAt,
+            expiresAt: job.expiresAt,
+            recruiterId: job.recruiterId,
+          };
+    });
+    expect(doc?.status).toBe("aberta");
+    expect(doc?.recruiterId).toBe(recruiterId);
+    expect(doc?.publishedAt).toBeDefined();
+    // R4 — expiração gravada exatamente 30 dias após a publicação.
+    expect((doc?.expiresAt ?? 0) - (doc?.publishedAt ?? 0)).toBe(30 * DAY);
+
+    // Outro recrutador NÃO vê a vaga alheia; o dono vê.
+    const otherRecruiterId = await t.run(async (ctx) => {
+      const other = await ctx.db.insert("users", {
+        email: "outra@empresa.br",
+        name: "Outra Empresa",
+        role: "recrutador",
+        active: true,
+      });
+      await ctx.db.insert("consents", {
+        userId: other,
+        termVersion: CURRENT_TERM_VERSION,
+        acceptedAt: Date.now(),
+      });
+      return other;
+    });
+    const asOther = t.withIdentity({
+      email: "outra@empresa.br",
+      subject: "outra-1",
+      emailVerificationTime: Date.now(),
+      tokenIdentifier: `tid-${otherRecruiterId}`,
+    });
+    const otherJobs = await asOther.query(api.jobs.getMyJobs, {});
+    expect(otherJobs.some((job) => job._id === jobId)).toBe(false);
+    const myJobs = await asRecruiter(t, recruiterId).query(
+      api.jobs.getMyJobs,
+      {},
+    );
+    expect(myJobs.map((job) => job.title)).toContain("Vaga Nova do Workflow");
+  });
+
+  it("getJobApplications (jobApplications) junta aluno, curso e matchScore", async () => {
+    const t = convexTest({ schema, modules });
+    const { jobId, recruiterId, studentUserId } = await seedWorld(t);
+    const { applicationId } = await asStudent(t, studentUserId).mutation(
+      api.applications.applyToJob,
+      { jobId },
+    );
+
+    const items = await asRecruiter(t, recruiterId).query(
+      api.applications.jobApplications,
+      { jobId },
+    );
+    expect(items).not.toBeNull();
+    const card = items?.find((item) => item.applicationId === applicationId);
+    expect(card?.fullName).toBe("Maria da Silva");
+    expect(card?.course).toBe("Ciência da Computação");
+    expect(card?.matchScore).toBeGreaterThanOrEqual(0);
+    expect(card?.stage).toBe("inscrito");
+  });
+});

@@ -17,6 +17,7 @@ vi.mock("../../convex/_generated/api", () => ({
   api: {
     jobs: {
       myJobs: "query:jobs.myJobs",
+      getMyJobs: "query:jobs.getMyJobs",
       setJobStatus: "mut:jobs.setJobStatus",
       renewJob: "mut:jobs.renewJob",
     },
@@ -50,7 +51,7 @@ const renewJob = vi.fn().mockResolvedValue({ ok: true });
 beforeEach(() => {
   vi.clearAllMocks();
   mockedUseQuery.mockImplementation(((query: unknown) =>
-    query === "query:jobs.myJobs" ? [closedJob] : undefined) as never);
+    query === "query:jobs.getMyJobs" ? [closedJob] : undefined) as never);
   mockedUseMutation.mockImplementation(((mutation: unknown) =>
     mutation === "mut:jobs.setJobStatus" ? setJobStatus : renewJob) as never);
 });
