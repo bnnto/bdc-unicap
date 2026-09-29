@@ -2,15 +2,24 @@ import { describe, expect, it } from "vitest";
 import {
   MANAGER_DASHBOARD_MOCKS,
   buildManagerKpis,
+  buildSkillsRadar,
+  countRejectionReasons,
+  engagementCounts,
   partnerStatus,
   rejectionShare,
+  skillDemandCounts,
+  skillSupplyCounts,
 } from "../../src/lib/managerDashboard";
 
 /**
  * [REFACTOR_GESTOR] Etapa 4 — Painel Estratégico de Carreiras &
  * Empregabilidade. Regra pura que consolida os KPIs (dados reais quando
- * disponíveis) e os Insights Estratégicos (seções mockadas sinalizadas,
- * prontas para serem plugadas no banco depois — Nota Técnica Visual).
+ * disponíveis) e os Insights Estratégicos.
+ *
+ * [GESTOR_BACKEND] — as agregações dos Insights Estratégicos (motivos de
+ * reprovação, radar de competências demanda×oferta e engajamento) são
+ * regras puras testadas aqui e executadas NO SERVIDOR pelas queries de
+ * convex/manager.ts — a UI apenas exibe o que o banco responde.
  */
 describe("REFACTOR_GESTOR — KPIs do Painel Estratégico", () => {
   it("consolida os 4 KPIs com os valores informados", () => {
@@ -84,7 +93,203 @@ describe("REFACTOR_GESTOR — distribuição dos motivos de reprovação (R5)", 
   });
 });
 
-describe("REFACTOR_GESTOR — dados mockados sinalizados (Nota Técnica Visual)", () => {
+describe("[GESTOR_BACKEND] — contagem dos motivos de reprovação", () => {
+  it("conta apenas candidaturas reprovadas, agrupadas por motivo", () => {
+    const counts = countRejectionReasons([
+      { stage: "reprovado", rejectionReason: "requisitos_obrigatorios" },
+      { stage: "reprovado", rejectionReason: "requisitos_obrigatorios" },
+      { stage: "reprovado", rejectionReason: "idioma_insuficiente" },
+      { stage: "aprovado", rejectionReason: null },
+      { stage: "triagem", rejectionReason: null },
+      { stage: "inscrito", rejectionReason: null },
+    ]);
+    expect(counts).toEqual([
+      { reason: "requisitos_obrigatorios", count: 2 },
+      { reason: "idioma_insuficiente", count: 1 },
+    ]);
+  });
+
+  it("reprovado sem motivo gravado cai em 'outro' (defensivo, R5)", () => {
+    const counts = countRejectionReasons([
+      { stage: "reprovado", rejectionReason: null },
+      { stage: "reprovado" },
+    ]);
+    expect(counts).toEqual([{ reason: "outro", count: 2 }]);
+  });
+
+  it("ignora motivo presente em etapa que não é reprovado", () => {
+    const counts = countRejectionReasons([
+      { stage: "aprovado", rejectionReason: "outro" },
+      { stage: "triagem", rejectionReason: "outro" },
+    ]);
+    expect(counts).toEqual([]);
+  });
+
+  it("base sem reprovados retorna lista vazia", () => {
+    expect(
+      countRejectionReasons([{ stage: "inscrito", rejectionReason: null }]),
+    ).toEqual([]);
+  });
+});
+
+describe("[GESTOR_BACKEND] — demanda de competências (vagas)", () => {
+  it("conta quantas vagas pedem cada competência (exigida ou não)", () => {
+    const demand = skillDemandCounts([
+      {
+        prerequisites: [
+          { item: "React", required: true },
+          { item: "SQL", required: false },
+        ],
+      },
+      { prerequisites: [{ item: "React", required: true }] },
+    ]);
+    expect(demand).toEqual([
+      { skill: "React", demand: 2 },
+      { skill: "SQL", demand: 1 },
+    ]);
+  });
+
+  it("competência repetida na mesma vaga conta uma única vez", () => {
+    const demand = skillDemandCounts([
+      {
+        prerequisites: [
+          { item: "React", required: true },
+          { item: "React", required: false },
+        ],
+      },
+    ]);
+    expect(demand).toEqual([{ skill: "React", demand: 1 }]);
+  });
+
+  it("case-insensitive e ignora itens vazios", () => {
+    const demand = skillDemandCounts([
+      {
+        prerequisites: [
+          { item: "  react  ", required: true },
+          { item: "   ", required: true },
+        ],
+      },
+      { prerequisites: [{ item: "React", required: true }] },
+    ]);
+    expect(demand).toEqual([{ skill: "React", demand: 2 }]);
+  });
+});
+
+describe("[GESTOR_BACKEND] — oferta de competências (alunos)", () => {
+  it("conta em quantos perfis cada competência aparece", () => {
+    const supply = skillSupplyCounts([
+      { skills: ["React", "SQL"] },
+      { skills: ["React"] },
+    ]);
+    expect(supply).toEqual([
+      { skill: "React", supply: 2 },
+      { skill: "SQL", supply: 1 },
+    ]);
+  });
+
+  it("aluno sem competências não contribui; duplicata conta uma vez", () => {
+    const supply = skillSupplyCounts([
+      { skills: undefined },
+      { skills: [] },
+      { skills: ["react", "React"] },
+    ]);
+    expect(supply).toEqual([{ skill: "react", supply: 1 }]);
+  });
+});
+
+describe("[GESTOR_BACKEND] — radar de competências (demanda × oferta)", () => {
+  it("mescla demanda e oferta case-insensitive, mantendo rótulo da demanda", () => {
+    const radar = buildSkillsRadar(
+      [{ skill: "React", demand: 3 }],
+      [{ skill: "react", supply: 2 }],
+    );
+    expect(radar).toEqual([{ skill: "React", demand: 3, supply: 2 }]);
+  });
+
+  it("ordena por demanda desc; empate resolve por oferta desc", () => {
+    const radar = buildSkillsRadar(
+      [
+        { skill: "SQL", demand: 5 },
+        { skill: "React", demand: 5 },
+        { skill: "Python", demand: 9 },
+      ],
+      [
+        { skill: "React", supply: 1 },
+        { skill: "SQL", supply: 4 },
+      ],
+    );
+    expect(radar.map((r) => r.skill)).toEqual(["Python", "SQL", "React"]);
+    expect(radar.find((r) => r.skill === "React")).toEqual({
+      skill: "React",
+      demand: 5,
+      supply: 1,
+    });
+  });
+
+  it("skill só pedida pelas vagas aparece com oferta zero (maior gargalo)", () => {
+    const radar = buildSkillsRadar(
+      [{ skill: "Power BI", demand: 7 }],
+      [{ skill: "React", supply: 3 }],
+    );
+    expect(radar).toEqual([
+      { skill: "Power BI", demand: 7, supply: 0 },
+      { skill: "React", demand: 0, supply: 3 },
+    ]);
+  });
+
+  it("limita ao Top N (padrão 6) após a ordenação", () => {
+    const demand = ["A", "B", "C", "D", "E", "F", "G"].map((skill, i) => ({
+      skill,
+      demand: 10 - i,
+    }));
+    const radar = buildSkillsRadar(demand, [], 6);
+    expect(radar).toHaveLength(6);
+    expect(radar.map((r) => r.skill)).toEqual(["A", "B", "C", "D", "E", "F"]);
+  });
+
+  it("sem dados retorna lista vazia", () => {
+    expect(buildSkillsRadar([], [])).toEqual([]);
+  });
+});
+
+describe("[GESTOR_BACKEND] — engajamento (R1: inativo nunca conta)", () => {
+  it("total cobre apenas alunos com vínculo (ativo/egresso)", () => {
+    const metrics = engagementCounts([
+      { status: "ativo", skills: ["React"], resumeData: { headline: "Dev" } },
+      { status: "egresso", skills: ["SQL"] },
+      { status: "inativo", skills: [] },
+    ]);
+    expect(metrics).toEqual({ total: 2, incompleteProfiles: 0, noResume: 1 });
+  });
+
+  it("perfil incompleto = sem competências registradas", () => {
+    const metrics = engagementCounts([
+      { status: "ativo", skills: [] },
+      { status: "ativo", skills: undefined },
+      { status: "ativo", skills: ["React"] },
+    ]);
+    expect(metrics.incompleteProfiles).toBe(2);
+    expect(metrics.total).toBe(3);
+  });
+
+  it("sem currículo = resumeData ausente (mesmo com skills)", () => {
+    const metrics = engagementCounts([
+      { status: "ativo", skills: ["React"] },
+      { status: "ativo", skills: ["React"], resumeData: { headline: "x" } },
+    ]);
+    expect(metrics.noResume).toBe(1);
+  });
+
+  it("todos inativos → zeros em tudo", () => {
+    const metrics = engagementCounts([
+      { status: "inativo" },
+      { status: "inativo", skills: ["React"] },
+    ]);
+    expect(metrics).toEqual({ total: 0, incompleteProfiles: 0, noResume: 0 });
+  });
+});
+
+describe("REFACTOR_GESTOR — seções ainda mockadas (Nota Técnica Visual)", () => {
   it("declara source: mock — a UI sabe o que é placeholder", () => {
     expect(MANAGER_DASHBOARD_MOCKS.source).toBe("mock");
   });
@@ -95,17 +300,5 @@ describe("REFACTOR_GESTOR — dados mockados sinalizados (Nota Técnica Visual)"
     );
     const ordered = [...percents].sort((a, b) => b - a);
     expect(percents).toEqual(ordered);
-  });
-
-  it("radar de competências traz demanda vs oferta por skill", () => {
-    const first = MANAGER_DASHBOARD_MOCKS.skillGaps[0];
-    expect(first).toHaveProperty("skill");
-    expect(first).toHaveProperty("demand");
-    expect(first).toHaveProperty("supply");
-  });
-
-  it("termômetro de engajamento expõe perfis incompletos e sem currículo", () => {
-    expect(MANAGER_DASHBOARD_MOCKS.incompleteProfiles).toBeGreaterThan(0);
-    expect(MANAGER_DASHBOARD_MOCKS.noResume).toBeGreaterThan(0);
   });
 });

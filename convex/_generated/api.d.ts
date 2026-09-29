@@ -20,6 +20,7 @@ import type * as http from "../http.js";
 import type * as jobs from "../jobs.js";
 import type * as lgpd from "../lgpd.js";
 import type * as lib_currentUser from "../lib/currentUser.js";
+import type * as manager from "../manager.js";
 import type * as operational from "../operational.js";
 import type * as password from "../password.js";
 import type * as students from "../students.js";
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   jobs: typeof jobs;
   lgpd: typeof lgpd;
   "lib/currentUser": typeof lib_currentUser;
+  manager: typeof manager;
   operational: typeof operational;
   password: typeof password;
   students: typeof students;

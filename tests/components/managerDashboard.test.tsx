@@ -86,12 +86,42 @@ const FUNNEL = {
   totalApplications: 64,
 };
 
+// [GESTOR_BACKEND] Insights Estratégicos — agregações reais (gestor-only).
+const REJECTIONS = {
+  total: 38,
+  rows: [
+    {
+      reason: "requisitos_obrigatorios",
+      label: "Requisitos obrigatórios",
+      count: 18,
+      percent: 47,
+    },
+    {
+      reason: "formacao_incompativel",
+      label: "Formação incompatível",
+      count: 11,
+      percent: 29,
+    },
+  ],
+};
+
+const SKILLS_RADAR = [
+  { skill: "React", demand: 42, supply: 31 },
+  { skill: "SQL", demand: 35, supply: 28 },
+  { skill: "Python", demand: 30, supply: 26 },
+];
+
+const ENGAGEMENT = { total: 148, incompleteProfiles: 37, noResume: 58 };
+
 function mockQueries() {
   mockedUseQuery.mockImplementation(((query: unknown) => {
     if (query === "query:operational.operationalSummary") return SUMMARY;
     if (query === "query:operational.timeToHireStats") return TTH;
     if (query === "query:operational.pipelineFunnel") return FUNNEL;
     if (query === "query:students.talentPoolCount") return { total: 148 };
+    if (query === "query:manager.getRejectionInsights") return REJECTIONS;
+    if (query === "query:manager.getSkillsRadar") return SKILLS_RADAR;
+    if (query === "query:manager.getEngagementMetrics") return ENGAGEMENT;
     return undefined;
   }) as never);
 }
@@ -193,9 +223,36 @@ describe("REFACTOR_GESTOR — Painel Estratégico (Etapa 4)", () => {
     expect(within(engagement).getByText(/sem currículo/i)).toBeInTheDocument();
   });
 
-  it("seções mockadas são sinalizadas como placeholder (source: mock)", () => {
+  it("seções ainda mockadas (curso/parceiras) mantêm o badge de exemplo", () => {
     render(<ManagerDashboard />);
-    expect(screen.getAllByText(/dados de exemplo/i).length).toBeGreaterThan(2);
+    // [GESTOR_BACKEND] apenas empregabilidade por curso e empresas
+    // parceiras permanecem de exemplo; os insights agora são reais.
+    expect(screen.getAllByText(/dados de exemplo/i)).toHaveLength(2);
+    for (const testId of [
+      "manager-insight-rejections",
+      "manager-insight-skillgaps",
+      "manager-insight-engagement",
+    ]) {
+      expect(
+        within(screen.getByTestId(testId)).queryByText(/dados de exemplo/i),
+      ).toBeNull();
+    }
+  });
+
+  it("insights estratégicos exibem os dados reais das queries do gestor", () => {
+    render(<ManagerDashboard />);
+    const rejections = screen.getByTestId("manager-insight-rejections");
+    expect(
+      within(rejections).getByText(/requisitos obrigatórios/i),
+    ).toBeInTheDocument();
+    expect(within(rejections).getByText("47%")).toBeInTheDocument();
+
+    const radar = screen.getByTestId("manager-insight-skillgaps");
+    expect(within(radar).getByText(/42 pedem · 31 têm/i)).toBeInTheDocument();
+
+    const engagement = screen.getByTestId("manager-insight-engagement");
+    expect(within(engagement).getByText("37")).toBeInTheDocument();
+    expect(within(engagement).getByText("58")).toBeInTheDocument();
   });
 
   it("estado de carregamento dos KPIs antes das queries chegarem", () => {

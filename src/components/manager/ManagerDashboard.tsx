@@ -6,7 +6,6 @@ import {
   MANAGER_DASHBOARD_MOCKS,
   buildManagerKpis,
   partnerStatus,
-  rejectionShare,
 } from "../../lib/managerDashboard";
 import { buildOperationalReport } from "../../lib/operationalPanel";
 import { downloadReport } from "../../lib/reportExport";
@@ -21,9 +20,12 @@ import { normalizeDashboardFilters } from "../../lib/dashboardFilters";
  * - REAIS: `operational.operationalSummary` (vagas/empregabilidade),
  *   `operational.timeToHireStats`, `operational.pipelineFunnel`
  *   (funil de conversão) e `students.talentPoolCount`;
- * - MOCKS sinalizados (`source: "mock"`): empregabilidade por curso,
- *   radar de competências, termômetro de engajamento e empresas
- *   parceiras — prontos para serem plugados em agregações de backend.
+ * - [GESTOR_BACKEND] REAIS: motivos de reprovação (R5), radar de
+ *   competências (demanda×oferta) e termômetro de engajamento — queries
+ *   gestor-only de convex/manager.ts (`getRejectionInsights`,
+ *   `getSkillsRadar`, `getEngagementMetrics`);
+ * - MOCKS sinalizados (`source: "mock"`): empregabilidade por curso e
+ *   empresas parceiras — ainda sem agregação de backend.
  *
  * As exportações (CSV/XLSX/PDF) usam os dados REAIS carregados, igual ao
  * painel operacional do recrutador.
@@ -58,6 +60,10 @@ const PARTNER_STATUS_LABELS: Record<
   },
 };
 
+/**
+ * Sinaliza seções ainda alimentadas com dados de exemplo (Nota Técnica
+ * Visual) — empregabilidade por curso e empresas parceiras.
+ */
 function MockBadge() {
   return (
     <span
@@ -107,8 +113,8 @@ function KpiCard({
 }
 
 export function ManagerDashboard() {
-  // Filtros: o curso alimenta as queries REAIS; o semestre filtra as
-  // seções mockadas no cliente (agregação por semestre chega no backend).
+  // Filtros: o curso alimenta TODAS as queries reais do servidor;
+  // o semestre segue como recorte client-side das seções de exemplo.
   const [draftCourse, setDraftCourse] = useState("");
   const [draftSemester, setDraftSemester] = useState("");
   const [applied, setApplied] = useState({ course: "", semester: "" });
@@ -117,16 +123,30 @@ export function ManagerDashboard() {
     course: applied.course,
   });
 
+  // [GESTOR_BACKEND] As queries de insights aceitam apenas `course` —
+  // os demais filtros do dashboard não se aplicam a estas agregações.
+  const managerFilters = { course: filters.course };
+
   const summary = useQuery(api.operational.operationalSummary, filters);
   const tth = useQuery(api.operational.timeToHireStats, filters);
   const funnel = useQuery(api.operational.pipelineFunnel, filters);
   const talentPool = useQuery(api.students.talentPoolCount, {});
+  // Insights Estratégicos — agregações reais (exclusivas do gestor).
+  const rejectionsData = useQuery(
+    api.manager.getRejectionInsights,
+    managerFilters,
+  );
+  const skillsRadar = useQuery(api.manager.getSkillsRadar, managerFilters);
+  const engagement = useQuery(api.manager.getEngagementMetrics, managerFilters);
 
   if (
     summary === undefined ||
     tth === undefined ||
     funnel === undefined ||
-    talentPool === undefined
+    talentPool === undefined ||
+    rejectionsData === undefined ||
+    skillsRadar === undefined ||
+    engagement === undefined
   ) {
     return (
       <div
@@ -148,14 +168,7 @@ export function ManagerDashboard() {
     availableTalents: talentPool.total,
   });
 
-  const rejectionCounts = [
-    { reason: "requisitos_obrigatorios", count: 18 },
-    { reason: "formacao_incompativel", count: 11 },
-    { reason: "idioma_insuficiente", count: 9 },
-    { reason: "disponibilidade_incompativel", count: 6 },
-    { reason: "outro", count: 4 },
-  ];
-  const rejections = rejectionShare(rejectionCounts);
+  const rejections = rejectionsData.rows;
   const maxRejection = Math.max(1, ...rejections.map((r) => r.percent));
   const maxCourse = Math.max(
     1,
@@ -163,7 +176,7 @@ export function ManagerDashboard() {
   );
   const maxSkill = Math.max(
     1,
-    ...MANAGER_DASHBOARD_MOCKS.skillGaps.flatMap((s) => [s.demand, s.supply]),
+    ...skillsRadar.flatMap((s) => [s.demand, s.supply]),
   );
   const funnelSteps = funnel.steps;
   const maxFunnel = Math.max(1, ...funnelSteps.map((s) => s.count));
@@ -484,32 +497,40 @@ export function ManagerDashboard() {
             <h3 className="font-serif text-lg font-bold text-primary">
               Motivos de Reprovação
             </h3>
-            <MockBadge />
           </div>
           <p className="mb-3 text-xs text-slate-500">
-            Onde os alunos mais falham nos processos seletivos (R5).
+            Onde os alunos mais falham nos processos seletivos (R5) — dados
+            reais de todas as candidaturas reprovadas.
           </p>
-          <ul className="flex flex-col gap-2.5">
-            {rejections.map((row) => (
-              <li key={row.reason} className="flex items-center gap-2">
-                <span className="w-44 shrink-0 truncate text-sm text-slate-700">
-                  {row.label}
-                </span>
-                <div
-                  className="h-5 flex-1 overflow-hidden rounded bg-slate-100"
-                  aria-hidden="true"
-                >
+          {rejections.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              Nenhuma reprovação registrada com os filtros atuais.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2.5">
+              {rejections.map((row) => (
+                <li key={row.reason} className="flex items-center gap-2">
+                  <span className="w-44 shrink-0 truncate text-sm text-slate-700">
+                    {row.label}
+                  </span>
                   <div
-                    className="h-full rounded bg-primary"
-                    style={{ width: `${(row.percent / maxRejection) * 100}%` }}
-                  />
-                </div>
-                <span className="w-10 shrink-0 text-right text-xs font-bold text-primary">
-                  {row.percent}%
-                </span>
-              </li>
-            ))}
-          </ul>
+                    className="h-5 flex-1 overflow-hidden rounded bg-slate-100"
+                    aria-hidden="true"
+                  >
+                    <div
+                      className="h-full rounded bg-primary"
+                      style={{
+                        width: `${(row.percent / maxRejection) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="w-10 shrink-0 text-right text-xs font-bold text-primary">
+                    {row.percent}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
 
         <section
@@ -521,36 +542,42 @@ export function ManagerDashboard() {
             <h3 className="font-serif text-lg font-bold text-primary">
               Radar de Competências
             </h3>
-            <MockBadge />
           </div>
           <p className="mb-3 text-xs text-slate-500">
-            O que as vagas mais pedem vs. o que os alunos mais têm — os maiores
-            gargalos ficam com demanda ≫ oferta.
+            O que as vagas mais pedem vs. o que os alunos mais têm — dados reais
+            dos pré-requisitos e dos perfis; os maiores gargalos ficam com
+            demanda ≫ oferta.
           </p>
-          <ul className="flex flex-col gap-2.5">
-            {MANAGER_DASHBOARD_MOCKS.skillGaps.map((gap) => (
-              <li key={gap.skill} className="flex items-center gap-2">
-                <span className="w-32 shrink-0 truncate text-sm text-slate-700">
-                  {gap.skill}
-                </span>
-                <div className="flex flex-1 flex-col gap-1">
-                  <div
-                    className="h-3.5 rounded bg-primary"
-                    style={{ width: `${(gap.demand / maxSkill) * 100}%` }}
-                    aria-hidden="true"
-                  />
-                  <div
-                    className="h-3.5 rounded bg-slate-300"
-                    style={{ width: `${(gap.supply / maxSkill) * 100}%` }}
-                    aria-hidden="true"
-                  />
-                </div>
-                <span className="w-20 shrink-0 text-right text-[11px] text-slate-500">
-                  {gap.demand} pedem · {gap.supply} têm
-                </span>
-              </li>
-            ))}
-          </ul>
+          {skillsRadar.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              Sem vagas ou competências para comparar com os filtros atuais.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2.5">
+              {skillsRadar.map((gap) => (
+                <li key={gap.skill} className="flex items-center gap-2">
+                  <span className="w-32 shrink-0 truncate text-sm text-slate-700">
+                    {gap.skill}
+                  </span>
+                  <div className="flex flex-1 flex-col gap-1">
+                    <div
+                      className="h-3.5 rounded bg-primary"
+                      style={{ width: `${(gap.demand / maxSkill) * 100}%` }}
+                      aria-hidden="true"
+                    />
+                    <div
+                      className="h-3.5 rounded bg-slate-300"
+                      style={{ width: `${(gap.supply / maxSkill) * 100}%` }}
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <span className="w-20 shrink-0 text-right text-[11px] text-slate-500">
+                    {gap.demand} pedem · {gap.supply} têm
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="mt-3 flex items-center gap-3 text-[11px] text-slate-500">
             <span className="flex items-center gap-1">
               <span
@@ -578,7 +605,6 @@ export function ManagerDashboard() {
             <h3 className="font-serif text-lg font-bold text-primary">
               Termômetro de Engajamento
             </h3>
-            <MockBadge />
           </div>
           <p className="mb-4 text-xs text-slate-500">
             Alunos que precisam de um empurrão para completar o perfil.
@@ -586,7 +612,7 @@ export function ManagerDashboard() {
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-slate-200 bg-[#FDF2F4] p-4 text-center">
               <p className="font-serif text-3xl font-bold text-primary">
-                {MANAGER_DASHBOARD_MOCKS.incompleteProfiles}
+                {engagement.incompleteProfiles}
               </p>
               <p className="mt-1 text-xs font-medium text-slate-600">
                 Perfil incompleto
@@ -594,7 +620,7 @@ export function ManagerDashboard() {
             </div>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
               <p className="font-serif text-3xl font-bold text-primary">
-                {MANAGER_DASHBOARD_MOCKS.noResume}
+                {engagement.noResume}
               </p>
               <p className="mt-1 text-xs font-medium text-slate-600">
                 Sem currículo
