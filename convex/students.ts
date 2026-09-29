@@ -560,6 +560,35 @@ export const searchTalent = query({
 });
 
 /**
+ * [REFACTOR_GESTOR] KPI do Painel Estratégico: total de talentos
+ * disponíveis no banco (públicos com vínculo válido — R1/R2 já nos
+ * índices). Exclusivo do papel gestor; leitura indexada, sem full-scan.
+ */
+export const talentPoolCount = query({
+  args: {},
+  handler: async (ctx): Promise<{ total: number }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (identity === null) throw new Error("Não autenticado.");
+    const user = await getCurrentUser(ctx);
+    if (user === null) throw new Error("Usuário não encontrado.");
+    if (user.role !== "gestor") {
+      throw new Error("Painel estratégico disponível apenas para gestores.");
+    }
+    let total = 0;
+    for (const status of ["ativo", "egresso"] as const) {
+      const rows = await ctx.db
+        .query("students")
+        .withIndex("by_visibility_status", (q) =>
+          q.eq("visibility", "publico").eq("status", status),
+        )
+        .collect();
+      total += rows.length;
+    }
+    return { total };
+  },
+});
+
+/**
  * Guard interno: resolve o estudante do usuário autenticado (pelo token).
  * Consumido por issues futuras (currículo S2, candidaturas S3).
  */

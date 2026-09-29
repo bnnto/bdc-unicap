@@ -15,7 +15,6 @@ import type * as authorize from "../authorize.js";
 import type * as consentTerms from "../consentTerms.js";
 import type * as consents from "../consents.js";
 import type * as crons from "../crons.js";
-import type * as extensionProjects from "../extensionProjects.js";
 import type * as health from "../health.js";
 import type * as http from "../http.js";
 import type * as jobs from "../jobs.js";
@@ -39,7 +38,6 @@ declare const fullApi: ApiFromModules<{
   consentTerms: typeof consentTerms;
   consents: typeof consents;
   crons: typeof crons;
-  extensionProjects: typeof extensionProjects;
   health: typeof health;
   http: typeof http;
   jobs: typeof jobs;

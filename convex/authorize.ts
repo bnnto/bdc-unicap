@@ -3,7 +3,7 @@ import type { DataModel } from "./_generated/dataModel.js";
 import { api, internal } from "./_generated/api.js";
 import { hashPassword, verifyPassword } from "./password"; // runtime padrão (Web Crypto)
 import { isValidEmail, normalizeEmail } from "../src/lib/auth";
-import { isRole } from "../src/lib/roles";
+import { isPublicSignupRole } from "../src/lib/roles";
 import { CURRENT_TERM_VERSION } from "./consentTerms";
 
 type AuthorizeCtx = GenericActionCtxWithAuthConfig<DataModel>;
@@ -72,8 +72,13 @@ export const authorizeConfig = {
       if (name.length < 3) {
         throw new Error("Informe seu nome completo.");
       }
-      if (!isRole(role)) {
-        throw new Error("Selecione um papel válido.");
+      // [REFACTOR_GESTOR] Etapa 3 — o público só cria aluno/recrutador;
+      // gestor é provisionado manualmente pela coordenação (Convex
+      // Dashboard). A checagem é NO SERVIDOR, não apenas na UI.
+      if (!isPublicSignupRole(role)) {
+        throw new Error(
+          "Cadastro público disponível apenas para aluno e recrutador.",
+        );
       }
       // R7 (issue [S1-2]): cadastro sem aceite do termo vigente é bloqueado
       // no servidor — a checkbox da UI é reforço, não a regra.

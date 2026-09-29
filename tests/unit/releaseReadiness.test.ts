@@ -52,7 +52,8 @@ describe("S8-5 — parâmetros da release", () => {
     expect(ids).toContain("S1-1");
     expect(ids).toContain("S3-1");
     expect(ids).toContain("S5-1");
-    expect(ids).toContain("S7-3");
+    // [REFACTOR_GESTOR] Módulo de extensão cancelado: sem gates S7-*.
+    expect(ids.some((id) => id.startsWith("S7"))).toBe(false);
     expect(ids).toContain("S8-1");
     expect(ids).toContain("S8-4");
     // Todos os gates declarados cobrem issues até a S8-4 (S8-5 é a própria
@@ -96,10 +97,10 @@ describe("S8-5 — avaliação consolidada de prontidão (CA 1)", () => {
 
   it("gate de issue ausente na lista bloqueia a release", () => {
     const input = greenInput();
-    input.gates = input.gates.filter((g) => g.issueId !== "S7-1");
+    input.gates = input.gates.filter((g) => g.issueId !== "S8-1");
     const report = evaluateReleaseReadiness(input);
     expect(report.ready).toBe(false);
-    expect(report.failed).toContain("gate_S7-1");
+    expect(report.failed).toContain("gate_S8-1");
   });
 
   it("qualidade: testes falhando, typecheck ou lint vermelhos bloqueiam", () => {
