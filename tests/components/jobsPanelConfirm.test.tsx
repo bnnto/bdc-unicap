@@ -22,6 +22,7 @@ vi.mock("../../convex/_generated/api", () => ({
   api: {
     jobs: {
       myJobs: "query:jobs.myJobs",
+      getMyJobs: "query:jobs.getMyJobs",
       setJobStatus: "mut:jobs.setJobStatus",
       renewJob: "mut:jobs.renewJob",
     },
@@ -56,7 +57,7 @@ const renewJob = vi.fn().mockResolvedValue({ ok: true });
 beforeEach(() => {
   vi.clearAllMocks();
   mockedUseQuery.mockImplementation(((query: unknown) =>
-    query === api.jobs.myJobs ? [job] : undefined) as never);
+    query === api.jobs.getMyJobs ? [job] : undefined) as never);
   mockedUseMutation.mockImplementation(((mutation: unknown) =>
     mutation === api.jobs.setJobStatus ? setJobStatus : renewJob) as never);
 });
@@ -137,7 +138,7 @@ describe("JobsPanel — confirmação antes de fechar/encerrar (H3-1)", () => {
   it("Reabrir (reversível) continua direto, sem confirmação", async () => {
     const closedJob = { ...job, status: "fechada" } as unknown as Doc<"jobs">;
     mockedUseQuery.mockImplementation(((query: unknown) =>
-      query === api.jobs.myJobs ? [closedJob] : undefined) as never);
+      query === api.jobs.getMyJobs ? [closedJob] : undefined) as never);
 
     render(<JobsPanel />);
 

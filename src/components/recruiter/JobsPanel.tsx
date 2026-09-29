@@ -42,7 +42,9 @@ const NEXT_STATUS: Record<
  * prazo de expiração R4 (publicação, aviso e renovação de 30 dias).
  */
 export function JobsPanel() {
-  const jobs = useQuery(api.jobs.myJobs, {});
+  // [RECRUITER_WORKFLOW] Etapa 3 — a lista de vagas do recrutador logado
+  // (`getMyJobs`, índice by_recruiter — nunca as de outro recrutador).
+  const jobs = useQuery(api.jobs.getMyJobs, {});
   const setJobStatus = useMutation(api.jobs.setJobStatus);
   const renewJob = useMutation(api.jobs.renewJob);
   const [mode, setMode] = useState<

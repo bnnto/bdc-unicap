@@ -5,13 +5,13 @@ import { CURRENT_TERM_VERSION } from "./consentTerms";
 import { computeMatchScore } from "../src/lib/matching";
 import {
   canApplyTo,
-  canTransitionTo,
   checkRequiredPrerequisites,
   buildMatchingCandidateInput,
   contactProjectionForApplication,
   formatMissingPrerequisites,
   isApplicationStage,
   isRejectionReason,
+  moveStageDecision,
   rejectionDecision,
   REJECTION_REASON_LABELS,
   type ApplicableJob,
@@ -247,6 +247,13 @@ export const jobApplications = query({
  * Apenas o recrutador dono da vaga move; transição para a mesma coluna
  * é rejeitada (no-op); stage destino validado pela guarda pura.
  * A reatividade do Convex propaga a mudança a todos os clientes abertos.
+ *
+ * [RECRUITER_WORKFLOW] R5 (defesa em profundidade): mover para
+ * "reprovado" EXIGE o `rejectionReason` do enum fixo — sem motivo a
+ * mutation falha no servidor, mesmo que um cliente malicioso tente
+ * contornar o modal da UI. Aprovar grava `filledAt` na vaga ([S5-2],
+ * base do time-to-hire); desfazer a aprovação o limpa. Sair da coluna
+ * "Reprovado" limpa o motivo gravado (o aluno voltou ao pipeline).
  */
 export const moveApplication = mutation({
   args: {
@@ -258,8 +265,21 @@ export const moveApplication = mutation({
       v.literal("aprovado"),
       v.literal("reprovado"),
     ),
+    /** R5 — obrigatório quando `to = "reprovado"` (regra pura). */
+    rejectionReason: v.optional(
+      v.union(
+        v.literal("requisitos_obrigatorios"),
+        v.literal("formacao_incompativel"),
+        v.literal("disponibilidade_incompativel"),
+        v.literal("idioma_insuficiente"),
+        v.literal("perfil_duplicado"),
+        v.literal("vaga_preenchida"),
+        v.literal("vaga_cancelada"),
+        v.literal("outro"),
+      ),
+    ),
   },
-  handler: async (ctx, { applicationId, to }) => {
+  handler: async (ctx, { applicationId, to, rejectionReason }) => {
     const user = await requireActiveUser(ctx);
     if (!isApplicationStage(to)) {
       throw new Error("Coluna de destino inválida.");
@@ -273,11 +293,38 @@ export const moveApplication = mutation({
     if (job.recruiterId !== user._id) {
       throw new Error("Apenas o recrutador da vaga move as candidaturas.");
     }
-    if (!canTransitionTo(application.stage, to)) {
-      throw new Error("O card já está nesta coluna.");
+
+    const decision = moveStageDecision({
+      stage: application.stage,
+      to,
+      rejectionReason,
+    });
+    if (!decision.ok) {
+      throw new Error(decision.error);
     }
-    await ctx.db.patch(applicationId, { stage: to });
-    return { ok: true as const, stage: to };
+
+    // Gravação da candidatura: stage (+ motivo na reprovação; limpo ao
+    // reativar um card que estava na coluna Reprovado).
+    const patch: Partial<Doc<"applications">> = {
+      stage: decision.nextStage,
+    };
+    if (decision.rejectionReason !== undefined) {
+      // null = limpar o campo (reactivação); validator não aceita null.
+      patch.rejectionReason =
+        decision.rejectionReason === null
+          ? undefined
+          : decision.rejectionReason;
+    }
+    await ctx.db.patch(applicationId, patch);
+
+    // [S5-2] — preenchimento da vaga acompanha a coluna Aprovado.
+    const now = Date.now();
+    if (decision.jobFilled) {
+      await ctx.db.patch(job._id, { filledAt: now });
+    } else if (decision.jobUnfilled) {
+      await ctx.db.patch(job._id, { filledAt: undefined });
+    }
+    return { ok: true as const, stage: decision.nextStage };
   },
 });
 

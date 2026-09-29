@@ -51,7 +51,8 @@ type BoardApplication = {
  * mantido no card (alternativa acessível ao arrastar).
  */
 export function JobKanban() {
-  const jobs = useQuery(api.jobs.myJobs, {});
+  // [RECRUITER_WORKFLOW] Vagas do recrutador logado (getMyJobs).
+  const jobs = useQuery(api.jobs.getMyJobs, {});
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   /**
    * [UX-P2] H9-1 — erro por card: a mensagem aparece junto ao card que
@@ -60,6 +61,11 @@ export function JobKanban() {
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<ApplicationStage | null>(null);
+  /**
+   * [RECRUITER_WORKFLOW] Etapa 4.3 — Modal de Reprovação: o card em
+   * processo de reprovação e o motivo escolhido (obrigatório para
+   * disparar a mutation — R5). Substitui o painel inline da S4-2.
+   */
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [reasonDraft, setReasonDraft] = useState<RejectionReason | "">("");
 
@@ -178,6 +184,11 @@ export function JobKanban() {
   }
 
   const applications: BoardApplication[] = board?.items ?? [];
+  // [RECRUITER_WORKFLOW] Card em reprovação (dados para o modal).
+  const rejectingApplication =
+    applications.find(
+      (application) => application.applicationId === rejectingId,
+    ) ?? null;
   const grouped = groupApplicationsByStage(applications);
   const selectedJobTitle =
     board?.job.title ??
@@ -375,63 +386,6 @@ export function JobKanban() {
                         </Button>
                       ) : null}
                     </div>
-
-                    {rejectingId === application.applicationId ? (
-                      <div className="mt-2 flex flex-col gap-2 rounded border border-warning bg-white p-2">
-                        <label
-                          htmlFor={`reason-${application.applicationId}`}
-                          className="text-xs font-semibold text-slate-700"
-                        >
-                          Motivo da reprovação (obrigatório)
-                        </label>
-                        <select
-                          id={`reason-${application.applicationId}`}
-                          value={reasonDraft}
-                          onChange={(e) =>
-                            setReasonDraft(
-                              e.target.value as RejectionReason | "",
-                            )
-                          }
-                          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-                        >
-                          <option value="">Selecione…</option>
-                          {REJECTION_REASONS.map((reason) => (
-                            <option key={reason} value={reason}>
-                              {REJECTION_REASON_LABELS[reason]}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="primary"
-                            aria-label="Confirmar reprovação com o motivo selecionado"
-                            onClick={() =>
-                              void handleReject(
-                                application.applicationId,
-                                reasonDraft,
-                              )
-                            }
-                          >
-                            Confirmar
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            onClick={() => {
-                              setRejectingId(null);
-                              setReasonDraft("");
-                            }}
-                          >
-                            Cancelar
-                          </Button>
-                        </div>
-                        {reasonDraft === "" ? (
-                          <p className="text-xs text-danger">
-                            Escolha um motivo para confirmar — a reprovação sem
-                            motivo fica bloqueada.
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
                   </article>
                 );
               })}
@@ -439,6 +393,95 @@ export function JobKanban() {
           ))}
         </div>
       )}
+
+      {rejectingApplication !== null ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reject-modal-title"
+          aria-describedby="reject-modal-description"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 p-4"
+          onClick={(e) => {
+            // Clique no backdrop fecha (não é o conteúdo do diálogo).
+            if (e.target === e.currentTarget) {
+              setRejectingId(null);
+              setReasonDraft("");
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-level1">
+            <h3
+              id="reject-modal-title"
+              className="font-serif text-lg font-bold text-primary"
+            >
+              Reprovar candidatura
+            </h3>
+            <p
+              id="reject-modal-description"
+              className="mt-1 text-sm text-slate-600"
+            >
+              {rejectingApplication.fullName} — {rejectingApplication.course}.
+              Escolha o motivo padronizado: ele fica registrado para auditoria
+              do processo (R5) e aparece para o candidato.
+            </p>
+            <div className="mt-3 flex flex-col gap-2">
+              <label
+                htmlFor="reject-reason-select"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Motivo da reprovação (obrigatório)
+              </label>
+              <select
+                id="reject-reason-select"
+                value={reasonDraft}
+                onChange={(e) =>
+                  setReasonDraft(e.target.value as RejectionReason | "")
+                }
+                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              >
+                <option value="">Selecione…</option>
+                {REJECTION_REASONS.map((reason) => (
+                  <option key={reason} value={reason}>
+                    {REJECTION_REASON_LABELS[reason]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {cardErrors[rejectingApplication.applicationId] !== undefined ? (
+              <p
+                role="alert"
+                className="mt-2 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
+              >
+                {cardErrors[rejectingApplication.applicationId]}
+              </p>
+            ) : null}
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setRejectingId(null);
+                  setReasonDraft("");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                aria-label="Confirmar reprovação com o motivo selecionado"
+                disabled={reasonDraft === ""}
+                onClick={() =>
+                  void handleReject(
+                    rejectingApplication.applicationId,
+                    reasonDraft,
+                  )
+                }
+              >
+                Confirmar reprovação
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   APPLICATION_STAGES,
+  REJECTION_REASONS,
   STAGE_LABELS,
   canApplyTo,
   buildMatchingCandidateInput,
+  moveStageDecision,
 } from "../../src/lib/application";
 
 describe("stages da candidatura (S3-4, CA 3)", () => {
@@ -23,6 +25,118 @@ describe("stages da candidatura (S3-4, CA 3)", () => {
       expect(STAGE_LABELS[stage].length).toBeGreaterThan(0);
     }
     expect(STAGE_LABELS.inscrito).toBe("Inscrito");
+  });
+});
+
+/**
+ * [RECRUITER_WORKFLOW] Etapa 2.2 — decisão pura de movimentação do
+ * Kanban: reprovação SEM motivo é bloqueada no servidor (R5 — defesa em
+ * profundidade; a UI também exige) e a aprovação marca o preenchimento
+ * da vaga para os cálculos de time-to-hire ([S5-2]).
+ */
+describe("[RECRUITER_WORKFLOW] moveStageDecision — movimentação do Kanban", () => {
+  it("transição normal entre colunas é permitida", () => {
+    const decision = moveStageDecision({
+      stage: "inscrito",
+      to: "triagem",
+    });
+    expect(decision).toEqual({
+      ok: true,
+      nextStage: "triagem",
+      jobFilled: false,
+      jobUnfilled: false,
+    });
+  });
+
+  it("mover para a própria coluna é rejeitado (no-op)", () => {
+    const decision = moveStageDecision({ stage: "triagem", to: "triagem" });
+    expect(decision.ok).toBe(false);
+    if (!decision.ok) {
+      expect(decision.error).toMatch(/já está nesta coluna/i);
+    }
+  });
+
+  it("REPROVAÇÃO sem motivo é bloqueada (R5 — furo do moveApplication)", () => {
+    const decision = moveStageDecision({
+      stage: "entrevista",
+      to: "reprovado",
+    });
+    expect(decision.ok).toBe(false);
+    if (!decision.ok) {
+      expect(decision.error).toMatch(/Motivo de reprovação é obrigatório/i);
+    }
+  });
+
+  it("REPROVAÇÃO com motivo fora do enum fixo é bloqueada (R5)", () => {
+    const decision = moveStageDecision({
+      stage: "triagem",
+      to: "reprovado",
+      rejectionReason: "nao_gostei_da_cara",
+    });
+    expect(decision.ok).toBe(false);
+    if (!decision.ok) {
+      expect(decision.error).toMatch(/Motivo de reprovação inválido/i);
+    }
+  });
+
+  it("REPROVAÇÃO com motivo válido do catálogo retorna o motivo a gravar", () => {
+    const decision = moveStageDecision({
+      stage: "triagem",
+      to: "reprovado",
+      rejectionReason: "idioma_insuficiente",
+    });
+    expect(decision).toEqual({
+      ok: true,
+      nextStage: "reprovado",
+      rejectionReason: "idioma_insuficiente",
+      jobFilled: false,
+      jobUnfilled: false,
+    });
+  });
+
+  it("aprovar marca a vaga como preenchida (base do time-to-hire)", () => {
+    const decision = moveStageDecision({
+      stage: "entrevista",
+      to: "aprovado",
+    });
+    expect(decision).toEqual({
+      ok: true,
+      nextStage: "aprovado",
+      jobFilled: true,
+      jobUnfilled: false,
+    });
+  });
+
+  it("desfazer aprovação limpa o preenchimento da vaga", () => {
+    const decision = moveStageDecision({
+      stage: "aprovado",
+      to: "entrevista",
+    });
+    expect(decision).toEqual({
+      ok: true,
+      nextStage: "entrevista",
+      jobFilled: false,
+      jobUnfilled: true,
+    });
+  });
+
+  it("tirar da coluna Reprovado limpa o motivo gravado (volta ao pipeline)", () => {
+    const decision = moveStageDecision({
+      stage: "reprovado",
+      to: "triagem",
+      rejectionReason: "outro",
+    });
+    expect(decision).toEqual({
+      ok: true,
+      nextStage: "triagem",
+      rejectionReason: null,
+      jobFilled: false,
+      jobUnfilled: false,
+    });
+  });
+
+  it("catálogo de motivos cobre os 8 valores do enum fixo (R5)", () => {
+    expect(REJECTION_REASONS).toHaveLength(8);
   });
 });
 

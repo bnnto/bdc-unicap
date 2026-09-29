@@ -15,6 +15,7 @@ vi.mock("../../convex/_generated/api", () => ({
   api: {
     jobs: {
       upsertJob: "mut:jobs.upsertJob",
+      createJob: "mut:jobs.createJob",
     },
   },
 }));
@@ -23,12 +24,14 @@ import { useMutation } from "convex/react";
 import { JobForm } from "../../src/components/recruiter/JobForm";
 
 const mockedUseMutation = vi.mocked(useMutation);
-const upsert = vi.fn().mockResolvedValue({ jobId: "job-1", created: true });
+const upsert = vi.fn().mockResolvedValue({ jobId: "job-1", created: false });
+const create = vi.fn().mockResolvedValue({ jobId: "job-1", created: true });
 const onDone = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockedUseMutation.mockReturnValue(upsert as never);
+  mockedUseMutation.mockImplementation(((mutation: unknown) =>
+    mutation === "mut:jobs.upsertJob" ? upsert : create) as never);
 });
 
 async function fillValidForm() {
@@ -56,13 +59,15 @@ describe("JobForm — polimento (UX-P3)", () => {
     );
 
     await waitFor(() => {
-      expect(upsert).toHaveBeenCalledOnce();
+      // [RECRUITER_WORKFLOW] nova vaga publica via createJob.
+      expect(create).toHaveBeenCalledOnce();
     });
     await waitFor(() => {
       expect(onDone).toHaveBeenCalledOnce();
     });
     // Sem duplicar salvamento: só um submit efetivo.
-    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(upsert).not.toHaveBeenCalled();
   });
 
   it("H6-1 — campo de idioma vincula datalist de sugestões", () => {
@@ -94,6 +99,7 @@ describe("JobForm — polimento (UX-P3)", () => {
       screen.getByRole("button", { name: "Publicar vaga" }),
     );
 
+    expect(create).not.toHaveBeenCalled();
     expect(upsert).not.toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toBeInTheDocument();

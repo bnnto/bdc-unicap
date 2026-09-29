@@ -16,6 +16,7 @@ vi.mock("../../convex/_generated/api", () => ({
   api: {
     jobs: {
       myJobs: "query:jobs.myJobs",
+      getMyJobs: "query:jobs.getMyJobs",
     },
     applications: {
       jobBoard: "query:applications.jobBoard",
@@ -68,7 +69,7 @@ beforeEach(() => {
 describe("JobKanban — idade da candidatura (H6-2)", () => {
   it("card mostra quando o candidato se inscreveu (reconhecimento)", async () => {
     mockedUseQuery.mockImplementation(((query: unknown, args: unknown) => {
-      if (query === "query:jobs.myJobs") return [job];
+      if (query === "query:jobs.getMyJobs") return [job];
       if (query === "query:applications.jobBoard") {
         return args === undefined
           ? undefined
