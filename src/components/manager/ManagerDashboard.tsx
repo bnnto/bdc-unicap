@@ -2,11 +2,7 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "../ui/button";
-import {
-  MANAGER_DASHBOARD_MOCKS,
-  buildManagerKpis,
-  partnerStatus,
-} from "../../lib/managerDashboard";
+import { buildManagerKpis, partnerStatus } from "../../lib/managerDashboard";
 import { buildOperationalReport } from "../../lib/operationalPanel";
 import { downloadReport } from "../../lib/reportExport";
 import { printOperationalReport } from "../../lib/reportPrint";
@@ -24,8 +20,9 @@ import { normalizeDashboardFilters } from "../../lib/dashboardFilters";
  *   competências (demanda×oferta) e termômetro de engajamento — queries
  *   gestor-only de convex/manager.ts (`getRejectionInsights`,
  *   `getSkillsRadar`, `getEngagementMetrics`);
- * - MOCKS sinalizados (`source: "mock"`): empregabilidade por curso e
- *   empresas parceiras — ainda sem agregação de backend.
+ * - [GESTOR_BACKEND_PT2] REAIS: empregabilidade por curso
+ *   (`getEmployabilityByCourse`) e empresas parceiras
+ *   (`getPartnerCompanies`) — o painel é 100% real, sem mocks.
  *
  * As exportações (CSV/XLSX/PDF) usam os dados REAIS carregados, igual ao
  * painel operacional do recrutador.
@@ -59,21 +56,6 @@ const PARTNER_STATUS_LABELS: Record<
     className: "bg-slate-100 text-slate-500",
   },
 };
-
-/**
- * Sinaliza seções ainda alimentadas com dados de exemplo (Nota Técnica
- * Visual) — empregabilidade por curso e empresas parceiras.
- */
-function MockBadge() {
-  return (
-    <span
-      className="inline-flex items-center rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500"
-      title="Seção alimentada com dados de exemplo — será plugada no banco em breve."
-    >
-      Dados de exemplo
-    </span>
-  );
-}
 
 function KpiCard({
   kpi,
@@ -113,8 +95,8 @@ function KpiCard({
 }
 
 export function ManagerDashboard() {
-  // Filtros: o curso alimenta TODAS as queries reais do servidor;
-  // o semestre segue como recorte client-side das seções de exemplo.
+  // Filtros: o curso alimenta TODAS as queries reais do servidor
+  // (agregações gestor + painel operacional).
   const [draftCourse, setDraftCourse] = useState("");
   const [draftSemester, setDraftSemester] = useState("");
   const [applied, setApplied] = useState({ course: "", semester: "" });
@@ -138,6 +120,14 @@ export function ManagerDashboard() {
   );
   const skillsRadar = useQuery(api.manager.getSkillsRadar, managerFilters);
   const engagement = useQuery(api.manager.getEngagementMetrics, managerFilters);
+  // [GESTOR_BACKEND_PT2] Empregabilidade por curso e empresas parceiras
+  // (a tabela de parceiras não é recortada por curso — empresas não têm
+  // curso; a regra de status fica na regra pura `partnerStatus`).
+  const courseEmployability = useQuery(
+    api.manager.getEmployabilityByCourse,
+    managerFilters,
+  );
+  const partnerCompanies = useQuery(api.manager.getPartnerCompanies, {});
 
   if (
     summary === undefined ||
@@ -146,7 +136,9 @@ export function ManagerDashboard() {
     talentPool === undefined ||
     rejectionsData === undefined ||
     skillsRadar === undefined ||
-    engagement === undefined
+    engagement === undefined ||
+    courseEmployability === undefined ||
+    partnerCompanies === undefined
   ) {
     return (
       <div
@@ -170,10 +162,7 @@ export function ManagerDashboard() {
 
   const rejections = rejectionsData.rows;
   const maxRejection = Math.max(1, ...rejections.map((r) => r.percent));
-  const maxCourse = Math.max(
-    1,
-    ...MANAGER_DASHBOARD_MOCKS.courseEmployability.map((c) => c.percent),
-  );
+  const maxCourse = Math.max(1, ...courseEmployability.map((c) => c.percent));
   const maxSkill = Math.max(
     1,
     ...skillsRadar.flatMap((s) => [s.demand, s.supply]),
@@ -305,8 +294,7 @@ export function ManagerDashboard() {
         </Button>
         {applied.semester !== "" ? (
           <p className="text-xs text-a11y-slate-500">
-            Filtro de semestre aplica-se às seções de exemplo (agregação por
-            semestre chega no backend).
+            Filtro de semestre disponível para recortes futuros do backend.
           </p>
         ) : null}
       </div>
@@ -336,7 +324,7 @@ export function ManagerDashboard() {
         <KpiCard kpi={kpis.talentos} testId="kpi-talentos" />
       </div>
 
-      {/* 4 — Sessão central: funil (real) + empregabilidade por curso (exemplo). */}
+      {/* 4 — Sessão central: funil + empregabilidade por curso (reais). */}
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section
           data-testid="manager-funnel"
@@ -396,34 +384,44 @@ export function ManagerDashboard() {
             <h3 className="font-serif text-lg font-bold text-primary">
               Empregabilidade por Curso
             </h3>
-            <MockBadge />
           </div>
-          <ul className="flex flex-col gap-3">
-            {MANAGER_DASHBOARD_MOCKS.courseEmployability.map((row, index) => (
-              <li key={row.course} className="flex items-center gap-3">
-                <span className="w-52 shrink-0 truncate text-sm text-slate-700">
-                  {row.course}
-                </span>
-                <div
-                  className="h-6 flex-1 overflow-hidden rounded bg-slate-100"
-                  aria-hidden="true"
-                >
+          {courseEmployability.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              Ainda não há alunos elegíveis para calcular a taxa de
+              empregabilidade.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {courseEmployability.map((row, index) => (
+                <li key={row.course} className="flex items-center gap-3">
+                  <span className="w-52 shrink-0 truncate text-sm text-slate-700">
+                    {row.course}
+                  </span>
                   <div
-                    data-testid={`course-bar-${index}`}
-                    className="h-full rounded bg-secondary"
-                    style={{ width: `${(row.percent / maxCourse) * 100}%` }}
-                  />
-                </div>
-                <span className="w-12 shrink-0 text-right text-sm font-bold text-primary">
-                  {row.percent}%
-                </span>
-              </li>
-            ))}
-          </ul>
+                    className="h-6 flex-1 overflow-hidden rounded bg-slate-100"
+                    aria-hidden="true"
+                  >
+                    <div
+                      data-testid={`course-bar-${index}`}
+                      className="h-full rounded bg-secondary"
+                      style={{ width: `${(row.percent / maxCourse) * 100}%` }}
+                    />
+                  </div>
+                  <span className="w-12 shrink-0 text-right text-sm font-bold text-primary">
+                    {row.percent}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-a11y-slate-500">
+            Taxa = alunos do curso com pelo menos uma aprovação ÷ alunos do
+            curso — dados reais do portal.
+          </p>
         </section>
       </div>
 
-      {/* 5 — Tabela de empresas parceiras (exemplo até a agregação real). */}
+      {/* 5 — Tabela de empresas parceiras (dados reais). */}
       <section
         className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
         aria-label="Empresas parceiras"
@@ -432,58 +430,63 @@ export function ManagerDashboard() {
           <h3 className="font-serif text-lg font-bold text-primary">
             Empresas Parceiras
           </h3>
-          <MockBadge />
         </div>
-        <table className="w-full text-left text-sm">
-          <caption className="sr-only">
-            Empresas parceiras com vagas publicadas, contratados e status
-          </caption>
-          <thead>
-            <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-              <th scope="col" className="py-2 pr-4 font-semibold">
-                Empresa
-              </th>
-              <th scope="col" className="py-2 pr-4 font-semibold">
-                Vagas Publicadas
-              </th>
-              <th scope="col" className="py-2 pr-4 font-semibold">
-                Contratados
-              </th>
-              <th scope="col" className="py-2 font-semibold">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {MANAGER_DASHBOARD_MOCKS.partners.map((partner) => {
-              const status = partnerStatus(partner.hired, partner.published);
-              const statusUi = PARTNER_STATUS_LABELS[status];
-              return (
-                <tr
-                  key={partner.company}
-                  className="border-b border-slate-100 last:border-0"
-                >
-                  <td className="py-2.5 pr-4 font-medium text-slate-800">
-                    {partner.company}
-                  </td>
-                  <td className="py-2.5 pr-4 text-slate-600">
-                    {partner.published}
-                  </td>
-                  <td className="py-2.5 pr-4 text-slate-600">
-                    {partner.hired}
-                  </td>
-                  <td className="py-2.5">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs ${statusUi.className}`}
-                    >
-                      {statusUi.label}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {partnerCompanies.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            Ainda não há empresas parceiras no portal.
+          </p>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <caption className="sr-only">
+              Empresas parceiras com vagas publicadas, contratados e status
+            </caption>
+            <thead>
+              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                <th scope="col" className="py-2 pr-4 font-semibold">
+                  Empresa
+                </th>
+                <th scope="col" className="py-2 pr-4 font-semibold">
+                  Vagas Publicadas
+                </th>
+                <th scope="col" className="py-2 pr-4 font-semibold">
+                  Contratados
+                </th>
+                <th scope="col" className="py-2 font-semibold">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {partnerCompanies.map((partner) => {
+                const status = partnerStatus(partner.hired, partner.published);
+                const statusUi = PARTNER_STATUS_LABELS[status];
+                return (
+                  <tr
+                    key={partner.recruiterId}
+                    className="border-b border-slate-100 last:border-0"
+                  >
+                    <td className="py-2.5 pr-4 font-medium text-slate-800">
+                      {partner.companyName}
+                    </td>
+                    <td className="py-2.5 pr-4 text-slate-600">
+                      {partner.published}
+                    </td>
+                    <td className="py-2.5 pr-4 text-slate-600">
+                      {partner.hired}
+                    </td>
+                    <td className="py-2.5">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs ${statusUi.className}`}
+                      >
+                        {statusUi.label}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </section>
 
       {/* 6 — Insights Estratégicos (3 colunas). */}

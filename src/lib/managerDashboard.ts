@@ -2,15 +2,12 @@
  * [REFACTOR_GESTOR] Etapa 4 — Painel Estratégico de Carreiras &
  * Empregabilidade (papel gestor).
  *
- * Regras PURAS do painel: KPIs do topo, agregações dos Insights
- * Estratégicos (reprovações R5, radar de competências demanda×oferta,
- * engajamento) e as transformações restantes. [GESTOR_BACKEND] — as
- * agregações dos Insights rodam NO SERVIDOR (convex/manager.ts, fonte da
- * verdade); a UI apenas exibe o que as queries respondem.
- *
- * Onde ainda não há agregação de backend, o componente usa
- * MANAGER_DASHBOARD_MOCKS — explicitamente sinalizados com
- * `source: "mock"` (Nota Técnica Visual do plano).
+ * Regras PURAS do painel: KPIs do topo e TODAS as agregações dos
+ * Insights Estratégicos — reprovações (R5), radar de competências
+ * demanda×oferta, engajamento, empregabilidade por curso e empresas
+ * parceiras. [GESTOR_BACKEND/PT2] — as agregações rodam NO SERVIDOR
+ * (convex/manager.ts, fonte da verdade); a UI apenas exibe o que as
+ * queries respondem. O painel é 100% real — sem mocks.
  */
 
 /** Rótulos do enum fixo de reprovação (R5, espelha convex/applications). */
@@ -119,36 +116,124 @@ export function rejectionShare(
     }));
 }
 
+/* ------------------------------------------------------------------ */
+/* [GESTOR_BACKEND_PT2] Empregabilidade por curso e empresas parceiras */
+/* — regras puras executadas no servidor (convex/manager.ts).          */
+/* ------------------------------------------------------------------ */
+
+/** Linha mínima de aluno para a empregabilidade por curso. */
+export type CourseEmployabilityStudentRow = {
+  course: string;
+  /** O aluno tem pelo menos uma candidatura aprovada? */
+  approved: boolean;
+};
+
+/** Linha de empregabilidade de um curso. */
+export type CourseEmployabilityRow = {
+  course: string;
+  /** Alunos elegíveis do curso (R1: ativo/egresso). */
+  total: number;
+  /** Alunos do curso com pelo menos uma aprovação. */
+  approved: number;
+  /** Taxa (approved/total) arredondada — exibida como "N%". */
+  percent: number;
+};
+
 /**
- * [MOCK] Seções do painel que ainda não têm agregação de backend:
- * empregabilidade por curso e empresas parceiras. `source: "mock"`
- * deixa explícito na UI o que é placeholder (Nota Técnica Visual) —
- * reprovações, radar de competências e engajamento já são REAIS
- * (queries gestor-only de convex/manager.ts).
+ * Taxa de empregabilidade por curso: alunos do curso com PELO MENOS uma
+ * candidatura aprovada ÷ total de alunos elegíveis do curso (R1),
+ * arredondada e ordenada da maior taxa para a menor (empate alfabético).
+ * Sem alunos, lista vazia — nunca NaN/100 fictício.
  */
-export const MANAGER_DASHBOARD_MOCKS = {
-  source: "mock" as const,
-  /** Empregabilidade por curso (%), ordenada do maior para o menor. */
-  courseEmployability: [
-    { course: "Ciência da Computação", percent: 78 },
-    { course: "Sistemas para Internet", percent: 71 },
-    { course: "Engenharia de Computação", percent: 66 },
-    { course: "Administração", percent: 58 },
-    { course: "Direito", percent: 52 },
-    { course: "Psicologia", percent: 47 },
-  ],
-  /**
-   * Empresas parceiras (contratados por parceiro ainda sem agregação de
-   * backend — colunas Contratados/Status derivadas via `partnerStatus`).
-   */
-  partners: [
-    { company: "Alpha Tech", published: 8, hired: 5 },
-    { company: "Beta Consultoria", published: 4, hired: 0 },
-    { company: "Gama Mídia", published: 2, hired: 1 },
-    { company: "Delta Sistemas", published: 3, hired: 0 },
-    { company: "Epsilon Educação", published: 0, hired: 0 },
-  ],
-} as const;
+export function employabilityByCourseRows(
+  students: readonly CourseEmployabilityStudentRow[],
+): CourseEmployabilityRow[] {
+  const byCourse = new Map<string, { total: number; approved: number }>();
+  for (const student of students) {
+    const bucket = byCourse.get(student.course) ?? {
+      total: 0,
+      approved: 0,
+    };
+    bucket.total += 1;
+    if (student.approved) bucket.approved += 1;
+    byCourse.set(student.course, bucket);
+  }
+  return [...byCourse.entries()]
+    .map(([course, bucket]) => ({
+      course,
+      total: bucket.total,
+      approved: bucket.approved,
+      percent:
+        bucket.total === 0
+          ? 0
+          : Math.round((bucket.approved / bucket.total) * 100),
+    }))
+    .sort((a, b) => b.percent - a.percent || a.course.localeCompare(b.course));
+}
+
+/** Recrutador (empresa) conhecido pelo agregador de parceiras. */
+export type PartnerCompanyRow = {
+  userId: string;
+  companyName: string;
+};
+
+/** Vaga mínima contabilizada por empresa parceira. */
+export type PartnerJobRow = {
+  recruiterId: string;
+  /** Quantidade de candidaturas aprovadas nesta vaga. */
+  hiredCount: number;
+};
+
+/** Linha de empresa parceira (contratados/vagas publicadas por parceiro). */
+export type PartnerRow = {
+  recruiterId: string;
+  companyName: string;
+  /** Vagas publicadas pelo parceiro (todos os status). */
+  published: number;
+  /** Candidaturas aprovadas nas vagas do parceiro. */
+  hired: number;
+};
+
+/**
+ * Agrega parceiras: uma linha por recrutador (a conta basta —"Regular"),
+ * com vagas publicadas e contratados; ordenada por contratados desc →
+ * vagas publicadas desc → alfabético (determinística).
+ */
+export function partnerCompanyRows(
+  recruiters: readonly PartnerCompanyRow[],
+  jobs: readonly PartnerJobRow[],
+): PartnerRow[] {
+  const byRecruiter = new Map<
+    string,
+    { companyName: string; published: number; hired: number }
+  >();
+  for (const recruiter of recruiters) {
+    byRecruiter.set(recruiter.userId, {
+      companyName: recruiter.companyName,
+      published: 0,
+      hired: 0,
+    });
+  }
+  for (const job of jobs) {
+    const bucket = byRecruiter.get(job.recruiterId);
+    if (bucket === undefined) continue;
+    bucket.published += 1;
+    bucket.hired += job.hiredCount;
+  }
+  return [...byRecruiter.entries()]
+    .map(([recruiterId, bucket]) => ({
+      recruiterId,
+      companyName: bucket.companyName,
+      published: bucket.published,
+      hired: bucket.hired,
+    }))
+    .sort(
+      (a, b) =>
+        b.hired - a.hired ||
+        b.published - a.published ||
+        a.companyName.localeCompare(b.companyName),
+    );
+}
 
 /* ------------------------------------------------------------------ */
 /* [GESTOR_BACKEND] Agregações dos Insights Estratégicos — regras      */

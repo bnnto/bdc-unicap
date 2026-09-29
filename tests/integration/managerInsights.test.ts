@@ -633,9 +633,11 @@ describe("[GESTOR_BACKEND] guards — insights são exclusivos do gestor", () =>
     api.manager.getRejectionInsights,
     api.manager.getSkillsRadar,
     api.manager.getEngagementMetrics,
+    api.manager.getEmployabilityByCourse,
+    api.manager.getPartnerCompanies,
   ];
 
-  it("aluno autenticado é rejeitado nas três queries", async () => {
+  it("aluno autenticado é rejeitado nas cinco queries", async () => {
     const t = convexTest(schema, modules);
     const { studentActorUserId } = await seedWorld(t);
     const caller = asStudent(t, studentActorUserId);
@@ -644,7 +646,7 @@ describe("[GESTOR_BACKEND] guards — insights são exclusivos do gestor", () =>
     }
   });
 
-  it("recrutador autenticado é rejeitado nas três queries", async () => {
+  it("recrutador autenticado é rejeitado nas cinco queries", async () => {
     const t = convexTest(schema, modules);
     const { managerId, recruiterUserId } = await seedWorld(t);
     const caller = asRecruiter(t, recruiterUserId);
@@ -669,5 +671,290 @@ describe("[GESTOR_BACKEND] guards — insights são exclusivos do gestor", () =>
     for (const query of QUERIES) {
       await expect(t.query(query, {})).rejects.toThrow(/Não autenticado/i);
     }
+  });
+});
+
+describe("[GESTOR_BACKEND_PT2] getEmployabilityByCourse — taxa por curso", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("CA 1 — taxa = alunos com aprovação / total do curso, ordenada desc", async () => {
+    const t = convexTest(schema, modules);
+    const { managerId, studentIds, jobIds } = await seedWorld(t, {
+      students: [
+        {
+          fullName: "Aprovada",
+          enrollment: "5000001",
+          status: "ativo",
+          course: "Ciência da Computação",
+        },
+        {
+          fullName: "Reprovada",
+          enrollment: "5000002",
+          status: "ativo",
+          course: "Ciência da Computação",
+        },
+        {
+          fullName: "SemCand",
+          enrollment: "5000003",
+          status: "ativo",
+          course: "Ciência da Computação",
+        },
+        {
+          fullName: "Direito1",
+          enrollment: "5000004",
+          status: "ativo",
+          course: "Direito",
+        },
+        {
+          fullName: "Inativa",
+          enrollment: "5000005",
+          status: "inativo", // R1 — fora do total do curso
+          course: "Ciência da Computação",
+        },
+      ],
+      jobs: [
+        { title: "Vaga X", status: "encerrada", prerequisites: [] },
+        { title: "Vaga Y", status: "encerrada", prerequisites: [] },
+      ],
+    });
+    const [jobX, jobY] = jobIds;
+    const [aprovada, reprovada] = studentIds;
+
+    // Aprovada em DUAS vagas: no numerador conta uma única vez (por aluno).
+    await seedApplication(t, {
+      jobId: jobX!,
+      studentId: aprovada!,
+      stage: "aprovado",
+    });
+    await seedApplication(t, {
+      jobId: jobY!,
+      studentId: aprovada!,
+      stage: "aprovado",
+    });
+    // Reprovada não entra no numerador.
+    await seedApplication(t, {
+      jobId: jobX!,
+      studentId: reprovada!,
+      stage: "reprovado",
+      rejectionReason: "outro",
+    });
+
+    const rows = await asManager(t, managerId).query(
+      api.manager.getEmployabilityByCourse,
+      {},
+    );
+
+    expect(rows).toEqual([
+      {
+        course: "Ciência da Computação",
+        total: 3,
+        approved: 1,
+        percent: 33,
+      },
+      { course: "Direito", total: 1, approved: 0, percent: 0 },
+    ]);
+  });
+
+  it("filtro por curso devolve apenas a linha do curso", async () => {
+    const t = convexTest(schema, modules);
+    const { managerId } = await seedWorld(t, {
+      students: [
+        {
+          fullName: "Aprovada",
+          enrollment: "5000001",
+          status: "ativo",
+          course: "Ciência da Computação",
+        },
+        {
+          fullName: "Direito1",
+          enrollment: "5000004",
+          status: "ativo",
+          course: "Direito",
+        },
+      ],
+    });
+
+    const rows = await asManager(t, managerId).query(
+      api.manager.getEmployabilityByCourse,
+      { course: "Direito" },
+    );
+
+    expect(rows).toEqual([
+      { course: "Direito", total: 1, approved: 0, percent: 0 },
+    ]);
+  });
+
+  it("sem alunos elegíveis → lista vazia", async () => {
+    const t = convexTest(schema, modules);
+    const { managerId } = await seedWorld(t);
+
+    const rows = await asManager(t, managerId).query(
+      api.manager.getEmployabilityByCourse,
+      {},
+    );
+    expect(rows).toEqual([]);
+  });
+});
+
+describe("[GESTOR_BACKEND_PT2] getPartnerCompanies — empresas parceiras", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("CA 2 — vagas publicadas × contratados por recrutador, ordenado desc", async () => {
+    const t = convexTest(schema, modules);
+    const { managerId, recruiterUserId, studentIds, jobIds } = await seedWorld(
+      t,
+      {
+        students: [
+          {
+            fullName: "H1",
+            enrollment: "6000001",
+            status: "ativo",
+            course: "Ciência da Computação",
+          },
+          {
+            fullName: "H2",
+            enrollment: "6000002",
+            status: "ativo",
+            course: "Ciência da Computação",
+          },
+          {
+            fullName: "H3",
+            enrollment: "6000003",
+            status: "ativo",
+            course: "Ciência da Computação",
+          },
+        ],
+        jobs: [
+          { title: "Alpha 1", status: "aberta", prerequisites: [] },
+          { title: "Alpha 2", status: "aberta", prerequisites: [] },
+        ],
+      },
+    );
+    const [alphaJob1, alphaJob2] = jobIds;
+    const [h1, h2, h3] = studentIds;
+
+    // Segunda empresa (Beta) e terceira sem nenhuma vaga (Gama).
+    const { betaUserId, betaJob1, gamaUserId } = await t.run(async (ctx) => {
+      const uid = await ctx.db.insert("users", {
+        email: "beta@empresa.com",
+        name: "Beta Consultoria",
+        role: "recrutador",
+        active: true,
+      });
+      await ctx.db.insert("consents", {
+        userId: uid,
+        termVersion: CURRENT_TERM_VERSION,
+        acceptedAt: Date.now(),
+      });
+      const jid = await ctx.db.insert("jobs", {
+        recruiterId: uid,
+        title: "Beta 1",
+        description: "Descrição da vaga.",
+        prerequisites: [],
+        contractType: "estagio",
+        status: "aberta",
+        publishedAt: Date.now(),
+        expiresAt: Date.now() + 30 * DAY,
+      });
+      const gamaUserId = await ctx.db.insert("users", {
+        email: "gama@empresa.com",
+        name: "Gama Mídia",
+        role: "recrutador",
+        active: true,
+      });
+      await ctx.db.insert("consents", {
+        userId: gamaUserId,
+        termVersion: CURRENT_TERM_VERSION,
+        acceptedAt: Date.now(),
+      });
+      return { betaUserId: uid, betaJob1: jid, gamaUserId };
+    });
+
+    // Contratações: Alpha 2, Beta 1; reprovação não conta como hired.
+    await seedApplication(t, {
+      jobId: alphaJob1!,
+      studentId: h1!,
+      stage: "aprovado",
+    });
+    await seedApplication(t, {
+      jobId: alphaJob1!,
+      studentId: h2!,
+      stage: "aprovado",
+    });
+    await seedApplication(t, {
+      jobId: alphaJob2!,
+      studentId: h3!,
+      stage: "reprovado",
+      rejectionReason: "outro",
+    });
+    await seedApplication(t, {
+      jobId: betaJob1,
+      studentId: h3!,
+      stage: "aprovado",
+    });
+
+    const rows = await asManager(t, managerId).query(
+      api.manager.getPartnerCompanies,
+      {},
+    );
+
+    expect(rows).toEqual([
+      {
+        recruiterId: recruiterUserId,
+        companyName: "Alpha Tech",
+        published: 2,
+        hired: 2,
+      },
+      {
+        recruiterId: betaUserId,
+        companyName: "Beta Consultoria",
+        published: 1,
+        hired: 1,
+      },
+      {
+        recruiterId: gamaUserId,
+        companyName: "Gama Mídia",
+        published: 0,
+        hired: 0,
+      },
+    ]);
+  });
+
+  it("filtro por empresa devolve apenas a linha da empresa", async () => {
+    const t = convexTest(schema, modules);
+    const { managerId } = await seedWorld(t);
+
+    const rows = await asManager(t, managerId).query(
+      api.manager.getPartnerCompanies,
+      { company: "Alpha Tech" },
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.companyName).toBe("Alpha Tech");
+  });
+
+  it("sem contratações no banco → todas com hired 0 (empty state)", async () => {
+    const t = convexTest(schema, modules);
+    const { managerId, recruiterUserId } = await seedWorld(t, {
+      jobs: [{ title: "Alpha 1", status: "aberta", prerequisites: [] }],
+    });
+
+    const rows: unknown = await asManager(t, managerId).query(
+      api.manager.getPartnerCompanies,
+      {},
+    );
+
+    expect(rows).toEqual([
+      {
+        recruiterId: recruiterUserId,
+        companyName: "Alpha Tech",
+        published: 1,
+        hired: 0,
+      },
+    ]);
   });
 });

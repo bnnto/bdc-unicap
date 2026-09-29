@@ -113,6 +113,27 @@ const SKILLS_RADAR = [
 
 const ENGAGEMENT = { total: 148, incompleteProfiles: 37, noResume: 58 };
 
+// [GESTOR_BACKEND_PT2] Empregabilidade por curso e empresas parceiras.
+const COURSE_EMPLOYABILITY = [
+  { course: "Ciência da Computação", total: 11, approved: 8, percent: 73 },
+  { course: "Direito", total: 9, approved: 5, percent: 56 },
+];
+
+const PARTNER_COMPANIES = [
+  {
+    recruiterId: "r1",
+    companyName: "Alpha Tech",
+    published: 8,
+    hired: 5,
+  },
+  {
+    recruiterId: "r2",
+    companyName: "Beta Consultoria",
+    published: 4,
+    hired: 0,
+  },
+];
+
 function mockQueries() {
   mockedUseQuery.mockImplementation(((query: unknown) => {
     if (query === "query:operational.operationalSummary") return SUMMARY;
@@ -122,6 +143,9 @@ function mockQueries() {
     if (query === "query:manager.getRejectionInsights") return REJECTIONS;
     if (query === "query:manager.getSkillsRadar") return SKILLS_RADAR;
     if (query === "query:manager.getEngagementMetrics") return ENGAGEMENT;
+    if (query === "query:manager.getEmployabilityByCourse")
+      return COURSE_EMPLOYABILITY;
+    if (query === "query:manager.getPartnerCompanies") return PARTNER_COMPANIES;
     return undefined;
   }) as never);
 }
@@ -187,7 +211,7 @@ describe("REFACTOR_GESTOR — Painel Estratégico (Etapa 4)", () => {
     render(<ManagerDashboard />);
     const section = screen.getByTestId("manager-course-employability");
     const bars = within(section).getAllByTestId(/^course-bar-/);
-    expect(bars.length).toBeGreaterThan(3);
+    expect(bars.length).toBeGreaterThan(0);
   });
 
   it("tabela de empresas parceiras com colunas do plano", () => {
@@ -223,20 +247,31 @@ describe("REFACTOR_GESTOR — Painel Estratégico (Etapa 4)", () => {
     expect(within(engagement).getByText(/sem currículo/i)).toBeInTheDocument();
   });
 
-  it("seções ainda mockadas (curso/parceiras) mantêm o badge de exemplo", () => {
+  it("painel 100% real — nenhum badge 'Dados de exemplo' permanece", () => {
     render(<ManagerDashboard />);
-    // [GESTOR_BACKEND] apenas empregabilidade por curso e empresas
-    // parceiras permanecem de exemplo; os insights agora são reais.
-    expect(screen.getAllByText(/dados de exemplo/i)).toHaveLength(2);
-    for (const testId of [
-      "manager-insight-rejections",
-      "manager-insight-skillgaps",
-      "manager-insight-engagement",
-    ]) {
-      expect(
-        within(screen.getByTestId(testId)).queryByText(/dados de exemplo/i),
-      ).toBeNull();
-    }
+    // [GESTOR_BACKEND_PT2] todas as seções consomem queries reais.
+    expect(screen.queryByText(/dados de exemplo/i)).not.toBeInTheDocument();
+  });
+
+  it("empregabilidade por curso exibe taxa real e ordenação do servidor", () => {
+    render(<ManagerDashboard />);
+    const section = screen.getByTestId("manager-course-employability");
+    expect(
+      within(section).getByText("Ciência da Computação"),
+    ).toBeInTheDocument();
+    expect(within(section).getByText("73%")).toBeInTheDocument();
+    expect(within(section).getByText("56%")).toBeInTheDocument();
+    const bars = within(section).getAllByTestId(/^course-bar-/);
+    expect(bars).toHaveLength(2);
+  });
+
+  it("empresas parceiras exibem vagas publicadas, contratados e status", () => {
+    render(<ManagerDashboard />);
+    const table = screen.getByRole("table", { name: /empresas parceiras/i });
+    expect(within(table).getByText("Alpha Tech")).toBeInTheDocument();
+    expect(within(table).getByText("Beta Consultoria")).toBeInTheDocument();
+    expect(within(table).getAllByText("5").length).toBeGreaterThan(0);
+    expect(within(table).getByText("Em negociação")).toBeInTheDocument(); // 0 contratados, 4 vagas
   });
 
   it("insights estratégicos exibem os dados reais das queries do gestor", () => {
