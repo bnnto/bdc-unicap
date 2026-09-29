@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  MANAGER_DASHBOARD_MOCKS,
   buildManagerKpis,
   buildSkillsRadar,
   countRejectionReasons,
+  employabilityByCourseRows,
   engagementCounts,
+  partnerCompanyRows,
   partnerStatus,
   rejectionShare,
   skillDemandCounts,
@@ -289,16 +290,120 @@ describe("[GESTOR_BACKEND] — engajamento (R1: inativo nunca conta)", () => {
   });
 });
 
-describe("REFACTOR_GESTOR — seções ainda mockadas (Nota Técnica Visual)", () => {
-  it("declara source: mock — a UI sabe o que é placeholder", () => {
-    expect(MANAGER_DASHBOARD_MOCKS.source).toBe("mock");
+describe("[GESTOR_BACKEND_PT2] — empregabilidade por curso", () => {
+  it("taxa = alunos do curso com aprovação / total do curso, arredondada", () => {
+    const rows = employabilityByCourseRows([
+      { course: "Ciência da Computação", approved: true },
+      { course: "Ciência da Computação", approved: false },
+      { course: "Ciência da Computação", approved: false },
+      { course: "Direito", approved: false },
+    ]);
+    expect(rows).toEqual([
+      {
+        course: "Ciência da Computação",
+        total: 3,
+        approved: 1,
+        percent: 33,
+      },
+      { course: "Direito", total: 1, approved: 0, percent: 0 },
+    ]);
   });
 
-  it("empregabilidade por curso vem ordenada do maior para o menor", () => {
-    const percents = MANAGER_DASHBOARD_MOCKS.courseEmployability.map(
-      (c) => c.percent,
+  it("várias aprovações do mesmo aluno contam uma vez no numerador", () => {
+    const rows = employabilityByCourseRows([
+      { course: "Direito", approved: true },
+      { course: "Direito", approved: true },
+      { course: "Direito", approved: false },
+    ]);
+    expect(rows).toEqual([
+      { course: "Direito", total: 3, approved: 2, percent: 67 },
+    ]);
+  });
+
+  it("ordenada da maior taxa para a menor, empate alfabético", () => {
+    const rows = employabilityByCourseRows([
+      { course: "Z Academia", approved: true },
+      { course: "A Letras", approved: true },
+      { course: "A Letras", approved: false },
+      { course: "M Medicina", approved: false },
+    ]);
+    expect(rows.map((r) => r.course)).toEqual([
+      "Z Academia",
+      "A Letras",
+      "M Medicina",
+    ]);
+    expect(rows.map((r) => r.percent)).toEqual([100, 50, 0]);
+  });
+
+  it("sem alunos → lista vazia", () => {
+    expect(employabilityByCourseRows([])).toEqual([]);
+  });
+});
+
+describe("[GESTOR_BACKEND_PT2] — agregação de empresas parceiras", () => {
+  it("agrupa por recrutador e ordena por contratados desc", () => {
+    const rows = partnerCompanyRows(
+      [
+        { userId: "u1", companyName: "Alpha Tech" },
+        { userId: "u2", companyName: "Beta Consultoria" },
+      ],
+      [
+        { recruiterId: "u2", hiredCount: 0 },
+        { recruiterId: "u2", hiredCount: 0 },
+        { recruiterId: "u1", hiredCount: 3 },
+      ],
     );
-    const ordered = [...percents].sort((a, b) => b - a);
-    expect(percents).toEqual(ordered);
+    expect(rows).toEqual([
+      {
+        recruiterId: "u1",
+        companyName: "Alpha Tech",
+        published: 1,
+        hired: 3,
+      },
+      {
+        recruiterId: "u2",
+        companyName: "Beta Consultoria",
+        published: 2,
+        hired: 0,
+      },
+    ]);
+  });
+
+  it("recrutador só com conta criada aparece com zeros (status inativa)", () => {
+    const rows = partnerCompanyRows(
+      [{ userId: "u1", companyName: "Gama Mídia" }],
+      [],
+    );
+    expect(rows).toEqual([
+      {
+        recruiterId: "u1",
+        companyName: "Gama Mídia",
+        published: 0,
+        hired: 0,
+      },
+    ]);
+    expect(partnerStatus(rows[0]!.hired, rows[0]!.published)).toBe("inativa");
+  });
+
+  it("empate de contratados resolve por vagas publicadas desc", () => {
+    const rows = partnerCompanyRows(
+      [
+        { userId: "u1", companyName: "Alpha Tech" },
+        { userId: "u2", companyName: "Beta Consultoria" },
+      ],
+      [
+        { recruiterId: "u1", hiredCount: 2 },
+        { recruiterId: "u2", hiredCount: 2 },
+        { recruiterId: "u2", hiredCount: 0 },
+      ],
+    );
+    expect(rows.map((r) => r.companyName)).toEqual([
+      "Beta Consultoria",
+      "Alpha Tech",
+    ]);
+  });
+
+  it("sem recrutadores → lista vazia", () => {
+    expect(partnerCompanyRows([], [])).toEqual([]);
   });
 });
