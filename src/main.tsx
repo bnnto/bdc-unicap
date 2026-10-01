@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { Toaster } from "sonner";
 import "./index.css";
 import App from "./App";
 import { AuthProvider } from "./components/auth/AuthProvider";
@@ -39,6 +40,9 @@ createRoot(rootElement).render(
       }}
     >
       <ConvexProvider client={convex}>
+        {/* [UX_REFINEMENT] Etapa 1 — Toasts globais: erros e sucessos de
+            toda a aplicação num único lugar, com auto-dismiss. */}
+        <Toaster position="top-right" closeButton richColors />
         <AuthProvider client={convex}>
           <ConsentGate>
             <App />

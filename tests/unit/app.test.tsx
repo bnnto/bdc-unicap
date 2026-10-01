@@ -5,7 +5,8 @@ import { AuthStateContext } from "../../src/components/auth/authContext";
 
 vi.mock("convex/react", () => ({
   useQuery: vi.fn(),
-  useMutation: vi.fn(),
+  // Função por chamada: a /perfil montada nesta rota usa mutations.
+  useMutation: vi.fn(() => vi.fn()),
 }));
 
 vi.mock("@convex-dev/auth/react", () => ({

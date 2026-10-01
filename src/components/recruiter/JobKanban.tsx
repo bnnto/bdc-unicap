@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { toast } from "sonner";
+import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -161,11 +163,8 @@ export function JobKanban() {
         to,
       });
     } catch (err) {
-      setCardErrors((prev) => ({
-        ...prev,
-        [applicationId]:
-          err instanceof Error ? err.message : "Falha ao mover a candidatura.",
-      }));
+      // [UX_REFINEMENT] H9-1 — Toast amigável, sem bloco de erro no card.
+      toast.error(friendlyErrorMessage(err));
     }
   }
 
@@ -205,11 +204,7 @@ export function JobKanban() {
       });
       closePendingMove();
     } catch (err) {
-      setCardErrors((prev) => ({
-        ...prev,
-        [applicationId]:
-          err instanceof Error ? err.message : "Falha ao agendar a entrevista.",
-      }));
+      toast.error(friendlyErrorMessage(err));
     }
   }
 
@@ -237,13 +232,7 @@ export function JobKanban() {
       });
       closePendingMove();
     } catch (err) {
-      setCardErrors((prev) => ({
-        ...prev,
-        [applicationId]:
-          err instanceof Error
-            ? err.message
-            : "Falha ao confirmar a contratação.",
-      }));
+      toast.error(friendlyErrorMessage(err));
     }
   }
 
@@ -281,13 +270,7 @@ export function JobKanban() {
       setRejectingId(null);
       setReasonDraft("");
     } catch (err) {
-      setCardErrors((prev) => ({
-        ...prev,
-        [applicationId]:
-          err instanceof Error
-            ? err.message
-            : "Falha ao reprovar a candidatura.",
-      }));
+      toast.error(friendlyErrorMessage(err));
     }
   }
 

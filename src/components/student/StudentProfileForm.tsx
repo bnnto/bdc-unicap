@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { toast } from "sonner";
+import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -86,7 +88,6 @@ export function StudentProfileForm() {
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [errors, setErrors] = useState<string[]>([]);
-  const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [skills, setSkills] = useState<string[]>([]);
@@ -126,7 +127,6 @@ export function StudentProfileForm() {
   ): Promise<void> {
     event.preventDefault();
     setErrors([]);
-    setNotice(null);
 
     const graduationYear = Number.parseInt(form.graduationYear, 10);
     if (!Number.isFinite(graduationYear)) {
@@ -172,15 +172,14 @@ export function StudentProfileForm() {
         skills,
         languages,
       });
-      setNotice(
+      // [UX_REFINEMENT] sucesso e falha do servidor viram Toast global.
+      toast.success(
         result.created
           ? "Perfil criado com sucesso."
           : "Perfil atualizado com sucesso.",
       );
     } catch (err) {
-      setErrors([
-        err instanceof Error ? err.message : "Falha ao salvar o perfil.",
-      ]);
+      toast.error(friendlyErrorMessage(err));
     } finally {
       setPending(false);
     }
@@ -203,15 +202,6 @@ export function StudentProfileForm() {
       className="flex flex-col gap-4"
       aria-label="Formulário de perfil do aluno"
     >
-      {notice !== null ? (
-        <p
-          role="status"
-          className="rounded border border-success bg-white px-3 py-2 text-sm font-medium text-success"
-        >
-          {notice}
-        </p>
-      ) : null}
-
       {errors.length > 0 ? (
         <div
           role="alert"

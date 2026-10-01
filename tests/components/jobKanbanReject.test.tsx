@@ -18,6 +18,11 @@ vi.mock("convex/react", () => ({
   useMutation: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
+  Toaster: () => null,
+}));
+
 vi.mock("../../convex/_generated/api", () => ({
   api: {
     jobs: {
@@ -33,6 +38,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useQuery, useMutation } from "convex/react";
+import { toast } from "sonner";
 import { JobKanban } from "../../src/components/recruiter/JobKanban";
 
 const mockedUseQuery = vi.mocked(useQuery);
@@ -116,7 +122,7 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
     ).toBeInTheDocument();
   });
 
-  it("H9-1 — erro de movimento aparece junto ao card, não no topo do board", async () => {
+  it("H9-1 — erro de movimento vira toast amigável, não bloco no card", async () => {
     rejectApplication.mockRejectedValueOnce(
       new Error("O card já está nesta coluna."),
     );
@@ -137,10 +143,12 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
       }),
     );
 
+    expect(toast.error).toHaveBeenCalledWith("O card já está nesta coluna.");
     const card = screen.getByText("Maria da Silva").closest("article");
     expect(card).not.toBeNull();
-    const alert = within(card as HTMLElement).getByRole("alert");
-    expect(alert).toHaveTextContent("O card já está nesta coluna.");
+    expect(
+      within(card as HTMLElement).queryByRole("alert"),
+    ).not.toBeInTheDocument();
   });
 
   it("mover para Entrevista abre o modal ANTES da mutation (Etapa 3)", async () => {

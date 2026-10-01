@@ -1,8 +1,11 @@
 /**
  * [REFACTOR_ALUNO Etapa 1] — StudentShell: navbar superior com logo à
- * esquerda, abas ao centro (padrão ARIA tabs), avatar com dropdown à
- * direita e container full-width (max-w-[1440px]). Renderiza o App com
- * papel "aluno" — uma tela visível por vez (renderização condicional).
+ * esquerda, abas ao centro (padrão ARIA tabs), avatar à direita e
+ * container full-width (max-w-[1440px]). Renderiza o App com papel
+ * "aluno" — uma tela visível por vez (renderização condicional).
+ *
+ * [UX_REFINEMENT Etapa 3] — sem dropdown no header: o avatar/nome é um
+ * botão que leva direto à rota /perfil; o "Sair" vive dentro de /perfil.
  */
 import { render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,11 +14,17 @@ import App from "../../src/App";
 
 vi.mock("convex/react", () => ({
   useQuery: vi.fn(),
-  useMutation: vi.fn(),
+  // Função por chamada: a /perfil montada pelo avatar usa mutations.
+  useMutation: vi.fn(() => vi.fn()),
 }));
 
 vi.mock("@convex-dev/auth/react", () => ({
   useAuthActions: () => ({ signOut: vi.fn() }),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
+  Toaster: () => null,
 }));
 
 vi.mock("../../convex/_generated/api", () => ({
@@ -72,7 +81,7 @@ function renderAluno() {
 }
 
 describe("StudentShell — navbar com abas (Etapa 1)", () => {
-  it("exibe as 3 abas centrais na ordem do REFACTOR_ALUNO", () => {
+  it("exibe as 4 abas centrais na ordem do REFACTOR_ALUNO", () => {
     renderAluno();
     const nav = screen.getByRole("navigation", { name: /seções do portal/i });
     const tabs = within(nav).getAllByRole("tab");
@@ -80,17 +89,19 @@ describe("StudentShell — navbar com abas (Etapa 1)", () => {
       "Meu Currículo",
       "Oportunidades",
       "Minhas Candidaturas",
+      "Meu Perfil",
     ]);
   });
 
   it("aba 'Meu Currículo' é a padrão e só ela aparece", () => {
     renderAluno();
     const nav = screen.getByRole("navigation", { name: /seções do portal/i });
-    const [curriculo, oportunidades, candidaturas] =
+    const [curriculo, oportunidades, candidaturas, perfil] =
       within(nav).getAllByRole("tab");
     expect(curriculo).toHaveAttribute("aria-selected", "true");
     expect(oportunidades).toHaveAttribute("aria-selected", "false");
     expect(candidaturas).toHaveAttribute("aria-selected", "false");
+    expect(perfil).toHaveAttribute("aria-selected", "false");
 
     expect(
       screen.getByRole("tabpanel", { name: "Meu Currículo" }),
@@ -122,6 +133,16 @@ describe("StudentShell — navbar com abas (Etapa 1)", () => {
       screen.getByRole("tabpanel", { name: "Minhas Candidaturas" }),
     ).toBeInTheDocument();
   });
+
+  it("clicar em 'Meu Perfil' abre a aba de perfil (Etapa 3)", async () => {
+    const { userEvent } = await import("@testing-library/user-event");
+    renderAluno();
+    const nav = screen.getByRole("navigation", { name: /seções do portal/i });
+    await userEvent.click(within(nav).getAllByRole("tab")[3]!);
+    expect(
+      screen.getByRole("tabpanel", { name: "Meu Perfil" }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("StudentShell — logo, container full-width e avatar (Etapa 1)", () => {
@@ -139,49 +160,28 @@ describe("StudentShell — logo, container full-width e avatar (Etapa 1)", () =>
     expect(wide).not.toBeNull();
   });
 
-  it("avatar com menu dropdown: Meu Perfil e Sair", async () => {
-    const { userEvent } = await import("@testing-library/user-event");
+  it("sem dropdown no header: avatar/nome é um único botão", () => {
     renderAluno();
-    const trigger = screen.getByRole("button", { name: /menu do perfil/i });
-    expect(trigger).toHaveAttribute("aria-expanded", "false");
-
-    await userEvent.click(trigger);
-    expect(trigger).toHaveAttribute("aria-expanded", "true");
-    const menu = screen.getByRole("menu");
-    const items = within(menu).getAllByRole("menuitem");
-    expect(items.map((item) => item.textContent)).toEqual([
-      "Meu Perfil",
-      "Configurações",
-      "Sair",
-    ]);
+    expect(screen.queryByRole("menu")).toBeNull();
+    // O Sair não fica mais no header — vive em /perfil (Etapa 3).
+    expect(screen.queryByRole("button", { name: /^sair$/i })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /meu perfil e configurações/i }),
+    ).toBeInTheDocument();
   });
 
-  it("'Configurações' no dropdown leva à rota /perfil (Etapa 1/2/3)", async () => {
+  it("clique no avatar leva à rota /perfil (Etapa 3)", async () => {
     const { userEvent } = await import("@testing-library/user-event");
     renderAluno();
     await userEvent.click(
-      screen.getByRole("button", { name: /menu do perfil/i }),
-    );
-    await userEvent.click(
-      screen.getByRole("menuitem", { name: "Configurações" }),
+      screen.getByRole("button", { name: /meu perfil e configurações/i }),
     );
     expect(window.location.pathname).toBe("/perfil");
     expect(
       screen.getByRole("heading", { level: 1, name: /meu perfil/i }),
     ).toBeInTheDocument();
-  });
-
-  it("'Meu Perfil' no dropdown abre a aba de perfil", async () => {
-    const { userEvent } = await import("@testing-library/user-event");
-    renderAluno();
-    await userEvent.click(
-      screen.getByRole("button", { name: /menu do perfil/i }),
-    );
-    await userEvent.click(screen.getByRole("menuitem", { name: "Meu Perfil" }));
-    expect(
-      screen.getByRole("tabpanel", { name: "Meu Perfil" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("menu")).toBeNull();
+    // Dentro de /perfil o utilizador encerra sessão pelo botão Sair.
+    expect(screen.getByRole("button", { name: /^sair$/i })).toBeInTheDocument();
   });
 
   it("avatar exibe as iniciais do aluno", () => {

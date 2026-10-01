@@ -1,7 +1,8 @@
 /**
- * [UX-P2] H9-2 — Erros de autenticação (credenciais inválidas, conta
- * inexistente) são do FORMULÁRIO, não do campo senha: devem aparecer
- * como alerta no topo do form, sem aria-describedby no campo de senha.
+ * [UX_REFINEMENT] Etapa 1 — erros de autenticação saem das caixas
+ * cruas (`[CONVEX A(auth:signIn)]…`) e viram Toast global com mensagem
+ * amigável traduzida. O campo senha NUNCA carrega o erro (H9-2
+ * preservado) e a validação de consentimento continua inline.
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -13,16 +14,25 @@ vi.mock("@convex-dev/auth/react", () => ({
   useAuthActions: () => ({ signIn: signInMock }),
 }));
 
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
+  Toaster: () => null,
+}));
+
+import { toast } from "sonner";
 import { AuthPage } from "../../src/components/auth/AuthPage";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("AuthPage — erro de autenticação no topo do formulário (H9-2)", () => {
-  it("falha de login exibe role=alert no form e não anexa erro ao campo senha", async () => {
+describe("AuthPage — erros de login via Toast amigável (Etapa 1)", () => {
+  it("falha de login vira toast amigável e não deixa erro cru no form", async () => {
     signInMock.mockRejectedValueOnce(
-      new Error("E-mail ou senha incorretos. Verifique e tente novamente."),
+      new Error(
+        "[CONVEX A(auth:signIn)] [Request Failed] Uncaught (in promise) Error: E-mail ou senha incorretos.\n" +
+          "    at signIn (http://localhost:8080/main.js:1:1)",
+      ),
     );
 
     render(<AuthPage />);
@@ -31,12 +41,18 @@ describe("AuthPage — erro de autenticação no topo do formulário (H9-2)", ()
     await userEvent.type(screen.getByLabelText(/Senha/i), "senha-errada");
     await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
-    const alerts = screen.getAllByRole("alert");
+    expect(toast.error).toHaveBeenCalledWith(
+      "E-mail ou palavra-passe incorretos.",
+    );
+    // Nenhuma caixa de erro crua no formulário (Etapa 1).
+    expect(screen.queryByText(/CONVEX/i)).not.toBeInTheDocument();
     expect(
-      alerts.some((alert) =>
-        alert.textContent?.includes("E-mail ou senha incorretos"),
-      ),
-    ).toBe(true);
+      screen
+        .queryAllByRole("alert")
+        .some((alert) =>
+          alert.textContent?.includes("E-mail ou senha incorretos"),
+        ),
+    ).toBe(false);
 
     // O campo senha NÃO carrega o erro de credenciais (H9-2).
     const password = screen.getByLabelText(/Senha/i);
@@ -44,7 +60,7 @@ describe("AuthPage — erro de autenticação no topo do formulário (H9-2)", ()
     expect(password).not.toHaveAttribute("aria-describedby");
   });
 
-  it("login com sucesso não exibe alerta", async () => {
+  it("login com sucesso confirma com toast e sem erro", async () => {
     signInMock.mockResolvedValueOnce(undefined);
     render(<AuthPage />);
 
@@ -52,11 +68,7 @@ describe("AuthPage — erro de autenticação no topo do formulário (H9-2)", ()
     await userEvent.type(screen.getByLabelText(/Senha/i), "senha-correta");
     await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
-    // Nenhum alerta de erro visível no fluxo de sucesso.
-    const alerts = screen.queryAllByRole("alert");
-    const errored = alerts.filter((alert) =>
-      alert.textContent?.includes("E-mail ou senha incorretos"),
-    );
-    expect(errored).toHaveLength(0);
+    expect(toast.success).toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

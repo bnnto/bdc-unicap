@@ -1,7 +1,7 @@
 /**
  * [UX-P2] H1-3/H9-3 — O aceite do Termo LGPD dá feedback (pending) e
- * recupera erros: falha na mutation exibe alerta acessível e permite
- * tentar novamente (nenhum erro silencioso).
+ * recupera erros: falha na mutation vira Toast acessível (Etapa 1 do
+ * UX_REFINEMENT) e permite tentar novamente (nenhum erro silencioso).
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -10,6 +10,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("convex/react", () => ({
   useQuery: vi.fn(),
   useMutation: vi.fn(),
+}));
+
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
+  Toaster: () => null,
 }));
 
 vi.mock("../../convex/_generated/api", () => ({
@@ -26,6 +31,7 @@ vi.mock("../../src/components/auth/authContext", () => ({
 }));
 
 import { useQuery, useMutation } from "convex/react";
+import { toast } from "sonner";
 import { ConsentGate } from "../../src/components/auth/ConsentGate";
 
 const mockedUseQuery = vi.mocked(useQuery);
@@ -79,7 +85,7 @@ describe("ConsentGate — aceite com feedback e recuperação de erro (H1-3)", (
     resolveAccept({ ok: true });
   });
 
-  it("falha no aceite exibem alerta acessível e o botão volta a habilitar", async () => {
+  it("falha no aceite vira toast amigável e o botão volta a habilitar", async () => {
     accept.mockRejectedValueOnce(
       new Error("Sessão expirada. Entre novamente."),
     );
@@ -93,8 +99,9 @@ describe("ConsentGate — aceite com feedback e recuperação de erro (H1-3)", (
       screen.getByRole("button", { name: /Li e aceito o termo/i }),
     );
 
-    const alert = screen.getByRole("alert");
-    expect(alert).toHaveTextContent("Sessão expirada. Entre novamente.");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Sua sessão expirou. Entre novamente.",
+    );
     expect(
       screen.getByRole("button", { name: /Li e aceito o termo/i }),
     ).toBeEnabled();

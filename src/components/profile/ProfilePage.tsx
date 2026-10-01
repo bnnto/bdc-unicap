@@ -1,6 +1,9 @@
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { toast } from "sonner";
+import { friendlyErrorMessage } from "../../lib/toastMessages";
+import { describeUserAgent } from "../../lib/userAgent";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
@@ -25,11 +28,16 @@ import {
  * - Etapa 1 — identidade (foto de avatar + sair) e ACESSIBILIDADE:
  *   modo escuro, alto contraste e escala de fonte, persistidos em
  *   localStorage e aplicados no <html>.
- * - Etapa 2 — SEGURANÇA: sessões recentes com a atual marcada, kill
- *   switch "encerrar sessão em outros dispositivos" e notificações.
+ * - Etapa 2 — SEGURANÇA: sessões recentes humanizadas ("Chrome no
+ *   Windows", nunca IDs crus) com a atual marcada, kill switch
+ *   "Encerrar sessão em todos os outros dispositivos" e notificações.
  * - Etapa 3 — LGPD: portabilidade (download do JSON dos próprios
  *   dados) e o botão vermelho de exclusão com confirmação "EXCLUIR"
  *   (a mutation de cascata roda no servidor — Etapa 4).
+ *
+ * [UX_REFINEMENT] Etapa 1/4 — erros e sucessos via Toast global
+ * (amigáveis, auto-dismiss) e container na largura total do portal
+ * (max-w-[1440px]).
  *
  * [S8-2] dona do landmark main único (#conteudo) deste rota.
  */
@@ -120,58 +128,65 @@ export function ProfilePage() {
 
   // ---- Etapa 1: foto de avatar ----
   const updateProfile = useMutation(api.users.updateMyProfile);
-  const [profileError, setProfileError] = useState<string | null>(null);
   async function handleImageFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = ""; // permite escolher o mesmo arquivo de novo
     if (file === undefined) return;
     if (file.size > MAX_IMAGE_BYTES) {
-      setProfileError("Imagem muito grande — o limite é 400KB.");
+      toast.error("Imagem muito grande — o limite é 400KB.");
       return;
     }
     if (!file.type.startsWith("image/")) {
-      setProfileError(
+      toast.error(
         "Imagem inválida — envie um arquivo de imagem (PNG, JPEG ou WebP).",
       );
       return;
     }
-    setProfileError(null);
     try {
       const image = await readAsDataURL(file);
       await updateProfile({ image });
+      toast.success("Foto de perfil atualizada.");
     } catch (err) {
-      setProfileError(
-        err instanceof Error ? err.message : "Falha ao salvar a foto.",
-      );
+      toast.error(friendlyErrorMessage(err));
     }
   }
   async function handleRemoveImage() {
-    setProfileError(null);
     try {
       await updateProfile({ image: undefined });
+      toast.success("Foto de perfil removida.");
     } catch (err) {
-      setProfileError(
-        err instanceof Error ? err.message : "Falha ao remover a foto.",
-      );
+      toast.error(friendlyErrorMessage(err));
     }
   }
 
   // ---- Etapa 2: sessões + kill switch ----
   const sessions = useQuery(api.users.listMySessions, {});
   const revokeOtherSessions = useMutation(api.users.revokeOtherSessions);
-  const [revokeStatus, setRevokeStatus] = useState<string | null>(null);
+  // [UX_REFINEMENT Etapa 4] — grava o UA desta sessão na montagem para
+  // humanizar a lista ("Chrome no Windows").
+  const recordMySession = useMutation(api.users.recordMySession);
+  useEffect(() => {
+    const userAgent =
+      typeof navigator === "undefined" ? "" : navigator.userAgent;
+    async function record() {
+      try {
+        await recordMySession({ userAgent });
+      } catch {
+        // Humanização é best-effort: falha nunca quebra a página.
+      }
+    }
+    void record();
+  }, [recordMySession]);
   async function handleRevokeSessions() {
     try {
       const result = await revokeOtherSessions({});
-      setRevokeStatus(
+      toast.success(
         result.revoked === 1
           ? "1 sessão encerrada."
           : `${result.revoked} sessões encerradas.`,
       );
     } catch (err) {
-      setRevokeStatus(
-        err instanceof Error ? err.message : "Falha ao encerrar as sessões.",
-      );
+      toast.error(friendlyErrorMessage(err));
     }
   }
 
@@ -199,12 +214,11 @@ export function ProfilePage() {
 
   // ---- Etapa 3: portabilidade ----
   const exportData = useQuery(api.users.getMyDataExport, {});
-  const [exportStatus, setExportStatus] = useState<string | null>(null);
   function handleExport() {
     if (exportData === undefined || exportData === null) return;
     const day = new Date().toISOString().slice(0, 10);
     downloadJson(`portal-carreiras-meus-dados-${day}.json`, exportData);
-    setExportStatus("Dados exportados com sucesso.");
+    toast.success("Dados exportados com sucesso.");
   }
 
   // ---- Etapa 3: direito ao esquecimento ----
@@ -247,7 +261,7 @@ export function ProfilePage() {
         id="conteudo"
         tabIndex={-1}
         aria-label="Meu perfil e configurações"
-        className="mx-auto w-full max-w-4xl px-6 py-8 outline-none"
+        className="mx-auto w-full max-w-[1440px] px-6 py-8 outline-none"
       >
         <a
           href="/"
@@ -305,11 +319,6 @@ export function ProfilePage() {
               hint="PNG, JPEG ou WebP — até 400KB."
               onChange={(event) => void handleImageFile(event)}
             />
-            {profileError !== null ? (
-              <p role="alert" className="text-xs font-medium text-danger">
-                {profileError}
-              </p>
-            ) : null}
             {user?.image ? (
               <div>
                 <Button
@@ -403,8 +412,11 @@ export function ProfilePage() {
                     className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-white px-3 py-2"
                   >
                     <div>
-                      <p className="font-mono text-xs text-slate-500">
-                        {session.sessionId}
+                      {/* [UX_REFINEMENT] rótulo humano no lugar do ID
+                          criptográfico; fallback quando sem UA. */}
+                      <p className="text-sm font-semibold text-slate-700">
+                        {describeUserAgent(session.userAgent) ??
+                          "Sessão ativa em outro dispositivo"}
                       </p>
                       <p className="text-xs text-slate-600">
                         Criada em {formatDay(session.createdAt)} · expira em{" "}
@@ -429,17 +441,8 @@ export function ProfilePage() {
                 variant="secondary"
                 onClick={() => void handleRevokeSessions()}
               >
-                Encerrar sessão em outros dispositivos
+                Encerrar sessão em todos os outros dispositivos
               </Button>
-              {revokeStatus !== null ? (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className="text-sm font-semibold text-success"
-                >
-                  {revokeStatus}
-                </p>
-              ) : null}
             </div>
 
             <h3 className="mt-6 text-sm font-semibold text-slate-700">
@@ -481,15 +484,6 @@ export function ProfilePage() {
               >
                 Exportar meus dados (JSON)
               </Button>
-              {exportStatus !== null ? (
-                <p
-                  role="status"
-                  aria-live="polite"
-                  className="text-sm font-semibold text-success"
-                >
-                  {exportStatus}
-                </p>
-              ) : null}
             </div>
 
             <div className="mt-6 rounded border border-danger bg-white p-4">

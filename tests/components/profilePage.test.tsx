@@ -27,6 +27,11 @@ vi.mock("@convex-dev/auth/react", () => ({
   useAuthActions: () => ({ signOut: vi.fn() }),
 }));
 
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
+  Toaster: () => null,
+}));
+
 vi.mock("../../convex/_generated/api", () => ({
   api: {
     users: {
@@ -35,12 +40,14 @@ vi.mock("../../convex/_generated/api", () => ({
       updateMyProfile: "mut:users.updateMyProfile",
       updateMyNotificationPrefs: "mut:users.updateMyNotificationPrefs",
       revokeOtherSessions: "mut:users.revokeOtherSessions",
+      recordMySession: "mut:users.recordMySession",
       deleteMyAccount: "mut:users.deleteMyAccount",
     },
   },
 }));
 
 import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
 import { ProfilePage } from "../../src/components/profile/ProfilePage";
 import { AuthStateContext } from "../../src/components/auth/authContext";
 import { STORAGE_KEY } from "../../src/lib/preferences";
@@ -54,12 +61,16 @@ const sessionsFixture = [
     createdAt: Date.now() - 1000,
     expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
     isCurrent: true,
+    userAgent:
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   },
   {
+    // Sem User-Agent registrado (fallback humano — nunca o ID cru).
     sessionId: "sess-celular",
     createdAt: Date.now() - 5000,
     expiresAt: Date.now() + 20 * 24 * 60 * 60 * 1000,
     isCurrent: false,
+    userAgent: null,
   },
 ];
 
@@ -90,6 +101,7 @@ const updateMyNotificationPrefs = vi
 const revokeOtherSessions = vi
   .fn()
   .mockResolvedValue({ revoked: 1, keptCurrent: true });
+const recordMySession = vi.fn().mockResolvedValue({ recorded: true });
 const deleteMyAccount = vi.fn().mockResolvedValue({ ok: true });
 
 beforeEach(() => {
@@ -110,6 +122,7 @@ beforeEach(() => {
       return updateMyNotificationPrefs;
     if (mutation === "mut:users.revokeOtherSessions")
       return revokeOtherSessions;
+    if (mutation === "mut:users.recordMySession") return recordMySession;
     return deleteMyAccount;
   }) as never);
 });
@@ -216,23 +229,44 @@ describe("ProfilePage — acessibilidade: tema, contraste e fontes (Etapa 1)", (
 });
 
 describe("ProfilePage — segurança: kill switch de sessões (Etapa 2)", () => {
-  it("lista as sessões marcando a atual com Você está aqui", () => {
+  it("humaniza as sessões: navegador+SO, sem IDs criptográficos crus", () => {
     renderPerfil();
+    expect(screen.getByText("Chrome no Windows")).toBeInTheDocument();
     expect(screen.getByText(/você está aqui/i)).toBeInTheDocument();
-    expect(screen.getByText(/sess-celular/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/sessão ativa em outro dispositivo/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/sess-celular/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/sess-atual/i)).not.toBeInTheDocument();
   });
 
-  it("botão encerrar sessões em outros dispositivos chama o kill switch", async () => {
+  it("container da página usa a largura total do portal (1440px)", () => {
+    renderPerfil();
+    const main = screen.getByRole("main");
+    expect(main.className).toContain("max-w-[1440px]");
+  });
+
+  it("registra o User-Agent da sessão atual na montagem", async () => {
+    renderPerfil();
+    await waitFor(() => {
+      expect(recordMySession).toHaveBeenCalledTimes(1);
+    });
+    const args = recordMySession.mock.calls[0]?.[0] as { userAgent?: unknown };
+    expect(typeof args.userAgent).toBe("string");
+    expect((args.userAgent as string).length).toBeGreaterThan(0);
+  });
+
+  it("botão encerrar sessões chama o kill switch e confirma por toast", async () => {
     const user = userEvent.setup();
     renderPerfil();
 
     await user.click(
       screen.getByRole("button", {
-        name: /encerrar sessão em outros dispositivos/i,
+        name: /encerrar sessão em todos os outros dispositivos/i,
       }),
     );
     expect(revokeOtherSessions).toHaveBeenCalledOnce();
-    expect(await screen.findByText(/1 sessão encerrada/i)).toBeInTheDocument();
+    expect(toast.success).toHaveBeenCalledWith("1 sessão encerrada.");
   });
 
   it("switches de notificação persistem as preferências no usuário", async () => {
@@ -261,7 +295,7 @@ describe("ProfilePage — LGPD: portabilidade e exclusão (Etapa 3)", () => {
       screen.getByRole("button", { name: /exportar meus dados/i }),
     );
     expect(clickSpy).toHaveBeenCalledOnce();
-    expect(await screen.findByText(/dados exportados/i)).toBeInTheDocument();
+    expect(toast.success).toHaveBeenCalledWith("Dados exportados com sucesso.");
     clickSpy.mockRestore();
   });
 
@@ -325,7 +359,11 @@ describe("ProfilePage — foto de perfil (Etapa 1.1)", () => {
     });
     fireEvent.change(input, { target: { files: [bigFile] } });
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/muito grande/i);
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(
+        "Imagem muito grande — o limite é 400KB.",
+      );
+    });
     expect(updateMyProfile).not.toHaveBeenCalled();
   });
 

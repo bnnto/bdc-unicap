@@ -18,6 +18,11 @@ vi.mock("convex/react", () => ({
   useMutation: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
+  Toaster: () => null,
+}));
+
 vi.mock("../../convex/_generated/api", () => ({
   api: {
     jobs: {
@@ -30,6 +35,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useQuery, useMutation } from "convex/react";
+import { toast } from "sonner";
 import { api } from "../../convex/_generated/api";
 import { JobsPanel } from "../../src/components/recruiter/JobsPanel";
 
@@ -114,7 +120,7 @@ describe("JobsPanel — confirmação antes de fechar/encerrar (H3-1)", () => {
     });
   });
 
-  it("H9-1 — erro de status aparece junto à vaga, não num bloco global", async () => {
+  it("H9-1 — erro de status vira toast amigável, não bloco na vaga", async () => {
     setJobStatus.mockRejectedValueOnce(
       new Error("Você só pode alterar as suas próprias vagas."),
     );
@@ -125,14 +131,16 @@ describe("JobsPanel — confirmação antes de fechar/encerrar (H3-1)", () => {
       screen.getByRole("button", { name: "Confirmar mudança de status" }),
     );
 
+    expect(toast.error).toHaveBeenCalledWith(
+      "Você só pode alterar as suas próprias vagas.",
+    );
     const item = screen
       .getByText("Estágio em Desenvolvimento Web")
       .closest("li");
     expect(item).not.toBeNull();
-    const alert = within(item as HTMLElement).getByRole("alert");
-    expect(alert).toHaveTextContent(
-      "Você só pode alterar as suas próprias vagas.",
-    );
+    expect(
+      within(item as HTMLElement).queryByRole("alert"),
+    ).not.toBeInTheDocument();
   });
 
   it("Reabrir (reversível) continua direto, sem confirmação", async () => {

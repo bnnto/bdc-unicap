@@ -1,5 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { toast } from "sonner";
+import { friendlyErrorMessage } from "../../lib/toastMessages";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { RoleSelect } from "./RoleSelect";
@@ -18,6 +20,10 @@ import {
  * Página de autenticação (issue [S1-1]): entrada única com abas Entrar/Criar
  * conta. O cadastro exige nome e papel (aluno, recrutador, gestor).
  * Identidade UNICAP: bordô primário, dourado no destaque (DESIGN.md).
+ *
+ * [UX_REFINEMENT Etapa 1] — erros de autenticação saem das caixas cruas
+ * (`[CONVEX A(auth:signIn)]…`) e viram Toast global com mensagem
+ * amigável (H9-2: o campo senha nunca carrega o erro).
  */
 export function AuthPage() {
   const authActions = useAuthActions();
@@ -27,7 +33,6 @@ export function AuthPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<PublicSignupRole>("aluno");
-  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [consentAccepted, setConsentAccepted] = useState(false);
   const consentErrorId = useId();
@@ -36,10 +41,9 @@ export function AuthPage() {
     event: FormEvent<HTMLFormElement>,
   ): Promise<void> {
     event.preventDefault();
-    setError(null);
     setPending(true);
     if (signIn === undefined) {
-      setError("Autenticação indisponível nesta tela.");
+      toast.error("Autenticação indisponível nesta tela.");
       setPending(false);
       return;
     }
@@ -59,8 +63,14 @@ export function AuthPage() {
         await signIn("credentials-email", { email, password, flow: "signIn" });
       }
       // Sucesso: o ConvexAuthProvider reage e a UI troca para o painel.
+      toast.success(
+        mode === "signUp"
+          ? "Conta criada com sucesso. Bem-vindo(a)!"
+          : "Bem-vindo(a) de volta!",
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha na autenticação.");
+      // [UX_REFINEMENT] Toast amigável — nunca a mensagem crua do servidor.
+      toast.error(friendlyErrorMessage(err));
     } finally {
       setPending(false);
     }
@@ -101,10 +111,7 @@ export function AuthPage() {
                 type="button"
                 aria-selected={mode === m}
                 aria-controls="painel-auth"
-                onClick={() => {
-                  setMode(m);
-                  setError(null);
-                }}
+                onClick={() => setMode(m)}
                 className={`rounded px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                   mode === m
                     ? "bg-primary text-white"
@@ -124,17 +131,9 @@ export function AuthPage() {
             }}
             className="flex flex-col gap-4"
           >
-            {/* [UX-P2] H9-2 — erro de autenticação é do FORMULÁRIO (credenciais
-                inválidas, e-mail já cadastrado), não do campo senha: alerta
-                no topo, sem vínculo aria ao campo. */}
-            {error !== null ? (
-              <p
-                role="alert"
-                className="rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-              >
-                {error}
-              </p>
-            ) : null}
+            {/* [UX_REFINEMENT Etapa 1] — os erros de autenticação vivem
+                nos Toasts; [UX-P2] H9-2 preservado: o campo senha nunca
+                carrega o erro (sem aria-invalid/aria-describedby). */}
             {mode === "signUp" ? (
               <>
                 <Input
