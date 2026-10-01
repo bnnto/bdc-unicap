@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { toast } from "sonner";
+import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -51,11 +53,6 @@ export function JobsPanel() {
     { kind: "list" } | { kind: "new" } | { kind: "edit"; job: Doc<"jobs"> }
   >({ kind: "list" });
   /**
-   * [UX-P2] H9-1 — erro por item: a mensagem aparece junto à vaga que
-   * originou a ação (não num bloco global), mesmo em listas longas.
-   */
-  const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
-  /**
    * [UX-P1] H3-1 — confirmação inline antes de Fechar/Encerrar:
    * "Encerrar" é permanente (sem reabertura) e "Fechar" impede novas
    * candidaturas; ambas exigem Confirmar antes de chamar a mutation.
@@ -72,21 +69,13 @@ export function JobsPanel() {
     next: Doc<"jobs">["status"],
   ) {
     const key = String(jobId);
-    setItemErrors((prev) => {
-      const rest = { ...prev };
-      delete rest[key];
-      return rest;
-    });
     // [UX-P2] H1-1 — trava as ações da vaga até a mutation terminar.
     setActionPending(key);
     try {
       await setJobStatus({ jobId, status: next });
     } catch (err) {
-      setItemErrors((prev) => ({
-        ...prev,
-        [key]:
-          err instanceof Error ? err.message : "Falha ao alterar o status.",
-      }));
+      // [UX_REFINEMENT] H9-1 — Toast amigável, sem bloco de erro no card.
+      toast.error(friendlyErrorMessage(err));
     } finally {
       setActionPending(null);
     }
@@ -94,19 +83,11 @@ export function JobsPanel() {
 
   async function handleRenew(jobId: Doc<"jobs">["_id"]) {
     const key = String(jobId);
-    setItemErrors((prev) => {
-      const rest = { ...prev };
-      delete rest[key];
-      return rest;
-    });
     setActionPending(key);
     try {
       await renewJob({ jobId });
     } catch (err) {
-      setItemErrors((prev) => ({
-        ...prev,
-        [key]: err instanceof Error ? err.message : "Falha ao renovar a vaga.",
-      }));
+      toast.error(friendlyErrorMessage(err));
     } finally {
       setActionPending(null);
     }
@@ -243,14 +224,6 @@ export function JobsPanel() {
                   </li>
                 ))}
               </ul>
-              {itemErrors[String(job._id)] !== undefined ? (
-                <p
-                  role="alert"
-                  className="mt-2 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-                >
-                  {itemErrors[String(job._id)]}
-                </p>
-              ) : null}
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {job.status !== "encerrada" ? (
                   <Button

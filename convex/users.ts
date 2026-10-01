@@ -227,8 +227,37 @@ export const listMySessions = query({
         createdAt: session._creationTime,
         expiresAt: session.expirationTime,
         isCurrent: current !== null && session._id === current,
+        // [UX_REFINEMENT] UA gravado por recordMySession (null = ainda
+        // não humanizável — a UI mostra o fallback).
+        userAgent: session.userAgent ?? null,
       }))
       .sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+/**
+ * [UX_REFINEMENT Etapa 4] — grava o User-Agent da sessão ATUAL para
+ * humanizar a lista de sessões recentes (ex.: "Chrome no Windows").
+ * Chamado pelo /perfil na montagem; opcional e idempotente (só a
+ * própria sessão é tocada, com trimming para não inflar o documento).
+ */
+export const recordMySession = mutation({
+  args: { userAgent: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const current = await currentSessionId(ctx);
+    if (current === null) return { recorded: false as const };
+    const userAgent =
+      typeof args.userAgent === "string"
+        ? args.userAgent.trim().slice(0, 300)
+        : "";
+    if (userAgent.length === 0) return { recorded: false as const };
+    const session = await ctx.db.get(current);
+    if (session === null || session.userId !== user._id) {
+      return { recorded: false as const };
+    }
+    await ctx.db.patch(current, { userAgent });
+    return { recorded: true as const };
   },
 });
 

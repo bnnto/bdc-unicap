@@ -1,6 +1,7 @@
-import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { toast } from "sonner";
+import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Card } from "../ui/card";
 import type { StudentVisibility } from "../../lib/visibility";
@@ -23,7 +24,6 @@ export function PrivacySettings() {
   );
   const setVisibility = useMutation(api.students.setVisibility);
   const setContactConsent = useMutation(api.students.setContactConsent);
-  const [error, setError] = useState<string | null>(null);
 
   if (profile === undefined) {
     return (
@@ -42,20 +42,19 @@ export function PrivacySettings() {
   const showContact = profile.showContactToRecruiters ?? false;
 
   async function handleVisibility(next: StudentVisibility) {
-    setError(null);
     try {
       await setVisibility({ visibility: next });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao salvar.");
+      // [UX_REFINEMENT] falha do servidor vira Toast amigável.
+      toast.error(friendlyErrorMessage(err));
     }
   }
 
   async function handleContactConsent(next: boolean) {
-    setError(null);
     try {
       await setContactConsent({ allow: next });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao salvar.");
+      toast.error(friendlyErrorMessage(err));
     }
   }
 
@@ -65,12 +64,6 @@ export function PrivacySettings() {
       accent="secondary"
       headingLevel={2}
     >
-      {error !== null ? (
-        <p role="alert" className="mb-3 text-sm font-medium text-danger">
-          {error}
-        </p>
-      ) : null}
-
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-semibold text-slate-700">
           Onde seu perfil aparece

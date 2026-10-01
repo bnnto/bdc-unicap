@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { toast } from "sonner";
+import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -154,9 +156,9 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
        */
       onDone();
     } catch (err) {
-      setErrors([
-        err instanceof Error ? err.message : "Falha ao salvar a vaga.",
-      ]);
+      // [UX_REFINEMENT] falha do servidor vira Toast amigável; a
+      // validação de campo continua inline ("Corrija os pontos abaixo").
+      toast.error(friendlyErrorMessage(err));
     } finally {
       setPending(false);
     }

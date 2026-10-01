@@ -12,6 +12,11 @@ vi.mock("convex/react", () => ({
   useMutation: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
+  Toaster: () => null,
+}));
+
 vi.mock("../../convex/_generated/api", () => ({
   api: {
     students: {
@@ -182,24 +187,44 @@ describe("ResumeBuilderPage — main com os 7 blocos (Etapa 2.2)", () => {
     }
   });
 
-  it("bloco 1 traz headline e resumo profissional com contador", () => {
+  it("bloco 1 nasce em visualização; o lápis abre headline e resumo", async () => {
+    const { userEvent } = await import("@testing-library/user-event");
     render(<ResumeBuilderPage />);
+    expect(screen.queryByLabelText(/headline/i)).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Editar Dados Pessoais" }),
+    );
     expect(screen.getByLabelText(/headline/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/resumo profissional/i)).toBeInTheDocument();
     // Contador do resumo (o bloco 6 tem outro contador — seletor específico).
     expect(screen.getByText(/caracteres \(mínimo 30\)/i)).toBeInTheDocument();
   });
 
-  it("bloco 6 mantém experiências e ganha campo livre de projetos de extensão", () => {
+  it("bloco 6 mantém experiências e ganha campo livre de projetos de extensão", async () => {
+    const { userEvent } = await import("@testing-library/user-event");
     render(<ResumeBuilderPage />);
+    expect(screen.queryByLabelText(/projetos de extensão/i)).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Editar Experiências" }),
+    );
     expect(
       screen.getByRole("group", { name: /experiências profissionais/i }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText(/projetos de extensão/i)).toBeInTheDocument();
   });
 
-  it("bloco 7 lista certificações com campo para adicionar", () => {
+  it("bloco 7 lista certificações com campo para adicionar (via lápis)", async () => {
+    const { userEvent } = await import("@testing-library/user-event");
     render(<ResumeBuilderPage />);
+    expect(
+      screen.queryByRole("button", { name: /adicionar certificação/i }),
+    ).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Editar Certificações" }),
+    );
     expect(
       screen.getByRole("group", { name: /certificações/i }),
     ).toBeInTheDocument();
@@ -208,11 +233,13 @@ describe("ResumeBuilderPage — main com os 7 blocos (Etapa 2.2)", () => {
     ).toBeInTheDocument();
   });
 
-  it("formulário completo salva via saveResumeData", async () => {
+  it("salvar o bloco 1 persiste via saveResumeData", async () => {
     const { userEvent } = await import("@testing-library/user-event");
     render(<ResumeBuilderPage />);
-    const save = screen.getByRole("button", { name: /salvar currículo/i });
-    await userEvent.click(save);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Editar Dados Pessoais" }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^salvar$/i }));
     expect(saveResumeData).toHaveBeenCalledTimes(1);
     const payload = saveResumeData.mock.calls[0]?.[0] as {
       headline: string;

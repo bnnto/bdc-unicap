@@ -2,6 +2,8 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuthState } from "./authContext";
 import { useState, type ReactNode } from "react";
+import { toast } from "sonner";
+import { friendlyErrorMessage } from "../../lib/toastMessages";
 import { CONSENT_TERM, CONSENT_TERM_VERSION } from "../../lib/consentTerm";
 
 /**
@@ -31,22 +33,17 @@ function ConsentRequiredScreen() {
   const accept = useMutation(api.consents.acceptCurrentTerm);
   /**
    * [UX-P2] H1-3/H9-3 — o aceite dá feedback de progresso e recupera
-   * falhas com alerta acessível (nenhum erro silencioso).
+   * falhas via Toast acessível (Etapa 1 do UX_REFINEMENT; nenhum erro
+   * silencioso e o botão volta a habilitar para tentar de novo).
    */
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleAccept() {
-    setError(null);
     setPending(true);
     try {
       await accept({});
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Não foi possível registrar o aceite agora. Tente novamente.",
-      );
+      toast.error(friendlyErrorMessage(err));
     } finally {
       setPending(false);
     }
@@ -89,14 +86,6 @@ function ConsentRequiredScreen() {
               ? "Registrando aceite…"
               : `Li e aceito o termo (${CONSENT_TERM_VERSION})`}
           </button>
-          {error !== null ? (
-            <p
-              role="alert"
-              className="rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-            >
-              {error}
-            </p>
-          ) : null}
           <p className="text-xs text-slate-500">
             O aceite é registrado com versão, data e hora (trilha de auditoria).
             Você pode revogá-lo a qualquer momento pelo Encarregado (DPO).

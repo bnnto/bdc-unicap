@@ -3,7 +3,6 @@ import { AuthPage } from "./components/auth/AuthPage";
 import { LandingPage } from "./components/landing/LandingPage";
 import { ProfilePage } from "./components/profile/ProfilePage";
 import { navigateTo } from "./lib/router";
-import { SignOutButton } from "./components/auth/SignOutButton";
 import { useAuthState } from "./components/auth/authContext";
 import { StudentShell } from "./components/student/StudentShell";
 import { TalentSearchPage } from "./components/talent/TalentSearchPage";
@@ -77,8 +76,12 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 
 /**
  * Navbar com abas acessíveis (REFACTOR_UI Etapa 2): logo à esquerda, abas
- * ao centro (padrão ARIA tabs — o conteúdo troca por clique) e perfil +
- * Sair à direita. Cada aba controla um painel embaixo (aria-controls).
+ * ao centro (padrão ARIA tabs — o conteúdo troca por clique) e avatar do
+ * perfil à direita. Cada aba controla um painel embaixo (aria-controls).
+ *
+ * [UX_REFINEMENT Etapa 3] — sem menu dropdown: clicar no avatar/nome
+ * leva direto à central de configurações (/perfil), onde também mora o
+ * "Sair".
  */
 function RecruiterNavbar({
   active,
@@ -138,36 +141,37 @@ function RecruiterNavbar({
           </ul>
         </nav>
 
-        {/* Direita: perfil + Sair. */}
+        {/* Direita: avatar + nome como um único botão para /perfil
+            ([UX_REFINEMENT] Etapa 3 — o "Sair" vive em /perfil). */}
         <div className="order-2 flex items-center gap-3 lg:order-3">
-          {userImage ? (
-            <img
-              src={userImage}
-              alt=""
-              className="h-8 w-8 rounded-full object-cover"
-            />
-          ) : (
-            <span
-              aria-hidden="true"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FDF2F4] text-xs font-bold text-primary"
-            >
-              {userName
-                .split(" ")
-                .slice(0, 2)
-                .map((part) => part.charAt(0).toUpperCase())
-                .join("")}
-            </span>
-          )}
-          <span className="sr-only">{userName}</span>
-          {/* [PERFIL_E_LGPD] atalho para a central /perfil. */}
           <button
             type="button"
+            aria-label="Meu perfil e configurações"
             onClick={() => navigateTo("/perfil")}
-            className="rounded px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-[#FDF2F4] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="flex items-center gap-2 rounded-full p-1 pr-2 transition-colors hover:bg-[#FDF2F4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
-            Configurações
+            {userImage ? (
+              <img
+                src={userImage}
+                alt=""
+                className="h-8 w-8 rounded-full object-cover"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FDF2F4] text-xs font-bold text-primary"
+              >
+                {userName
+                  .split(" ")
+                  .slice(0, 2)
+                  .map((part) => part.charAt(0).toUpperCase())
+                  .join("")}
+              </span>
+            )}
+            <span className="hidden text-sm font-semibold text-slate-600 sm:block">
+              {userName}
+            </span>
           </button>
-          <SignOutButton />
         </div>
       </div>
     </header>

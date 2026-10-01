@@ -16,6 +16,19 @@ export default defineSchema({
   ...authTables,
 
   /**
+   * [UX_REFINEMENT Etapa 4] — sessões do Convex Auth estendidas com o
+   * User-Agent humano da sessão (gravado por `users.recordMySession`
+   * quando o utilizador abre /perfil). Alimenta a lista "Sessões
+   * recentes" com rótulo amigável (ex.: "Chrome no Windows") em vez
+   * de IDs criptográficos crus.
+   */
+  authSessions: defineTable({
+    userId: v.id("users"),
+    expirationTime: v.number(),
+    userAgent: v.optional(v.string()),
+  }).index("userId", ["userId"]),
+
+  /**
    * Usuário da aplicação, com papel único e ativação (R7).
    * O documento `users` do Convex Auth é estendido com `role` e `active`.
    */

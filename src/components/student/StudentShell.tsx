@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react";
-import { SignOutButton } from "../auth/SignOutButton";
+import { useState } from "react";
 import { useAuthState } from "../auth/authContext";
 import { navigateTo } from "../../lib/router";
 import { StudentHomePage } from "./StudentHomePage";
@@ -10,12 +9,15 @@ import { MyApplicationsPage } from "./MyApplicationsPage";
 /**
  * [REFACTOR_ALUNO Etapa 1] — StudentShell: navbar superior em largura
  * total (container max-w-[1440px]) com logo UNICAP à esquerda, abas ao
- * centro (padrão ARIA tabs — uma tela visível por vez) e avatar com
- * menu dropdown à direita ("Meu Perfil" e "Sair").
+ * centro (padrão ARIA tabs — uma tela visível por vez) e avatar à
+ * direita.
  *
- * [S8-2] — as abas usam role=tablist/tab/tabpanel com aria-controls e o
- * dropdown expõe aria-expanded/aria-haspopup="menu" (teclado + leitor
- * de tela); o landmark main continua único no App.
+ * [UX_REFINEMENT Etapa 3] — sem menu dropdown: avatar/nome é um botão
+ * que leva direto à central de configurações (/perfil); o "Sair" vive
+ * dentro de /perfil.
+ *
+ * [S8-2] — as abas usam role=tablist/tab/tabpanel com aria-controls;
+ * o landmark main continua único no App.
  */
 export type StudentTab =
   "curriculo" | "oportunidades" | "candidaturas" | "perfil";
@@ -24,6 +26,7 @@ const TABS: Array<{ key: StudentTab; label: string }> = [
   { key: "curriculo", label: "Meu Currículo" },
   { key: "oportunidades", label: "Oportunidades" },
   { key: "candidaturas", label: "Minhas Candidaturas" },
+  { key: "perfil", label: "Meu Perfil" },
 ];
 
 /** Iniciais do avatar: primeira + última palavra em caixa alta. */
@@ -39,34 +42,9 @@ export function StudentShell() {
   const { user } = useAuthState();
   const userName = user?.name ?? user?.email ?? "Aluno";
   const [active, setActive] = useState<StudentTab>("curriculo");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  // Fecha o dropdown ao clicar fora ou pressionar Escape.
-  useEffect(() => {
-    if (!menuOpen) return;
-    function handlePointer(event: MouseEvent) {
-      if (
-        menuRef.current !== null &&
-        !menuRef.current.contains(event.target as Node)
-      ) {
-        setMenuOpen(false);
-      }
-    }
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", handlePointer);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("mousedown", handlePointer);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [menuOpen]);
 
   function selectTab(tab: StudentTab) {
     setActive(tab);
-    setMenuOpen(false);
   }
 
   return (
@@ -114,62 +92,31 @@ export function StudentShell() {
             </ul>
           </nav>
 
-          {/* Direita: avatar com dropdown (Meu Perfil / Sair). */}
-          <div
-            ref={menuRef}
-            className="relative order-2 flex items-center gap-2 lg:order-3"
-          >
+          {/* Direita: avatar + nome como um único botão que leva à
+              central de configurações /perfil ([UX_REFINEMENT] Etapa 3 —
+              sem dropdown; o "Sair" está dentro de /perfil). */}
+          <div className="order-2 flex items-center gap-2 lg:order-3">
             <button
               type="button"
-              aria-label="Menu do perfil"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((open) => !open)}
-              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              aria-label="Meu perfil e configurações"
+              onClick={() => navigateTo("/perfil")}
+              className="flex items-center gap-2 rounded-full p-0.5 pr-3 transition-colors hover:bg-[#FDF2F4] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
-              {user?.image ? (
-                <img src={user.image} alt="" className="h-9 w-9 object-cover" />
-              ) : (
-                initialsOf(userName)
-              )}
+              <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white">
+                {user?.image ? (
+                  <img
+                    src={user.image}
+                    alt=""
+                    className="h-9 w-9 object-cover"
+                  />
+                ) : (
+                  initialsOf(userName)
+                )}
+              </span>
+              <span className="hidden text-sm font-semibold text-slate-700 sm:block">
+                {userName}
+              </span>
             </button>
-            <span className="hidden text-sm font-semibold text-slate-700 sm:block">
-              {userName}
-            </span>
-            {menuOpen ? (
-              <div
-                role="menu"
-                aria-label="Menu do perfil"
-                className="absolute right-0 top-full z-30 mt-2 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-level2"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => selectTab("perfil")}
-                  className="block w-full rounded px-3 py-2 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-[#FDF2F4] hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  Meu Perfil
-                </button>
-                {/* [PERFIL_E_LGPD] atalho para a central /perfil. */}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    navigateTo("/perfil");
-                  }}
-                  className="block w-full rounded px-3 py-2 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-[#FDF2F4] hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  Configurações
-                </button>
-                <div
-                  role="menuitem"
-                  className="mt-1 border-t border-slate-100 pt-1"
-                >
-                  <SignOutButton />
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
       </header>
@@ -213,7 +160,7 @@ export function StudentShell() {
           </div>
         ) : null}
         {active === "perfil" ? (
-          // "Meu Perfil" vem do dropdown (sem aba correspondente no tablist).
+          // Aba "Meu Perfil" — visão geral do discente (painel interno).
           <div
             role="tabpanel"
             id="panel-perfil"
