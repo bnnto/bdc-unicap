@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AuthPage } from "./components/auth/AuthPage";
 import { SignOutButton } from "./components/auth/SignOutButton";
 import { useAuthState } from "./components/auth/authContext";
-import { StudentHomePage } from "./components/student/StudentHomePage";
+import { StudentShell } from "./components/student/StudentShell";
 import { TalentSearchPage } from "./components/talent/TalentSearchPage";
 import { JobsPanel } from "./components/recruiter/JobsPanel";
 import { JobKanban } from "./components/recruiter/JobKanban";
@@ -180,23 +180,13 @@ function AuthGate() {
   }
 
   if (role === "aluno") {
+    // [REFACTOR_ALUNO Etapa 1] — shell com navbar de abas + avatar; o
+    // landmark main único (#conteudo) é do próprio shell, para o
+    // skip-link cair direto nos painéis das abas.
     return (
       <div className="min-h-screen bg-canvas">
         <SkipLink />
-        <header className="border-b border-slate-200 bg-white shadow-level1">
-          <div className="mx-auto w-full max-w-[1440px] px-6 py-3">
-            <p className="font-serif text-lg font-bold text-primary">
-              Portal de Carreiras — UNICAP
-            </p>
-            <p className="text-xs text-slate-500">
-              Autenticado como {user.name} ·{" "}
-              {role !== null ? ROLE_LABELS[role] : ""}
-            </p>
-          </div>
-        </header>
-        <MainLandmark>
-          <StudentHomePage />
-        </MainLandmark>
+        <StudentShell />
       </div>
     );
   }

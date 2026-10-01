@@ -144,22 +144,55 @@ export const applyToJob = mutation({
 });
 
 /**
- * Vagas abertas e dentro do prazo (R4) para a home do aluno (CA 2).
+ * Vagas abertas e dentro do prazo (R4) para o home do aluno (CA 2).
  * Ancorada no índice by_status — sem full-scan (padrão S2-4).
+ *
+ * [REFACTOR_ALUNO Etapa 3.4] — cada vaga sai com o Percentual de
+ * Compatibilidade do aluno calculado NO SERVIDOR (R8, mesma regra pura
+ * do `applyToJob`) para o destaque do Mural estilo LinkedIn.
  */
 export const openJobs = query({
   args: {},
   handler: async (ctx) => {
-    await requireActiveUser(ctx);
+    const user = await requireActiveUser(ctx);
+    const student =
+      user.role === "aluno"
+        ? await ctx.db
+            .query("students")
+            .withIndex("by_user", (q) => q.eq("userId", user._id))
+            .unique()
+        : null;
+    const candidate =
+      student !== null
+        ? buildMatchingCandidateInput({
+            skills: student.skills,
+            languages: student.languages as Array<{
+              name: string;
+              level: LanguageLevel;
+            }>,
+            availability: student.availability,
+          })
+        : null;
+
     const now = Date.now();
     const rows = await ctx.db
       .query("jobs")
       .withIndex("by_status", (q) => q.eq("status", "aberta"))
       .order("desc")
       .take(50);
-    return rows.filter(
-      (job) => job.expiresAt === undefined || job.expiresAt > now,
-    );
+    return rows
+      .filter((job) => job.expiresAt === undefined || job.expiresAt > now)
+      .map((job) => ({
+        ...job,
+        matchScore:
+          candidate === null
+            ? null
+            : computeMatchScore(candidate, {
+                prerequisites: jobPrerequisites(job),
+                requiredLanguage: job.requiredLanguage,
+                availability: job.availability,
+              }),
+      }));
   },
 });
 

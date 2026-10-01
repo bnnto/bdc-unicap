@@ -418,3 +418,65 @@ export function myApplicationsKpis(
       : applications.reduce((best, a) => Math.max(best, a.matchScore), 0);
   return { total, active, bestMatch };
 }
+
+/** Tom visual do badge por etapa (variantes do componente Badge). */
+export type StageBadgeVariant =
+  "aprovado" | "triagem" | "reprovado" | "andamento";
+
+export const STAGE_BADGE: Record<ApplicationStage, StageBadgeVariant> = {
+  inscrito: "andamento",
+  triagem: "triagem",
+  entrevista: "andamento",
+  aprovado: "aprovado",
+  reprovado: "reprovado",
+};
+
+/**
+ * [REFACTOR_ALUNO Etapa 4.2] — feedback claro por etapa: o aluno
+ * entende de imediato o que aconteceu e o que esperar em seguida.
+ */
+export function stageFeedback(stage: ApplicationStage): string {
+  switch (stage) {
+    case "inscrito":
+      return "Candidatura enviada — sua inscrição está na fila aguardando a triagem da equipe.";
+    case "triagem":
+      return "Em triagem — o recrutador está avaliando o seu perfil nesta etapa.";
+    case "entrevista":
+      return "Você está na etapa de entrevista: a empresa quer conhecer melhor o seu perfil.";
+    case "aprovado":
+      return "Parabéns! Você foi aprovado(a) neste processo seletivo.";
+    case "reprovado":
+      return "Sua candidatura foi reprovada neste processo — veja o motivo abaixo e continue evoluindo.";
+  }
+}
+
+/**
+ * [REFACTOR_ALUNO Etapa 4.3] — motivo padronizado (R5, enum fixo de 8)
+ * traduzido para um conselho amigável e ACIONÁVEL: o aluno sai sabendo
+ * onde melhorar. Nunca texto livre — só o enum do servidor.
+ */
+export function rejectionFeedback(reason: RejectionReason): {
+  headline: string;
+  advice: string;
+} {
+  const headline = "Não foi desta vez";
+  const adviceByReason: Record<RejectionReason, string> = {
+    requisitos_obrigatorios:
+      "A vaga pedia requisitos obrigatórios que não constavam no seu perfil. Atualize as competências exigidas no currículo e tente de novo.",
+    formacao_incompativel:
+      "Sua formação não era compatível com a vaga. Candidate-se a oportunidades do seu curso ou conclua a graduação solicitada.",
+    disponibilidade_incompativel:
+      "A disponibilidade de horário pedida não fecha com a sua. Ajuste a disponibilidade no perfil e candidate-se a vagas compatíveis.",
+    idioma_insuficiente:
+      "O nível de idioma exigido ficou acima do seu cadastro. Revise os níveis no bloco de Idiomas do currículo.",
+    perfil_duplicado:
+      "Encontramos mais de uma candidatura sua neste processo. Mantenha um único perfil atualizado para não perder oportunidades.",
+    vaga_preenchida:
+      "A vaga foi preenchida por outro candidato, mas novas vagas saem toda semana — mantenha seu perfil visível no banco de talentos.",
+    vaga_cancelada:
+      "A empresa cancelou a vaga. Explore oportunidades parecidas no mural de vagas.",
+    outro:
+      "O recrutador encerrou sua candidatura. Use os conselhos dos demais processos para deixar seu currículo ainda mais forte.",
+  };
+  return { headline, advice: adviceByReason[reason] };
+}
