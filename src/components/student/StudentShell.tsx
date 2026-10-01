@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SignOutButton } from "../auth/SignOutButton";
 import { useAuthState } from "../auth/authContext";
+import { navigateTo } from "../../lib/router";
 import { StudentHomePage } from "./StudentHomePage";
 import { ResumeBuilderPage } from "./ResumeBuilderPage";
 import { JobOpportunities } from "./JobOpportunities";
@@ -124,9 +125,13 @@ export function StudentShell() {
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((open) => !open)}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-bold text-white transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
-              {initialsOf(userName)}
+              {user?.image ? (
+                <img src={user.image} alt="" className="h-9 w-9 object-cover" />
+              ) : (
+                initialsOf(userName)
+              )}
             </button>
             <span className="hidden text-sm font-semibold text-slate-700 sm:block">
               {userName}
@@ -144,6 +149,18 @@ export function StudentShell() {
                   className="block w-full rounded px-3 py-2 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-[#FDF2F4] hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Meu Perfil
+                </button>
+                {/* [PERFIL_E_LGPD] atalho para a central /perfil. */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    navigateTo("/perfil");
+                  }}
+                  className="block w-full rounded px-3 py-2 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-[#FDF2F4] hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  Configurações
                 </button>
                 <div
                   role="menuitem"

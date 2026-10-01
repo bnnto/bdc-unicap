@@ -5,7 +5,7 @@
  * papel "aluno" — uma tela visível por vez (renderização condicional).
  */
 import { render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthStateContext } from "../../src/components/auth/authContext";
 import App from "../../src/App";
 
@@ -42,6 +42,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Estado de carregamento: os painéis renderizam skeletons.
   mockedUseQuery.mockReturnValue(undefined);
+});
+
+// [PERFIL_E_LGPD] a navegação para /perfil muda a rota via History
+// API — reseta para que cada teste monte o shell de novo.
+afterEach(() => {
+  window.history.pushState({}, "", "/");
 });
 
 function renderAluno() {
@@ -145,8 +151,24 @@ describe("StudentShell — logo, container full-width e avatar (Etapa 1)", () =>
     const items = within(menu).getAllByRole("menuitem");
     expect(items.map((item) => item.textContent)).toEqual([
       "Meu Perfil",
+      "Configurações",
       "Sair",
     ]);
+  });
+
+  it("'Configurações' no dropdown leva à rota /perfil (Etapa 1/2/3)", async () => {
+    const { userEvent } = await import("@testing-library/user-event");
+    renderAluno();
+    await userEvent.click(
+      screen.getByRole("button", { name: /menu do perfil/i }),
+    );
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Configurações" }),
+    );
+    expect(window.location.pathname).toBe("/perfil");
+    expect(
+      screen.getByRole("heading", { level: 1, name: /meu perfil/i }),
+    ).toBeInTheDocument();
   });
 
   it("'Meu Perfil' no dropdown abre a aba de perfil", async () => {

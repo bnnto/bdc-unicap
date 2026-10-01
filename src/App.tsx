@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { AuthPage } from "./components/auth/AuthPage";
 import { LandingPage } from "./components/landing/LandingPage";
+import { ProfilePage } from "./components/profile/ProfilePage";
+import { navigateTo } from "./lib/router";
 import { SignOutButton } from "./components/auth/SignOutButton";
 import { useAuthState } from "./components/auth/authContext";
 import { StudentShell } from "./components/student/StudentShell";
@@ -82,10 +84,13 @@ function RecruiterNavbar({
   active,
   onChange,
   userName,
+  userImage,
 }: {
   active: TabKey;
   onChange: (tab: TabKey) => void;
   userName: string;
+  /** [PERFIL_E_LGPD] foto de avatar (data URL) quando definida. */
+  userImage?: string;
 }) {
   return (
     <header className="border-b border-slate-200 bg-white shadow-level1">
@@ -135,17 +140,33 @@ function RecruiterNavbar({
 
         {/* Direita: perfil + Sair. */}
         <div className="order-2 flex items-center gap-3 lg:order-3">
-          <span
-            aria-hidden="true"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FDF2F4] text-xs font-bold text-primary"
-          >
-            {userName
-              .split(" ")
-              .slice(0, 2)
-              .map((part) => part.charAt(0).toUpperCase())
-              .join("")}
-          </span>
+          {userImage ? (
+            <img
+              src={userImage}
+              alt=""
+              className="h-8 w-8 rounded-full object-cover"
+            />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FDF2F4] text-xs font-bold text-primary"
+            >
+              {userName
+                .split(" ")
+                .slice(0, 2)
+                .map((part) => part.charAt(0).toUpperCase())
+                .join("")}
+            </span>
+          )}
           <span className="sr-only">{userName}</span>
+          {/* [PERFIL_E_LGPD] atalho para a central /perfil. */}
+          <button
+            type="button"
+            onClick={() => navigateTo("/perfil")}
+            className="rounded px-3 py-1.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-[#FDF2F4] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            Configurações
+          </button>
           <SignOutButton />
         </div>
       </div>
@@ -184,16 +205,26 @@ function AuthGate() {
     // /login. ([REFACTOR_GESTOR] a divulgação pública de extensão (R9)
     // não existe mais — módulo cancelado.)
     // [S8-2]: LandingPage e AuthPage são donas do próprio landmark main.
-    const navigate = (path: string) => {
-      window.history.pushState({}, "", path);
-      setPublicPath(path);
-    };
+    const navigate = (path: string) => navigateTo(path);
     const isLoginRoute =
       publicPath === "/login" || publicPath.startsWith("/login/");
     return (
       <>
         <SkipLink />
         {isLoginRoute ? <AuthPage /> : <LandingPage onNavigate={navigate} />}
+      </>
+    );
+  }
+
+  if (publicPath === "/perfil") {
+    // [PERFIL_E_LGPD] rota autenticada da central de configurações e
+    // segurança — vale para qualquer papel (aluno, recrutador, gestor).
+    // A exclusão da conta derruba `me` no servidor reativo e o AuthGate
+    // volta a cair na vitrine.
+    return (
+      <>
+        <SkipLink />
+        <ProfilePage />
       </>
     );
   }
@@ -219,6 +250,7 @@ function AuthGate() {
         active={activeTab}
         onChange={setActiveTab}
         userName={user.name ?? user.email ?? "usuário"}
+        userImage={user.image ?? undefined}
       />
       <MainLandmark>
         {/* [REFACTOR_UI] Renderização condicional por aba — uma tela por vez. */}
