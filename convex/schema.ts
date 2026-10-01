@@ -106,6 +106,10 @@ export default defineSchema({
     /**
      * [S2-1] — Currículo Vitae (headline, resumo, experiências, histórico
      * acadêmico). Validado pela regra pura em src/lib/resume.ts.
+     * [REFACTOR_ALUNO Etapa 2] — novos blocos opcionais do construtor:
+     * links profissionais (3), projetos de extensão em texto (6) e
+     * certificações/atividades (7). Opcionais para não invalidar CVs
+     * antigos gravados antes do refactor.
      */
     resumeData: v.optional(
       v.object({
@@ -125,6 +129,14 @@ export default defineSchema({
             year: v.number(),
           }),
         ),
+        links: v.optional(
+          v.object({
+            github: v.optional(v.string()),
+            lattes: v.optional(v.string()),
+          }),
+        ),
+        projectsText: v.optional(v.string()),
+        certifications: v.optional(v.array(v.string())),
       }),
     ),
   })

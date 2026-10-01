@@ -18,6 +18,9 @@ export type ResumeDocStudent = {
   linkedinUrl: string | null;
   portfolioUrl: string | null;
   availability: "estagio" | "integral" | "meio_periodo" | "freelancer";
+  /** [REFACTOR_ALUNO Etapa 2] — competências e idiomas do perfil. */
+  skills?: string[];
+  languages?: Array<{ name: string; level: string }>;
 };
 
 export type ResumeDocumentInput = {
@@ -59,6 +62,15 @@ const AVAILABILITY_LABELS: Record<ResumeDocStudent["availability"], string> = {
   integral: "Período integral",
   meio_periodo: "Meio período",
   freelancer: "Freelancer",
+};
+
+/** Níveis de idioma em texto legível no documento (enum → label). */
+const LANGUAGE_LABELS: Record<string, string> = {
+  basico: "Básico",
+  intermediario: "Intermediário",
+  avancado: "Avançado",
+  fluente: "Fluente",
+  nativo: "Nativo",
 };
 
 /** Remove acentos e caixa para comparações tolerantes (ex.: "Graduação"). */
@@ -165,6 +177,12 @@ function anchor(label: string, url: string): string {
  * Template HTML do documento (compartilhado pela prévia na tela e pela
  * impressão/PDF). Todo texto dinâmico passa por `escapeHtml` (CA 1 —
  * download fiel e seguro); a identidade UNICAP vem do documento (CA 2).
+ *
+ * [REFACTOR_ALUNO Etapa 2.3] — o markup envolvido em `.unicap-resume-doc`
+ * (as regras do template são descendentes dessa classe — sem o wrapper o
+ * PDF saía sem estilo), com cabeçalho em banda bordô (exige
+ * `print-color-adjust: exact`) e corpo em grid de duas colunas que o
+ * `@media print` preserva — o PDF é o espelho exato da prévia.
  */
 export function buildResumeMarkup(
   doc: Extract<ResumeDocument, { ok: true }>,
@@ -187,8 +205,61 @@ export function buildResumeMarkup(
   if (doc.student.portfolioUrl !== null) {
     contacts.push(anchor("Portfólio", doc.student.portfolioUrl));
   }
+  if (doc.resume.links?.github !== undefined) {
+    contacts.push(anchor("GitHub", doc.resume.links.github));
+  }
+  if (doc.resume.links?.lattes !== undefined) {
+    contacts.push(anchor("Lattes", doc.resume.links.lattes));
+  }
+
+  // Coluna lateral (skills, idiomas, certificações) — vazia ⇒ grid de
+  // uma coluna para o documento não abrir um terço em branco.
+  const sideSections: string[] = [];
+  const skills = doc.student.skills ?? [];
+  if (skills.length > 0) {
+    sideSections.push(
+      `<section class="unicap-resume-section">`,
+      `<h2 class="unicap-resume-section-title">Competências & Tecnologias</h2>`,
+      `<ul class="unicap-resume-chips">`,
+      ...skills.map((skill) => `<li>${escapeHtml(skill)}</li>`),
+      `</ul>`,
+      `</section>`,
+    );
+  }
+  const languages = doc.student.languages ?? [];
+  if (languages.length > 0) {
+    sideSections.push(
+      `<section class="unicap-resume-section">`,
+      `<h2 class="unicap-resume-section-title">Idiomas</h2>`,
+      `<ul class="unicap-resume-list">`,
+      ...languages.map(
+        (language) =>
+          `<li>${escapeHtml(
+            `${language.name} — ${LANGUAGE_LABELS[language.level] ?? language.level}`,
+          )}</li>`,
+      ),
+      `</ul>`,
+      `</section>`,
+    );
+  }
+  const certifications = doc.resume.certifications ?? [];
+  if (certifications.length > 0) {
+    sideSections.push(
+      `<section class="unicap-resume-section">`,
+      `<h2 class="unicap-resume-section-title">Certificações & Atividades</h2>`,
+      `<ul class="unicap-resume-list">`,
+      ...certifications.map((item) => `<li>${escapeHtml(item)}</li>`),
+      `</ul>`,
+      `</section>`,
+    );
+  }
+  const gridClass =
+    sideSections.length === 0
+      ? "unicap-resume-grid unicap-resume-grid--single"
+      : "unicap-resume-grid";
 
   const parts: string[] = [];
+  parts.push(`<div class="unicap-resume-doc">`);
   parts.push(
     `<header class="unicap-resume-header">`,
     `<div>`,
@@ -197,6 +268,7 @@ export function buildResumeMarkup(
     `</div>`,
     `<p class="unicap-resume-acronym" aria-hidden="true">${escapeHtml(doc.acronym)}</p>`,
     `</header>`,
+    `<div class="unicap-resume-identity">`,
     `<h1 class="unicap-resume-name">${escapeHtml(doc.student.fullName)}</h1>`,
     `<p class="unicap-resume-headline">${escapeHtml(doc.headline)}</p>`,
     `<p class="unicap-resume-meta">${escapeHtml(meta)}</p>`,
@@ -204,7 +276,15 @@ export function buildResumeMarkup(
   if (contacts.length > 0) {
     parts.push(`<p class="unicap-resume-contacts">${contacts.join(" · ")}</p>`);
   }
+  parts.push(`</div>`, `<div class="${gridClass}">`);
 
+  // Coluna lateral.
+  parts.push(`<div class="unicap-resume-col unicap-resume-col-side">`);
+  parts.push(...sideSections);
+  parts.push(`</div>`);
+
+  // Coluna principal.
+  parts.push(`<div class="unicap-resume-col unicap-resume-col-main">`);
   parts.push(
     `<section class="unicap-resume-section">`,
     `<h2 class="unicap-resume-section-title">Resumo</h2>`,
@@ -237,10 +317,22 @@ export function buildResumeMarkup(
   for (const entry of doc.academicEntries) {
     parts.push(`<li>${escapeHtml(`${entry.item} (${entry.year})`)}</li>`);
   }
+  parts.push(`</ul>`, `</section>`);
+
+  const projectsText = doc.resume.projectsText;
+  if (projectsText !== undefined && projectsText.trim().length > 0) {
+    parts.push(
+      `<section class="unicap-resume-section">`,
+      `<h2 class="unicap-resume-section-title">Experiências & Projetos de Extensão</h2>`,
+      `<p class="unicap-resume-summary">${escapeHtml(projectsText)}</p>`,
+      `</section>`,
+    );
+  }
+
+  parts.push(`</div>`, `</div>`); // col-main, grid
   parts.push(
-    `</ul>`,
-    `</section>`,
     `<p class="unicap-resume-footer">Documento gerado pelo Portal de Carreiras — ${escapeHtml(doc.acronym)} em ${formatDateBR(generatedAt)}.</p>`,
+    `</div>`, // wrapper .unicap-resume-doc
   );
 
   return parts.join("");

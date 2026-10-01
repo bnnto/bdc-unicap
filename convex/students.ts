@@ -312,6 +312,15 @@ export const saveResumeData = mutation({
         year: v.number(),
       }),
     ),
+    /** [REFACTOR_ALUNO Etapa 2] — novos blocos opcionais (3/6/7). */
+    links: v.optional(
+      v.object({
+        github: v.optional(v.string()),
+        lattes: v.optional(v.string()),
+      }),
+    ),
+    projectsText: v.optional(v.string()),
+    certifications: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const consent = await requireActiveConsentUser(ctx);
@@ -339,6 +348,68 @@ export const saveResumeData = mutation({
     }
 
     await ctx.db.patch(student._id, { resumeData: validation.normalized });
+    return { ok: true as const, savedAt: Date.now() };
+  },
+});
+
+/**
+ * [REFACTOR_ALUNO Etapa 2] — salva competências (bloco 4) e idiomas
+ * (bloco 5) editados no construtor de currículo. Mesmas validações da
+ * `upsertProfile` (addSkill/validateLanguages) — R7 + só o próprio aluno.
+ */
+export const saveSkillsAndLanguages = mutation({
+  args: {
+    skills: v.optional(v.array(v.string())),
+    languages: v.optional(
+      v.array(
+        v.object({
+          name: v.string(),
+          level: v.union(
+            v.literal("basico"),
+            v.literal("intermediario"),
+            v.literal("avancado"),
+            v.literal("fluente"),
+            v.literal("nativo"),
+          ),
+        }),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const consent = await requireActiveConsentUser(ctx);
+    if (!consent.ok) {
+      throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
+    }
+    if (consent.role !== "aluno") {
+      throw new Error("Apenas alunos editam o próprio currículo.");
+    }
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_user", (q) => q.eq("userId", consent.userId))
+      .unique();
+    if (student === null) {
+      throw new Error(
+        "Complete o cadastro do perfil antes de preencher o currículo.",
+      );
+    }
+
+    const patch: Partial<Doc<"students">> = {};
+    if (args.skills !== undefined) {
+      let skills: string[] = [];
+      for (const raw of args.skills) {
+        skills = addSkill(skills, raw);
+      }
+      patch.skills = skills;
+    }
+    if (args.languages !== undefined) {
+      const languagesCheck = validateLanguages(args.languages);
+      if (!languagesCheck.ok) {
+        throw new Error(languagesCheck.errors.join(" "));
+      }
+      patch.languages = args.languages;
+    }
+
+    await ctx.db.patch(student._id, patch);
     return { ok: true as const, savedAt: Date.now() };
   },
 });

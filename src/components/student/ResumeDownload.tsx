@@ -38,6 +38,12 @@ export function ResumeDownload() {
         linkedinUrl: profile.linkedinUrl ?? null,
         portfolioUrl: profile.portfolioUrl ?? null,
         availability: profile.availability,
+        // [REFACTOR_ALUNO] coluna lateral do CV: skills e idiomas.
+        skills: profile.skills ?? [],
+        languages: (profile.languages ?? []).map((language) => ({
+          name: language.name,
+          level: language.level,
+        })),
       },
       resume: profile.resumeData ?? null,
     });
@@ -114,8 +120,10 @@ export function ResumeDownload() {
         </code>
       </p>
       {showPreview ? (
+        // O markup já traz o wrapper .unicap-resume-doc — este container
+        // é só a moldura da prévia na página (mesmo estilo do PDF).
         <div
-          className="unicap-resume-doc mt-2"
+          className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3"
           data-testid="resume-preview"
           dangerouslySetInnerHTML={{ __html: markup ?? "" }}
         />
