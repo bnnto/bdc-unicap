@@ -24,6 +24,7 @@ import type * as manager from "../manager.js";
 import type * as operational from "../operational.js";
 import type * as password from "../password.js";
 import type * as students from "../students.js";
+import type * as users from "../users.js";
 
 import type {
   ApiFromModules,
@@ -48,6 +49,7 @@ declare const fullApi: ApiFromModules<{
   operational: typeof operational;
   password: typeof password;
   students: typeof students;
+  users: typeof users;
 }>;
 
 /**

@@ -1,7 +1,32 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "../../src/App";
 import { AuthStateContext } from "../../src/components/auth/authContext";
+
+vi.mock("convex/react", () => ({
+  useQuery: vi.fn(),
+  useMutation: vi.fn(),
+}));
+
+vi.mock("@convex-dev/auth/react", () => ({
+  useAuthActions: () => ({ signOut: vi.fn() }),
+}));
+
+vi.mock("../../convex/_generated/api", () => ({
+  api: new Proxy(
+    {},
+    {
+      get: (_target, moduleName) =>
+        new Proxy(
+          {},
+          {
+            get: (_inner, fnName) =>
+              `query:${String(moduleName)}.${String(fnName)}`,
+          },
+        ),
+    },
+  ),
+}));
 
 function renderAsVisitor() {
   return render(
@@ -39,6 +64,31 @@ describe("App — rota pública e autenticação (UX_UPGRADE)", () => {
     renderAsVisitor();
     expect(
       screen.getByRole("heading", { name: /portal de carreiras/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("usuário autenticado em /perfil vê a central de configurações", () => {
+    window.history.pushState({}, "", "/perfil");
+    render(
+      <AuthStateContext.Provider
+        value={{
+          isLoading: false,
+          isAuthenticated: true,
+          user: {
+            _id: "u1" as never,
+            name: "Recrutador Exemplo",
+            email: "recrutador@unicap.br",
+            role: "recrutador",
+            _creationTime: 0,
+          },
+          role: "recrutador",
+        }}
+      >
+        <App />
+      </AuthStateContext.Provider>,
+    );
+    expect(
+      screen.getByRole("heading", { level: 1, name: /meu perfil/i }),
     ).toBeInTheDocument();
   });
 

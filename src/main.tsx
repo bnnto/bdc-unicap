@@ -6,6 +6,7 @@ import App from "./App";
 import { AuthProvider } from "./components/auth/AuthProvider";
 import { ConsentGate } from "./components/auth/ConsentGate";
 import { ErrorBoundary } from "./components/error/ErrorBoundary";
+import { applyPreferences, loadPreferences } from "./lib/preferences";
 
 const convexUrl: unknown = import.meta.env.VITE_CONVEX_URL;
 if (typeof convexUrl !== "string" || convexUrl.length === 0) {
@@ -15,6 +16,11 @@ if (typeof convexUrl !== "string" || convexUrl.length === 0) {
 }
 
 const convex = new ConvexReactClient(convexUrl);
+
+// [PERFIL_E_LGPD] aplica as preferências de acessibilidade salvas
+// (tema escuro, alto contraste e fonte) antes do primeiro render —
+// sem flash da tema errado.
+applyPreferences(loadPreferences());
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {

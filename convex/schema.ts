@@ -36,6 +36,13 @@ export default defineSchema({
       v.union(v.literal("aluno"), v.literal("recrutador"), v.literal("gestor")),
     ),
     active: v.optional(v.boolean()),
+    /**
+     * [PERFIL_E_LGPD] Etapa 2 — preferências de notificação da central
+     * de configurações (switches "Alertas de Vagas" e "Atualizações de
+     * Candidatura"); ausente = padrão ligado.
+     */
+    notifyJobAlerts: v.optional(v.boolean()),
+    notifyApplicationUpdates: v.optional(v.boolean()),
   })
     .index("by_email", ["email"])
     .index("by_role", ["role"]),
