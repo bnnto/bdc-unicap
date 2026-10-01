@@ -6,6 +6,7 @@ import {
   canApplyTo,
   buildMatchingCandidateInput,
   moveStageDecision,
+  type ApplicationStage,
 } from "../../src/lib/application";
 
 describe("stages da candidatura (S3-4, CA 3)", () => {
@@ -94,10 +95,20 @@ describe("[RECRUITER_WORKFLOW] moveStageDecision — movimentação do Kanban", 
     });
   });
 
-  it("aprovar marca a vaga como preenchida (base do time-to-hire)", () => {
+  it("aprovar exige a data de início prevista (contratação auditável)", () => {
+    const semData = moveStageDecision({
+      stage: "entrevista",
+      to: "aprovado",
+    });
+    expect(semData.ok).toBe(false);
+    if (!semData.ok) {
+      expect(semData.error).toMatch(/Data de início prevista é obrigatória/i);
+    }
+
     const decision = moveStageDecision({
       stage: "entrevista",
       to: "aprovado",
+      expectedStartDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
     });
     expect(decision).toEqual({
       ok: true,
@@ -107,10 +118,92 @@ describe("[RECRUITER_WORKFLOW] moveStageDecision — movimentação do Kanban", 
     });
   });
 
+  it("ENTREVISTA sem data/hora ou sem link/local é bloqueada (auditoria)", () => {
+    const semData = moveStageDecision({
+      stage: "triagem",
+      to: "entrevista",
+      interviewLink: "https://meet.example.com/unicap",
+    });
+    expect(semData.ok).toBe(false);
+    if (!semData.ok) {
+      expect(semData.error).toMatch(/Data e hora da entrevista é obrigatória/i);
+    }
+
+    const semLink = moveStageDecision({
+      stage: "triagem",
+      to: "entrevista",
+      interviewDate: Date.now(),
+      interviewLink: "   ",
+    });
+    expect(semLink.ok).toBe(false);
+    if (!semLink.ok) {
+      expect(semLink.error).toMatch(
+        /Link ou local da entrevista é obrigatório/i,
+      );
+    }
+
+    const completa = moveStageDecision({
+      stage: "triagem",
+      to: "entrevista",
+      interviewDate: Date.now(),
+      interviewLink: "Auditório do Bloco 2",
+    });
+    expect(completa).toEqual({
+      ok: true,
+      nextStage: "entrevista",
+      jobFilled: false,
+      jobUnfilled: false,
+    });
+  });
+
+  it("SALTOS para frente são bloqueados no servidor (anti-cheat)", () => {
+    const saltos: Array<{ stage: ApplicationStage; to: ApplicationStage }> = [
+      { stage: "inscrito", to: "entrevista" },
+      { stage: "inscrito", to: "aprovado" },
+      { stage: "triagem", to: "aprovado" },
+    ];
+    for (const salto of saltos) {
+      const decision = moveStageDecision(salto);
+      expect(decision.ok).toBe(false);
+      if (!decision.ok) {
+        expect(decision.error).toMatch(/avance no máximo uma etapa por vez/i);
+      }
+    }
+  });
+
+  it("reprovado só reinicia em 'inscrito' — aprovar vindo de Reprovado é bloqueado", () => {
+    const direto = moveStageDecision({ stage: "reprovado", to: "aprovado" });
+    expect(direto.ok).toBe(false);
+    if (!direto.ok) {
+      expect(direto.error).toMatch(/só reinicia em "inscrito"/i);
+    }
+
+    const foraDoInicio = moveStageDecision({
+      stage: "reprovado",
+      to: "triagem",
+    });
+    expect(foraDoInicio.ok).toBe(false);
+
+    const reinicio = moveStageDecision({
+      stage: "reprovado",
+      to: "inscrito",
+      rejectionReason: "outro",
+    });
+    expect(reinicio).toEqual({
+      ok: true,
+      nextStage: "inscrito",
+      rejectionReason: null,
+      jobFilled: false,
+      jobUnfilled: false,
+    });
+  });
+
   it("desfazer aprovação limpa o preenchimento da vaga", () => {
     const decision = moveStageDecision({
       stage: "aprovado",
       to: "entrevista",
+      interviewDate: Date.now(),
+      interviewLink: "https://meet.example.com/unicap",
     });
     expect(decision).toEqual({
       ok: true,
@@ -120,15 +213,15 @@ describe("[RECRUITER_WORKFLOW] moveStageDecision — movimentação do Kanban", 
     });
   });
 
-  it("tirar da coluna Reprovado limpa o motivo gravado (volta ao pipeline)", () => {
+  it("tirar da coluna Reprovado limpa o motivo gravado (reinício auditável)", () => {
     const decision = moveStageDecision({
       stage: "reprovado",
-      to: "triagem",
+      to: "inscrito",
       rejectionReason: "outro",
     });
     expect(decision).toEqual({
       ok: true,
-      nextStage: "triagem",
+      nextStage: "inscrito",
       rejectionReason: null,
       jobFilled: false,
       jobUnfilled: false,

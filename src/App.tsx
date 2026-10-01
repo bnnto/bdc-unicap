@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthPage } from "./components/auth/AuthPage";
+import { LandingPage } from "./components/landing/LandingPage";
 import { SignOutButton } from "./components/auth/SignOutButton";
 import { useAuthState } from "./components/auth/authContext";
 import { StudentShell } from "./components/student/StudentShell";
@@ -12,8 +13,9 @@ import { ROLE_LABELS } from "./lib/roles";
 
 /**
  * Shell da aplicação (issue [S1-1]): usuários autenticados veem o painel
- * inicial com seu papel; visitantes veem a página de autenticação —
- * exceto na divulgação pública ([S7-3], R9), acessível sem login.
+ * inicial com seu papel; visitantes veem a Landing Page pública em "/"
+ * ([UX_UPGRADE] Etapa 1 — a vitrine) e a página de autenticação em
+ * "/login".
  *
  * [S8-2] Acessibilidade WCAG AA: skip-link de teclado (2.4.1) e um único
  * landmark main nomeado (#conteudo) envolvendo todo o conteúdo.
@@ -154,6 +156,16 @@ function RecruiterNavbar({
 function AuthGate() {
   const { isLoading, isAuthenticated, user, role } = useAuthState();
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
+  // [UX_UPGRADE] Etapa 1 — roteamento público sem router: "/" mostra a
+  // Landing Page e "/login" a AuthPage; popstate cobre voltar/avançar.
+  const [publicPath, setPublicPath] = useState(() =>
+    typeof window === "undefined" ? "/" : window.location.pathname,
+  );
+  useEffect(() => {
+    const onPopState = () => setPublicPath(window.location.pathname);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   if (isLoading) {
     return (
@@ -168,13 +180,20 @@ function AuthGate() {
   }
 
   if (!isAuthenticated || user === null) {
-    // Visitante cai na autenticação. ([REFACTOR_GESTOR] a divulgação
-    // pública de extensão (R9) não existe mais — módulo cancelado.)
-    // [S8-2]: AuthPage é dona do próprio landmark main.
+    // Visitante: Landing Page na raiz (vitrine pública) e AuthPage em
+    // /login. ([REFACTOR_GESTOR] a divulgação pública de extensão (R9)
+    // não existe mais — módulo cancelado.)
+    // [S8-2]: LandingPage e AuthPage são donas do próprio landmark main.
+    const navigate = (path: string) => {
+      window.history.pushState({}, "", path);
+      setPublicPath(path);
+    };
+    const isLoginRoute =
+      publicPath === "/login" || publicPath.startsWith("/login/");
     return (
       <>
         <SkipLink />
-        <AuthPage />
+        {isLoginRoute ? <AuthPage /> : <LandingPage onNavigate={navigate} />}
       </>
     );
   }

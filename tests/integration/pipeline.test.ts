@@ -207,17 +207,217 @@ describe("S4-5 — fluxo de pipeline (integração)", () => {
       { jobId },
     );
     const recruiter = asRecruiter(t, recruiterId);
-    for (const to of ["triagem", "entrevista", "aprovado"] as const) {
-      await recruiter.mutation(api.applications.moveApplication, {
-        applicationId,
-        to,
-      });
-    }
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
+      to: "triagem",
+    });
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
+      to: "entrevista",
+      interviewDate: Date.now() + DAY,
+      interviewLink: "https://meet.example.com/unicap-1",
+    });
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
+      to: "aprovado",
+      expectedStartDate: Date.now() + 7 * DAY,
+    });
     const stage = await t.run(
       async (ctx) => (await ctx.db.get(applicationId))?.stage,
     );
     expect(stage).toBe("aprovado");
     expect(APPLICATION_STAGES).toContain("aprovado");
+  });
+});
+
+describe("[UX_UPGRADE] anti-cheat no servidor — saltos bloqueados no funil", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function applyAndMove(
+    t: World,
+    seed: Awaited<ReturnType<typeof seedWorld>>,
+    args: {
+      to: "triagem" | "entrevista" | "aprovado" | "reprovado";
+      interviewDate?: number;
+      interviewLink?: string;
+      expectedStartDate?: number;
+      rejectionReason?: string;
+    },
+  ) {
+    const { applicationId } = await asStudent(t, seed.studentUserId).mutation(
+      api.applications.applyToJob,
+      { jobId: seed.jobId },
+    );
+    const move = () =>
+      asRecruiter(t, seed.recruiterId).mutation(
+        api.applications.moveApplication,
+        { applicationId, ...args } as never,
+      );
+    return { applicationId, move };
+  }
+
+  it("'inscrito' direto para 'aprovado' falha no servidor (caminho obrigatório)", async () => {
+    const t = convexTest({ schema, modules });
+    const seed = await seedWorld(t);
+    const { applicationId, move } = await applyAndMove(t, seed, {
+      to: "aprovado",
+      expectedStartDate: Date.now() + DAY,
+    });
+
+    await expect(move()).rejects.toThrow(/avance no máximo uma etapa por vez/i);
+    const doc = await t.run(async (ctx) => await ctx.db.get(applicationId));
+    expect(doc?.stage).toBe("inscrito");
+  });
+
+  it("'inscrito' direto para 'entrevista' falha no servidor", async () => {
+    const t = convexTest({ schema, modules });
+    const seed = await seedWorld(t);
+    const { applicationId, move } = await applyAndMove(t, seed, {
+      to: "entrevista",
+      interviewDate: Date.now() + DAY,
+      interviewLink: "Auditório do Bloco 2",
+    });
+
+    await expect(move()).rejects.toThrow(/avance no máximo uma etapa por vez/i);
+    expect(
+      (await t.run(async (ctx) => await ctx.db.get(applicationId)))?.stage,
+    ).toBe("inscrito");
+  });
+
+  it("'triagem' direto para 'aprovado' falha no servidor (pula a entrevista)", async () => {
+    const t = convexTest({ schema, modules });
+    const seed = await seedWorld(t);
+    const { applicationId, move } = await applyAndMove(t, seed, {
+      to: "triagem",
+    });
+    await move(); // inscrito → triagem (válido)
+
+    await expect(
+      asRecruiter(t, seed.recruiterId).mutation(
+        api.applications.moveApplication,
+        {
+          applicationId,
+          to: "aprovado",
+          expectedStartDate: Date.now() + DAY,
+        },
+      ),
+    ).rejects.toThrow(/avance no máximo uma etapa por vez/i);
+    expect(
+      (await t.run(async (ctx) => await ctx.db.get(applicationId)))?.stage,
+    ).toBe("triagem");
+  });
+
+  it("mover para 'entrevista' sem data/hora ou sem link/local falha", async () => {
+    const t = convexTest({ schema, modules });
+    const seed = await seedWorld(t);
+    const { applicationId, move } = await applyAndMove(t, seed, {
+      to: "triagem",
+    });
+    await move();
+
+    const recruiter = asRecruiter(t, seed.recruiterId);
+    await expect(
+      recruiter.mutation(api.applications.moveApplication, {
+        applicationId,
+        to: "entrevista",
+        interviewLink: "https://meet.example.com/unicap-1",
+      }),
+    ).rejects.toThrow(/Data e hora da entrevista é obrigatória/i);
+    await expect(
+      recruiter.mutation(api.applications.moveApplication, {
+        applicationId,
+        to: "entrevista",
+        interviewDate: Date.now() + DAY,
+        interviewLink: "   ",
+      }),
+    ).rejects.toThrow(/Link ou local da entrevista é obrigatório/i);
+    expect(
+      (await t.run(async (ctx) => await ctx.db.get(applicationId)))?.stage,
+    ).toBe("triagem");
+  });
+
+  it("mover para 'aprovado' sem data de início prevista falha", async () => {
+    const t = convexTest({ schema, modules });
+    const seed = await seedWorld(t);
+    const { applicationId, move } = await applyAndMove(t, seed, {
+      to: "triagem",
+    });
+    await move();
+    const recruiter = asRecruiter(t, seed.recruiterId);
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
+      to: "entrevista",
+      interviewDate: Date.now() + DAY,
+      interviewLink: "Auditório do Bloco 2",
+    });
+
+    await expect(
+      recruiter.mutation(api.applications.moveApplication, {
+        applicationId,
+        to: "aprovado",
+      }),
+    ).rejects.toThrow(/Data de início prevista é obrigatória/i);
+    expect(
+      (await t.run(async (ctx) => await ctx.db.get(applicationId)))?.stage,
+    ).toBe("entrevista");
+  });
+
+  it("reprovado não volta direto para 'aprovado'; só reinicia em 'inscrito'", async () => {
+    const t = convexTest({ schema, modules });
+    const seed = await seedWorld(t);
+    const { applicationId, move } = await applyAndMove(t, seed, {
+      to: "reprovado",
+      rejectionReason: "vaga_preenchida",
+    });
+    await move();
+    const recruiter = asRecruiter(t, seed.recruiterId);
+
+    await expect(
+      recruiter.mutation(api.applications.moveApplication, {
+        applicationId,
+        to: "aprovado",
+        expectedStartDate: Date.now() + DAY,
+      }),
+    ).rejects.toThrow(/só reinicia em "inscrito"/i);
+
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
+      to: "inscrito",
+    });
+    const doc = await t.run(async (ctx) => await ctx.db.get(applicationId));
+    expect(doc?.stage).toBe("inscrito");
+    expect(doc?.rejectionReason).toBeUndefined();
+  });
+
+  it("dados auditáveis são gravados: entrevista e início previsto", async () => {
+    const t = convexTest({ schema, modules });
+    const seed = await seedWorld(t);
+    const { applicationId, move } = await applyAndMove(t, seed, {
+      to: "triagem",
+    });
+    await move();
+    const recruiter = asRecruiter(t, seed.recruiterId);
+    const interviewDate = Date.now() + 2 * DAY;
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
+      to: "entrevista",
+      interviewDate,
+      interviewLink: "https://meet.example.com/unicap-1",
+    });
+    const startDate = Date.now() + 10 * DAY;
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
+      to: "aprovado",
+      expectedStartDate: startDate,
+    });
+
+    const doc = await t.run(async (ctx) => await ctx.db.get(applicationId));
+    expect(doc?.stage).toBe("aprovado");
+    expect(doc?.interviewDate).toBe(interviewDate);
+    expect(doc?.interviewLink).toBe("https://meet.example.com/unicap-1");
+    expect(doc?.expectedStartDate).toBe(startDate);
   });
 });
 
@@ -433,19 +633,31 @@ describe("[RECRUITER_WORKFLOW] R5 no servidor — mover para Reprovado exige mot
     });
     await recruiter.mutation(api.applications.moveApplication, {
       applicationId,
+      to: "entrevista",
+      interviewDate: Date.now() + DAY,
+      interviewLink: "https://meet.example.com/unicap-1",
+    });
+    await recruiter.mutation(api.applications.moveApplication, {
+      applicationId,
       to: "aprovado",
+      expectedStartDate: Date.now() + 7 * DAY,
     });
 
     let job = await t.run(async (ctx) => await ctx.db.get(jobId));
     expect(job?.filledAt).toBeDefined();
 
-    // Recrutador desfaz a aprovação — o preenchimento deixa de existir.
+    // Recrutador desfaz a aprovação — o preenchimento deixa de existir
+    // e a data de início prevista é limpa da candidatura.
     await recruiter.mutation(api.applications.moveApplication, {
       applicationId,
       to: "entrevista",
+      interviewDate: Date.now() + DAY,
+      interviewLink: "https://meet.example.com/unicap-1",
     });
     job = await t.run(async (ctx) => await ctx.db.get(jobId));
     expect(job?.filledAt).toBeUndefined();
+    const doc = await t.run(async (ctx) => await ctx.db.get(applicationId));
+    expect(doc?.expectedStartDate).toBeUndefined();
   });
 
   it("outro recrutador não reprova candidaturas de vaga alheia", async () => {

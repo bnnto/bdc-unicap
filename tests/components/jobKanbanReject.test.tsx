@@ -2,8 +2,9 @@
  * [UX-P1] H3-2/H5-1 — Reprovação NÃO pode acontecer sem motivo.
  * Arrastar um card até a coluna "Reprovado" (ou usar a seta → num card
  * em "Aprovado") deve abrir o painel de motivo padronizado (R5) em vez
- * de chamar `moveApplication` direto. Movimentos para outras colunas
- * permanecem imediatos.
+ * de chamar `moveApplication` direto. As colunas Entrevista e Aprovado
+ * também abrem seus próprios modais de dados (ver jobKanbanProgression);
+ * retrocessos simples permanecem imediatos.
  *
  * `convex/react` e `convex/_generated/api` são mockados (sentinelas
  * estáveis contra os proxies da api gerada do Convex).
@@ -116,14 +117,23 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
   });
 
   it("H9-1 — erro de movimento aparece junto ao card, não no topo do board", async () => {
-    moveApplication.mockRejectedValueOnce(
+    rejectApplication.mockRejectedValueOnce(
       new Error("O card já está nesta coluna."),
     );
     await renderBoard();
 
     await userEvent.click(
       screen.getByRole("button", {
-        name: "Mover Maria da Silva para Entrevista",
+        name: /Reprovar Maria da Silva com motivo padronizado/i,
+      }),
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText(/Motivo da reprovação \(obrigatório/i),
+      "outro",
+    );
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Confirmar reprovação com o motivo selecionado",
       }),
     );
 
@@ -133,7 +143,7 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
     expect(alert).toHaveTextContent("O card já está nesta coluna.");
   });
 
-  it("movimento para coluna de avanço (Entrevista) permanece imediato", async () => {
+  it("mover para Entrevista abre o modal ANTES da mutation (Etapa 3)", async () => {
     await renderBoard();
 
     await userEvent.click(
@@ -142,11 +152,10 @@ describe("JobKanban — reprovação sempre com motivo (H3-2/H5-1)", () => {
       }),
     );
 
-    expect(moveApplication).toHaveBeenCalledOnce();
-    expect(moveApplication).toHaveBeenCalledWith({
-      applicationId: "app-1",
-      to: "entrevista",
-    });
+    expect(moveApplication).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("dialog", { name: /agendar entrevista/i }),
+    ).toBeInTheDocument();
   });
 
   it("após escolher o motivo no painel aberto pelo drag, confirma a reprovação", async () => {

@@ -262,6 +262,20 @@ export default defineSchema({
      */
     processAccepted: v.optional(v.boolean()),
     processAcceptedAt: v.optional(v.number()),
+    /**
+     * [UX_UPGRADE] Etapa 2 — dados auditáveis da entrevista, gravados
+     * pela mutation `moveApplication` ao mover o card para "entrevista"
+     * (obrigatórios nessa transição): data/hora em epoch millis e link
+     * de videochamada ou local presencial.
+     */
+    interviewDate: v.optional(v.number()),
+    interviewLink: v.optional(v.string()),
+    /**
+     * [UX_UPGRADE] Etapa 2 — data de início prevista da contratação
+     * (epoch millis), gravada ao mover para "aprovado" (obrigatória
+     * nessa transição) e limpa quando a aprovação é desfeita.
+     */
+    expectedStartDate: v.optional(v.number()),
   })
     .index("by_job", ["jobId"])
     .index("by_student", ["studentId"])

@@ -287,6 +287,12 @@ export const jobApplications = query({
  * contornar o modal da UI. Aprovar grava `filledAt` na vaga ([S5-2],
  * base do time-to-hire); desfazer a aprovação o limpa. Sair da coluna
  * "Reprovado" limpa o motivo gravado (o aluno voltou ao pipeline).
+ *
+ * [UX_UPGRADE] Anti-cheat (caminho obrigatório inscrito → triagem →
+ * entrevista → aprovado): saltos para frente falham no servidor;
+ * `interviewDate` + `interviewLink` são OBRIGATÓRIOS ao entrar em
+ * "entrevista" e `expectedStartDate` ao entrar em "aprovado" — um
+ * cliente malicioso não contorna os modais da UI.
  */
 export const moveApplication = mutation({
   args: {
@@ -311,8 +317,24 @@ export const moveApplication = mutation({
         v.literal("outro"),
       ),
     ),
+    /** [UX_UPGRADE] data/hora da entrevista (epoch millis). */
+    interviewDate: v.optional(v.number()),
+    /** [UX_UPGRADE] link de videochamada ou local presencial. */
+    interviewLink: v.optional(v.string()),
+    /** [UX_UPGRADE] data de início prevista da contratação. */
+    expectedStartDate: v.optional(v.number()),
   },
-  handler: async (ctx, { applicationId, to, rejectionReason }) => {
+  handler: async (
+    ctx,
+    {
+      applicationId,
+      to,
+      rejectionReason,
+      interviewDate,
+      interviewLink,
+      expectedStartDate,
+    },
+  ) => {
     const user = await requireActiveUser(ctx);
     if (!isApplicationStage(to)) {
       throw new Error("Coluna de destino inválida.");
@@ -331,6 +353,9 @@ export const moveApplication = mutation({
       stage: application.stage,
       to,
       rejectionReason,
+      interviewDate,
+      interviewLink,
+      expectedStartDate,
     });
     if (!decision.ok) {
       throw new Error(decision.error);
@@ -347,6 +372,19 @@ export const moveApplication = mutation({
         decision.rejectionReason === null
           ? undefined
           : decision.rejectionReason;
+    }
+    // [UX_UPGRADE] dados auditáveis por etapa — a decisão pura já
+    // exigiu os valores quando `nextStage` é entrevista/aprovado.
+    if (decision.nextStage === "entrevista") {
+      patch.interviewDate = interviewDate;
+      patch.interviewLink = interviewLink;
+    }
+    if (decision.nextStage === "aprovado") {
+      patch.expectedStartDate = expectedStartDate;
+    }
+    if (decision.jobUnfilled) {
+      // Desfez a aprovação: a data de início prevista deixa de valer.
+      patch.expectedStartDate = undefined;
     }
     await ctx.db.patch(applicationId, patch);
 
@@ -402,6 +440,10 @@ export const jobBoard = query({
         stage: row.stage,
         matchScore: row.matchScore,
         appliedAt: row.appliedAt,
+        // [UX_UPGRADE] dados auditáveis p/ prefill dos modais da UI.
+        interviewDate: row.interviewDate,
+        interviewLink: row.interviewLink,
+        expectedStartDate: row.expectedStartDate,
         contactReleased: contact.contactReleased,
         releaseReason: contact.releaseReason,
         ...(contact.contactReleased

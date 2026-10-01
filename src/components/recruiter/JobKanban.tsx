@@ -5,6 +5,7 @@ import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
+import { Input } from "../ui/input";
 import {
   APPLICATION_STAGES,
   STAGE_LABELS,
@@ -26,6 +27,24 @@ const MATCH_CHIP: Record<
   low: "reprovado",
 };
 
+/** [UX_UPGRADE] timestamp → valor de input `yyyy-mm-dd` (fuso local). */
+function toDateInputValue(ts?: number): string {
+  if (ts === undefined || !Number.isFinite(ts)) return "";
+  const d = new Date(ts);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
+/** [UX_UPGRADE] timestamp → valor de input `HH:MM` (fuso local). */
+function toTimeInputValue(ts?: number): string {
+  if (ts === undefined || !Number.isFinite(ts)) return "";
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(
+    d.getMinutes(),
+  ).padStart(2, "0")}`;
+}
+
 type BoardApplication = {
   applicationId: string;
   studentId: string;
@@ -34,6 +53,10 @@ type BoardApplication = {
   stage: ApplicationStage;
   matchScore: number;
   appliedAt: number;
+  /** [UX_UPGRADE] dados auditáveis (prefill dos modais de progressão). */
+  interviewDate?: number;
+  interviewLink?: string;
+  expectedStartDate?: number;
   /** [S4-3] R6 — liberação de contato projetada no servidor. */
   contactReleased: boolean;
   releaseReason: "autorizacao_geral" | "aceite_no_processo" | "sem_autorizacao";
@@ -68,6 +91,23 @@ export function JobKanban() {
    */
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [reasonDraft, setReasonDraft] = useState<RejectionReason | "">("");
+  /**
+   * [UX_UPGRADE] Etapa 3 — modal de progressão pendente: Entrevista e
+   * Aprovado são INTERCEPTADOS antes da mutation. `interviewDraft`
+   * guarda Data/Hora/Link e `startDraft` a data de início prevista;
+   * cancelar não dispara mutation (rollback visual — o card não sai da
+   * coluna de origem).
+   */
+  const [pendingMove, setPendingMove] = useState<{
+    applicationId: string;
+    to: "entrevista" | "aprovado";
+  } | null>(null);
+  const [interviewDraft, setInterviewDraft] = useState({
+    date: "",
+    time: "",
+    link: "",
+  });
+  const [startDraft, setStartDraft] = useState("");
 
   const boardJobId = selectedJobId as Id<"jobs"> | null;
   const board =
@@ -92,6 +132,29 @@ export function JobKanban() {
       setReasonDraft("");
       return;
     }
+    // [UX_UPGRADE] Etapa 3 — interceptação ANTES da mutation: os modais
+    // de Entrevista e Contratação coletam os dados auditáveis e só aí a
+    // mutation dispara; cancelar = rollback visual (nada foi gravado).
+    const current = board?.items.find(
+      (item) => item.applicationId === applicationId,
+    );
+    if (
+      current !== undefined &&
+      current.stage !== to &&
+      (to === "entrevista" || to === "aprovado")
+    ) {
+      if (to === "entrevista") {
+        setInterviewDraft({
+          date: toDateInputValue(current.interviewDate),
+          time: toTimeInputValue(current.interviewDate),
+          link: current.interviewLink ?? "",
+        });
+      } else {
+        setStartDraft(toDateInputValue(current.expectedStartDate));
+      }
+      setPendingMove({ applicationId, to });
+      return;
+    }
     try {
       await moveApplication({
         applicationId: applicationId as Id<"applications">,
@@ -104,6 +167,91 @@ export function JobKanban() {
           err instanceof Error ? err.message : "Falha ao mover a candidatura.",
       }));
     }
+  }
+
+  /** [UX_UPGRADE] Salva a entrevista e SÓ ENTÃO dispara a mutation. */
+  async function handleInterviewSave(applicationId: string) {
+    if (interviewDraft.date === "" || interviewDraft.time === "") return;
+    const link = interviewDraft.link.trim();
+    if (link === "") {
+      setCardErrors((prev) => ({
+        ...prev,
+        [applicationId]:
+          "Link ou local da entrevista é obrigatório (até 500 caracteres).",
+      }));
+      return;
+    }
+    const interviewDate = new Date(
+      `${interviewDraft.date}T${interviewDraft.time}`,
+    ).getTime();
+    if (!Number.isFinite(interviewDate)) {
+      setCardErrors((prev) => ({
+        ...prev,
+        [applicationId]: "Data e hora da entrevista inválidas.",
+      }));
+      return;
+    }
+    setCardErrors((prev) => {
+      const rest = { ...prev };
+      delete rest[applicationId];
+      return rest;
+    });
+    try {
+      await moveApplication({
+        applicationId: applicationId as Id<"applications">,
+        to: "entrevista",
+        interviewDate,
+        interviewLink: link,
+      });
+      closePendingMove();
+    } catch (err) {
+      setCardErrors((prev) => ({
+        ...prev,
+        [applicationId]:
+          err instanceof Error ? err.message : "Falha ao agendar a entrevista.",
+      }));
+    }
+  }
+
+  /** [UX_UPGRADE] Salva a contratação e SÓ ENTÃO dispara a mutation. */
+  async function handleHireSave(applicationId: string) {
+    if (startDraft === "") return;
+    const expectedStartDate = new Date(`${startDraft}T00:00:00`).getTime();
+    if (!Number.isFinite(expectedStartDate)) {
+      setCardErrors((prev) => ({
+        ...prev,
+        [applicationId]: "Data de início prevista inválida.",
+      }));
+      return;
+    }
+    setCardErrors((prev) => {
+      const rest = { ...prev };
+      delete rest[applicationId];
+      return rest;
+    });
+    try {
+      await moveApplication({
+        applicationId: applicationId as Id<"applications">,
+        to: "aprovado",
+        expectedStartDate,
+      });
+      closePendingMove();
+    } catch (err) {
+      setCardErrors((prev) => ({
+        ...prev,
+        [applicationId]:
+          err instanceof Error
+            ? err.message
+            : "Falha ao confirmar a contratação.",
+      }));
+    }
+  }
+
+  /** Fecha o modal de progressão sem deixar rascunhos pendentes. */
+  function closePendingMove() {
+    setPendingMove(null);
+    setInterviewDraft({ date: "", time: "", link: "" });
+    setStartDraft("");
   }
 
   // [S4-2] R5 — reprovação só acontece COM motivo do enum fixo; sem
@@ -189,6 +337,14 @@ export function JobKanban() {
     applications.find(
       (application) => application.applicationId === rejectingId,
     ) ?? null;
+  // [UX_UPGRADE] Card do modal de progressão pendente (entrevista/contratação).
+  const pendingApplication =
+    pendingMove !== null
+      ? (applications.find(
+          (application) =>
+            application.applicationId === pendingMove.applicationId,
+        ) ?? null)
+      : null;
   const grouped = groupApplicationsByStage(applications);
   const selectedJobTitle =
     board?.job.title ??
@@ -253,10 +409,15 @@ export function JobKanban() {
 
               {grouped[stage].map((application) => {
                 const currentIndex = APPLICATION_STAGES.indexOf(stage);
+                // [UX_UPGRADE] reentrada de Reprovado só em "inscrito"
+                // (caminho obrigatório — o retrocesso direto para
+                // Aprovado seria bloqueado no servidor).
                 const prevStage: ApplicationStage | null =
-                  currentIndex > 0
-                    ? (APPLICATION_STAGES[currentIndex - 1] ?? null)
-                    : null;
+                  stage === "reprovado"
+                    ? "inscrito"
+                    : currentIndex > 0
+                      ? (APPLICATION_STAGES[currentIndex - 1] ?? null)
+                      : null;
                 const nextStage: ApplicationStage | null =
                   currentIndex < APPLICATION_STAGES.length - 1
                     ? (APPLICATION_STAGES[currentIndex + 1] ?? null)
@@ -477,6 +638,176 @@ export function JobKanban() {
                 }
               >
                 Confirmar reprovação
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* [UX_UPGRADE] Etapa 3 — Modal de Entrevista: Data, Hora e
+          Link/Local são exigidos ANTES de disparar a mutation; cancelar
+          (ou clicar no backdrop) mantém o card na coluna de origem. */}
+      {pendingApplication !== null && pendingMove?.to === "entrevista" ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="interview-modal-title"
+          aria-describedby="interview-modal-description"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 p-4"
+          onClick={(e) => {
+            // Clique no backdrop fecha (não é o conteúdo do diálogo).
+            if (e.target === e.currentTarget) {
+              closePendingMove();
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-level1">
+            <h3
+              id="interview-modal-title"
+              className="font-serif text-lg font-bold text-primary"
+            >
+              Agendar entrevista
+            </h3>
+            <p
+              id="interview-modal-description"
+              className="mt-1 text-sm text-slate-600"
+            >
+              {pendingApplication.fullName} — {pendingApplication.course}. Data,
+              hora e link/local ficam registrados para auditoria do processo
+              seletivo; a mudança só acontece após salvar.
+            </p>
+            <div className="mt-3 flex flex-col gap-3">
+              <Input
+                label="Data da entrevista"
+                type="date"
+                required
+                value={interviewDraft.date}
+                onChange={(e) =>
+                  setInterviewDraft((draft) => ({
+                    ...draft,
+                    date: e.target.value,
+                  }))
+                }
+              />
+              <Input
+                label="Hora da entrevista"
+                type="time"
+                required
+                value={interviewDraft.time}
+                onChange={(e) =>
+                  setInterviewDraft((draft) => ({
+                    ...draft,
+                    time: e.target.value,
+                  }))
+                }
+              />
+              <Input
+                label="Link ou local da entrevista"
+                type="text"
+                required
+                maxLength={500}
+                placeholder="https://meet.example.com/… ou Auditório do Bloco 2"
+                value={interviewDraft.link}
+                onChange={(e) =>
+                  setInterviewDraft((draft) => ({
+                    ...draft,
+                    link: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            {cardErrors[pendingApplication.applicationId] !== undefined ? (
+              <p
+                role="alert"
+                className="mt-3 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
+              >
+                {cardErrors[pendingApplication.applicationId]}
+              </p>
+            ) : null}
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button variant="secondary" onClick={closePendingMove}>
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                aria-label="Salvar entrevista e mover o card"
+                disabled={
+                  interviewDraft.date === "" ||
+                  interviewDraft.time === "" ||
+                  interviewDraft.link.trim() === ""
+                }
+                onClick={() =>
+                  void handleInterviewSave(pendingApplication.applicationId)
+                }
+              >
+                Salvar entrevista
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* [UX_UPGRADE] Etapa 3 — Modal de Contratação: a Data de Início
+          Prevista é exigida ANTES de disparar a mutation; cancelar
+          mantém o card em "Entrevista". */}
+      {pendingApplication !== null && pendingMove?.to === "aprovado" ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="hire-modal-title"
+          aria-describedby="hire-modal-description"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closePendingMove();
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-level1">
+            <h3
+              id="hire-modal-title"
+              className="font-serif text-lg font-bold text-primary"
+            >
+              Confirmar contratação
+            </h3>
+            <p
+              id="hire-modal-description"
+              className="mt-1 text-sm text-slate-600"
+            >
+              {pendingApplication.fullName} — {pendingApplication.course}. A
+              data de início prevista fica registrada para auditoria do
+              processo; o card só é aprovado após salvar.
+            </p>
+            <div className="mt-3">
+              <Input
+                label="Data de início prevista"
+                type="date"
+                required
+                value={startDraft}
+                onChange={(e) => setStartDraft(e.target.value)}
+              />
+            </div>
+            {cardErrors[pendingApplication.applicationId] !== undefined ? (
+              <p
+                role="alert"
+                className="mt-3 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
+              >
+                {cardErrors[pendingApplication.applicationId]}
+              </p>
+            ) : null}
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <Button variant="secondary" onClick={closePendingMove}>
+                Cancelar
+              </Button>
+              <Button
+                variant="primary"
+                aria-label="Confirmar contratação com a data de início"
+                disabled={startDraft === ""}
+                onClick={() =>
+                  void handleHireSave(pendingApplication.applicationId)
+                }
+              >
+                Confirmar contratação
               </Button>
             </div>
           </div>

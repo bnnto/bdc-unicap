@@ -29,16 +29,28 @@ export const STAGE_LABELS: Record<ApplicationStage, string> = {
   reprovado: "Reprovado",
 };
 
+/** Ordem do funil principal — sem a coluna terminal "reprovado". */
+const FUNNEL_ORDER = ["inscrito", "triagem", "entrevista", "aprovado"] as const;
+
 /**
- * Movimentação de card entre colunas (CA 1): qualquer coluna → qualquer
- * outra é permitida (pipeline real tem retorno de entrevista → triagem);
- * mover para a própria coluna é no-op e é rejeitado pela mutation.
+ * Movimentação de card entre colunas (CA 1) — [UX_UPGRADE] caminho
+ * OBRIGATÓRIO anti-cheat: o avanço no funil é de UMA etapa por vez
+ * (`inscrito → triagem → entrevista → aprovado`); saltos para frente
+ * são bloqueados. Retrocessos são livres (desfazer/auditar), mover para
+ * "reprovado" continua permitido de qualquer coluna (com motivo, R5) e
+ * a reentrada de "reprovado" só acontece reiniciando em "inscrito".
+ * Mover para a própria coluna é no-op e é rejeitado pela mutation.
  */
 export function canTransitionTo(
   from: ApplicationStage,
   to: ApplicationStage,
 ): boolean {
-  return from !== to;
+  if (from === to) return false;
+  if (to === "reprovado") return true;
+  if (from === "reprovado") return to === "inscrito";
+  const fromIndex = FUNNEL_ORDER.indexOf(from);
+  const toIndex = FUNNEL_ORDER.indexOf(to);
+  return toIndex < fromIndex || toIndex === fromIndex + 1;
 }
 
 /** Guarda de validação de stage (mutation aceita apenas valores válidos). */
@@ -129,6 +141,15 @@ export function formatMissingPrerequisites(missing: readonly string[]): string {
  * [S5-2] — a aprovação marca o preenchimento da vaga (`filledAt`, base
  * do time-to-hire) e desfazer a aprovação o limpa; sair da coluna
  * "Reprovado" limpa o motivo gravado (o aluno voltou ao pipeline).
+ *
+ * [UX_UPGRADE] Anti-cheat (caminho obrigatório inscrito → triagem →
+ * entrevista → aprovado):
+ * - saltos para frente são bloqueados (`canTransitionTo`);
+ * - mover para "entrevista" EXIGE `interviewDate` (data/hora) e
+ *   `interviewLink` (link ou local) — a coluna nunca fica sem dado
+ *   auditável;
+ * - mover para "aprovado" EXIGE `expectedStartDate` (data de início
+ *   prevista da contratação).
  */
 export type MoveStageDecision =
   | {
@@ -143,12 +164,27 @@ export type MoveStageDecision =
     }
   | { ok: false; error: string };
 
+/** Timestamp auditável (> 0 e finito) — data/hora em epoch millis. */
+function isTimestamp(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
 export function moveStageDecision(input: {
   stage: ApplicationStage;
   to: ApplicationStage;
   rejectionReason?: unknown;
+  interviewDate?: unknown;
+  interviewLink?: unknown;
+  expectedStartDate?: unknown;
 }): MoveStageDecision {
-  const { stage, to, rejectionReason } = input;
+  const {
+    stage,
+    to,
+    rejectionReason,
+    interviewDate,
+    interviewLink,
+    expectedStartDate,
+  } = input;
   if (stage === to) {
     return { ok: false, error: "O card já está nesta coluna." };
   }
@@ -174,8 +210,46 @@ export function moveStageDecision(input: {
       jobUnfilled: false,
     };
   }
+  // [UX_UPGRADE] Anti-cheat: bloqueia saltos e reentrada fora do início.
+  if (!canTransitionTo(stage, to)) {
+    return {
+      ok: false,
+      error:
+        stage === "reprovado"
+          ? 'Movimento bloqueado: candidatura reprovada só reinicia em "inscrito" (caminho obrigatório: inscrito → triagem → entrevista → aprovado).'
+          : "Movimento bloqueado: avance no máximo uma etapa por vez (inscrito → triagem → entrevista → aprovado).",
+    };
+  }
+  if (to === "entrevista") {
+    if (!isTimestamp(interviewDate)) {
+      return {
+        ok: false,
+        error: "Data e hora da entrevista é obrigatória (auditoria do funil).",
+      };
+    }
+    if (
+      typeof interviewLink !== "string" ||
+      interviewLink.trim().length === 0 ||
+      interviewLink.trim().length > 500
+    ) {
+      return {
+        ok: false,
+        error:
+          "Link ou local da entrevista é obrigatório (até 500 caracteres).",
+      };
+    }
+  }
+  if (to === "aprovado") {
+    if (!isTimestamp(expectedStartDate)) {
+      return {
+        ok: false,
+        error: "Data de início prevista é obrigatória para a contratação.",
+      };
+    }
+  }
   if (stage === "reprovado") {
-    // Reativação: o motivo antigo não faz sentido na nova coluna.
+    // Reentrada auditável (só "inscrito"): o motivo antigo não faz
+    // sentido na nova coluna.
     return {
       ok: true,
       nextStage: to,
