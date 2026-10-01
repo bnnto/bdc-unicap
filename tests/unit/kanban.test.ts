@@ -34,15 +34,58 @@ describe("colunas do Kanban (S4-1, CA 2)", () => {
   });
 });
 
-describe("transições entre colunas (S4-1, CA 1)", () => {
-  it("movimentação entre colunas distintas é permitida", () => {
-    for (const from of APPLICATION_STAGES) {
-      for (const to of APPLICATION_STAGES) {
-        if (from !== to) {
-          expect(canTransitionTo(from, to)).toBe(true);
-        }
-      }
+describe("transições entre colunas — caminho obrigatório (UX_UPGRADE, anti-cheat)", () => {
+  it("avanço de UMA etapa por vez no funil principal é permitido", () => {
+    const forward: Array<[ApplicationStage, ApplicationStage]> = [
+      ["inscrito", "triagem"],
+      ["triagem", "entrevista"],
+      ["entrevista", "aprovado"],
+    ];
+    for (const [from, to] of forward) {
+      expect(canTransitionTo(from, to)).toBe(true);
     }
+  });
+
+  it("retrocessos no funil são permitidos (desfazer/auditoria)", () => {
+    const backward: Array<[ApplicationStage, ApplicationStage]> = [
+      ["triagem", "inscrito"],
+      ["entrevista", "triagem"],
+      ["aprovado", "entrevista"],
+      ["aprovado", "inscrito"],
+    ];
+    for (const [from, to] of backward) {
+      expect(canTransitionTo(from, to)).toBe(true);
+    }
+  });
+
+  it("SALTOS para frente são bloqueados (caminho obrigatório)", () => {
+    const jumps: Array<[ApplicationStage, ApplicationStage]> = [
+      ["inscrito", "entrevista"],
+      ["inscrito", "aprovado"],
+      ["triagem", "aprovado"],
+    ];
+    for (const [from, to] of jumps) {
+      expect(canTransitionTo(from, to)).toBe(false);
+    }
+  });
+
+  it("reprovar continua permitido a partir de qualquer coluna (com motivo na decisão)", () => {
+    const sources: ApplicationStage[] = [
+      "inscrito",
+      "triagem",
+      "entrevista",
+      "aprovado",
+    ];
+    for (const from of sources) {
+      expect(canTransitionTo(from, "reprovado")).toBe(true);
+    }
+  });
+
+  it("reentrada de Reprovado só pelo início do funil (inscrito)", () => {
+    expect(canTransitionTo("reprovado", "inscrito")).toBe(true);
+    expect(canTransitionTo("reprovado", "triagem")).toBe(false);
+    expect(canTransitionTo("reprovado", "entrevista")).toBe(false);
+    expect(canTransitionTo("reprovado", "aprovado")).toBe(false);
   });
 
   it("mover para a mesma coluna é rejeitado (no-op explícito)", () => {

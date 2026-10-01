@@ -216,7 +216,9 @@ describe("S8-2 CA 2 — landmarks corretos (WCAG 1.3.1)", () => {
     expect(main.querySelectorAll('[role="main"], main')).toHaveLength(0);
   });
 
-  it("App — visitante: AuthPage como main único e sem banner", () => {
+  it("App — visitante em /login: AuthPage como main único", () => {
+    // [UX_UPGRADE] a raiz "/" agora é a Landing Page; a AuthPage vive em /login.
+    window.history.pushState({}, "", "/login");
     render(
       <AuthStateContext.Provider
         value={{
@@ -234,10 +236,13 @@ describe("S8-2 CA 2 — landmarks corretos (WCAG 1.3.1)", () => {
     expect(mains).toHaveLength(1);
     // O main do visitante contém o formulário de autenticação (aba Entrar).
     expect(mains[0]).toHaveTextContent(/entrar/i);
+    window.history.pushState({}, "", "/");
   });
 
   it("App — skip-link é o primeiro focável, pula o header e some até receber foco", async () => {
     const { userEvent } = await import("@testing-library/user-event");
+    // [UX_UPGRADE] o fluxo de foco da AuthPage é verificado em /login.
+    window.history.pushState({}, "", "/login");
     render(
       <AuthStateContext.Provider
         value={{
@@ -262,6 +267,7 @@ describe("S8-2 CA 2 — landmarks corretos (WCAG 1.3.1)", () => {
     await userEvent.tab();
     // Depois do skip, o próximo focável é a aba Entrar (header pulado).
     expect(screen.getByRole("tab", { name: "Entrar" })).toHaveFocus();
+    window.history.pushState({}, "", "/");
   });
 
   it("App — skip-link também existe no fluxo público (R9)", () => {
