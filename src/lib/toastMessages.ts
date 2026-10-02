@@ -61,24 +61,42 @@ export function friendlyErrorMessage(error: unknown): string {
     /e[\s-]*mail ou (senha|palavra-passe) incorretos/i.test(msg) ||
     /credenciais (inválidas|incorretas)/i.test(msg) ||
     /invalid credentials/i.test(msg) ||
-    /incorrect email or password/i.test(msg)
+    /incorrect email or password/i.test(msg) ||
+    /wrong (email|email address|password)/i.test(msg) ||
+    /invalid (email|password|credential)/i.test(msg) ||
+    /bad (email|password|credentials)/i.test(msg) ||
+    /no account found/i.test(msg) ||
+    /unknown user/i.test(msg)
   ) {
     return CREDENTIALS;
   }
   if (
     /já existe (uma )?conta com este e-?mail/i.test(msg) ||
     /account already exists/i.test(msg) ||
-    /e-?mail já (cadastrado|em uso)/i.test(msg)
+    /e-?mail já (cadastrado|em uso)/i.test(msg) ||
+    /email already in use/i.test(msg) ||
+    /e-?mail already exists|already registered/i.test(msg) ||
+    /duplicate account/i.test(msg)
   ) {
     return DUPLICATE_ACCOUNT;
   }
   if (/conta desativada/i.test(msg)) return DEACTIVATED_ACCOUNT;
+  if (/conta inativa/i.test(msg)) return DEACTIVATED_ACCOUNT;
   if (/(sessão expirada|session expired)/i.test(msg)) return SESSION_EXPIRED;
+  if (/sessão expir/i.test(msg)) return SESSION_EXPIRED;
+  if (/token expir/i.test(msg)) return SESSION_EXPIRED;
   if (/termo de consentimento/i.test(msg)) return CONSENT_MISSING;
+  if (/consent (is|was|required)/i.test(msg)) return CONSENT_MISSING;
   if (
     /(failed to fetch|fetch failed|network error|erro de rede|sem conexão|internet)/i.test(
       msg,
     )
+  ) {
+    return OFFLINE;
+  }
+  if (
+    /(network|connection|offline|unreachable)/i.test(msg) &&
+    /(error|fail|timeout|refused)/i.test(msg)
   ) {
     return OFFLINE;
   }
@@ -92,8 +110,28 @@ export function friendlyErrorMessage(error: unknown): string {
     /is not a function/i.test(msg) ||
     /undefined is not/i.test(msg) ||
     /\[CONVEX/i.test(msg) ||
-    /^\s*at\s/.test(msg)
+    /^\s*at\s/.test(msg) ||
+    /internal server error/i.test(msg) ||
+    /something went wrong/i.test(msg)
   ) {
+    return GENERIC_ERROR;
+  }
+
+  // Mensagem em inglês sem tradução específica ainda: o utilizador não
+  // deve ver mensagens técnicas estrangeiras cruas. Detectamos sinal de
+  // português (acentos/vocabulário) vs. sinal de inglês (palavras-chave)
+  // para não traduzir mensagens PT legítimas sem acento ("Informe seu
+  // nome completo.").
+  const looksPortuguese =
+    /[áàâãéêíóôõúç]/i.test(msg) ||
+    /\b(não|você|voce|já|está|obrigat\w*|informe|preencha|campo|senha|usuário|usuario|digite|por favor|inválid\w*|palavra-passe|e-mail|seu|sua)\b/i.test(
+      msg,
+    );
+  const looksEnglish =
+    /\b(the|is|are|was|were|not|cannot|does|did|must|please|enter|invalid|incorrect|already|exists|found|missing|required|with|that|this|your|email|password|account|user|try|again|unknown|failed|failure|error|verify|matches|minimum|least|characters|expired|active|inactive|blocked|denied|unauthorized|permission)\b/i.test(
+      msg,
+    );
+  if (looksEnglish && !looksPortuguese) {
     return GENERIC_ERROR;
   }
 

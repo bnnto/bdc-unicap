@@ -57,16 +57,49 @@ const LEVEL_LABELS: Record<LanguageEntry["level"], string> = {
 
 /**
  * Rótulos dos 7 blocos do currículo (ícone de lápis em cada um,
- * Etapa 2 do UX_REFINEMENT).
+ * Etapa 2 do UX_REFINEMENT). `label` curto vai no aria-label do lápis;
+ * `heading` rico é o título h2 exibido na página (spec dos 7 blocos).
  */
-const BLOCK_LABELS: Array<{ index: number; label: string }> = [
-  { index: 0, label: "Dados Pessoais" },
-  { index: 1, label: "Formação" },
-  { index: 2, label: "Links" },
-  { index: 3, label: "Competências" },
-  { index: 4, label: "Idiomas" },
-  { index: 5, label: "Experiências" },
-  { index: 6, label: "Certificações" },
+const BLOCK_LABELS: Array<{
+  index: number;
+  label: string;
+  heading: string;
+}> = [
+  {
+    index: 0,
+    label: "Dados Pessoais",
+    heading: "Dados Pessoais & Apresentação Profissional",
+  },
+  {
+    index: 1,
+    label: "Formação",
+    heading: "Formação Acadêmica Institucional UNICAP",
+  },
+  {
+    index: 2,
+    label: "Links",
+    heading: "Links Profissionais, Portfólio & Lattes",
+  },
+  {
+    index: 3,
+    label: "Competências",
+    heading: "Competências & Tecnologias (Skills)",
+  },
+  {
+    index: 4,
+    label: "Idiomas",
+    heading: "Idiomas & Nível de Proficiência",
+  },
+  {
+    index: 5,
+    label: "Experiências",
+    heading: "Experiências Profissionais e Projetos de Extensão",
+  },
+  {
+    index: 6,
+    label: "Certificações",
+    heading: "Certificações & Atividades Complementares",
+  },
 ];
 
 const BLOCO_IDS = [
@@ -246,6 +279,9 @@ export function ResumeForm() {
     try {
       await saveResume(validation.normalized);
       await saveSkills({ skills, languages });
+      // Sucesso: o bloco volta à visualização (Etapa 2 — inline edit).
+      setEditingBlock(null);
+      setErrors([]);
       toast.success("Currículo salvo com sucesso.");
     } catch (err) {
       // [UX_REFINEMENT] erro de servidor vira Toast amigável, nunca um
@@ -341,22 +377,6 @@ export function ResumeForm() {
       className="flex flex-col gap-6"
       aria-label="Formulário de currículo vitae"
     >
-      {errors.length > 0 ? (
-        <div
-          role="alert"
-          className="rounded border border-danger bg-white px-3 py-2"
-        >
-          <p className="text-sm font-semibold text-danger">
-            Corrija os pontos abaixo:
-          </p>
-          <ul className="mt-1 list-disc pl-5 text-sm text-danger">
-            {errors.map((e) => (
-              <li key={e}>{e}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
       {BLOCK_LABELS.map((block) => {
         const isEditing = editingBlock === block.index;
         return (
@@ -366,20 +386,22 @@ export function ResumeForm() {
             className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
           >
             {/* Cabeçalho do bloco: título + ícone de lápis. */}
-            <div>
+            <div className="space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="font-serif text-lg font-bold text-primary">
-                    {block.index + 1}. {block.label}
+                    {block.index + 1}. {block.heading}
                   </h2>
-                  <p
-                    id="resume-summary-count"
-                    className="text-xs text-slate-500"
-                    aria-live="polite"
-                  >
-                    {summary.trim().length}/{SUMMARY_MAX} caracteres (mínimo{" "}
-                    {SUMMARY_MIN})
-                  </p>
+                  {block.index === 0 ? (
+                    <p
+                      id="resume-summary-count"
+                      className="text-xs text-slate-500"
+                      aria-live="polite"
+                    >
+                      {summary.trim().length}/{SUMMARY_MAX} caracteres (mínimo{" "}
+                      {SUMMARY_MIN})
+                    </p>
+                  ) : null}
                   <p className="mt-0.5 text-xs text-slate-500">
                     {block.index === 0
                       ? "Dados do cadastro (somente leitura) e sua apresentação profissional"
@@ -422,38 +444,89 @@ export function ResumeForm() {
 
               {/* VISUALIZAÇÃO do bloco —idades apenas leitura. */}
               {!isEditing ? (
-                <div className="pt-1">
+                <div className="space-y-4">
                   {block.index === 0 && (
-                    <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                      <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Headline
-                      </span>
-                      <span className="font-medium text-slate-800">
-                        {headline || "—"}
-                      </span>
-                    </p>
+                    <>
+                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Headline
+                        </span>
+                        <span className="font-medium text-slate-800">
+                          {headline || "—"}
+                        </span>
+                      </p>
+                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Resumo profissional
+                        </span>
+                        <span className="whitespace-pre-wrap font-medium text-slate-800">
+                          {summary || "—"}
+                        </span>
+                      </p>
+                    </>
                   )}
 
                   {block.index === 1 && (
-                    <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                      <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Curso
-                      </span>
-                      <span className="font-medium text-slate-800">
-                        {profile.course}
-                      </span>
-                    </p>
+                    <>
+                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Curso
+                        </span>
+                        <span className="font-medium text-slate-800">
+                          {profile.course}
+                        </span>
+                      </p>
+                      {academicHistory.length === 0 ? (
+                        <p className="text-sm text-slate-500">
+                          Nenhum item no histórico acadêmico ainda.
+                        </p>
+                      ) : (
+                        <ul className="flex flex-col gap-2">
+                          {academicHistory.map((entry, index) => (
+                            <li
+                              key={index}
+                              className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                            >
+                              <span className="min-w-0 break-words text-slate-800">
+                                {entry.item}
+                              </span>
+                              <span className="shrink-0 font-mono text-xs text-slate-500">
+                                {entry.year}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
                   )}
 
                   {block.index === 2 && (
-                    <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                      <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        GitHub
-                      </span>
-                      <span className="break-all font-medium text-slate-800">
-                        {githubUrl || "Não cadastrado"}
-                      </span>
-                    </p>
+                    <div className="space-y-2">
+                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          LinkedIn
+                        </span>
+                        <span className="break-all font-medium text-slate-800">
+                          {profile.linkedinUrl || "Não cadastrado"}
+                        </span>
+                      </p>
+                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          GitHub
+                        </span>
+                        <span className="break-all font-medium text-slate-800">
+                          {githubUrl || "Não cadastrado"}
+                        </span>
+                      </p>
+                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Currículo Lattes
+                        </span>
+                        <span className="break-all font-medium text-slate-800">
+                          {lattesUrl || "Não cadastrado"}
+                        </span>
+                      </p>
+                    </div>
                   )}
 
                   {block.index === 3 && (
@@ -480,39 +553,52 @@ export function ResumeForm() {
 
                   {block.index === 4 && (
                     <ul className="flex flex-col gap-2">
-                      {languages.map((language, index) => (
-                        <li
-                          key={index}
-                          className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                        >
-                          <span>
-                            {language.name} — {LEVEL_LABELS[language.level]}
-                          </span>
+                      {languages.length === 0 ? (
+                        <li className="text-sm text-slate-500">
+                          Nenhum idioma cadastrado ainda.
                         </li>
-                      ))}
+                      ) : (
+                        languages.map((language, index) => (
+                          <li
+                            key={index}
+                            className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                          >
+                            <span>
+                              {language.name} — {LEVEL_LABELS[language.level]}
+                            </span>
+                          </li>
+                        ))
+                      )}
                     </ul>
                   )}
 
                   {block.index === 5 && (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {experiences.map((exp, index) => (
                         <div
                           key={index}
-                          className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                          className="rounded border border-slate-200 bg-slate-50 px-3 py-3 text-sm"
                         >
                           <p className="font-semibold text-slate-800">
                             {exp.company} — {exp.role}
                           </p>
                           <p className="text-xs text-slate-500">{exp.period}</p>
                           {exp.description ? (
-                            <p className="text-xs text-slate-600">
+                            <p className="mt-2 text-xs text-slate-600">
                               {exp.description}
                             </p>
                           ) : null}
                         </div>
                       ))}
                       {projectsText ? (
-                        <p className="text-xs text-slate-600">{projectsText}</p>
+                        <div className="rounded border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Projetos de Extensão
+                          </p>
+                          <p className="mt-1 text-xs text-slate-600">
+                            {projectsText}
+                          </p>
+                        </div>
                       ) : null}
                     </div>
                   )}
@@ -541,8 +627,7 @@ export function ResumeForm() {
                 </div>
               ) : (
                 /* EDIÇÃO do bloco — campos no próprio local. */
-                <div className="pt-1">
-                  {" "}
+                <div className="space-y-4">
                   {block.index === 0 && (
                     <>
                       <Input
@@ -588,47 +673,51 @@ export function ResumeForm() {
                     </>
                   )}
                   {block.index === 1 && (
-                    <fieldset className="flex flex-col gap-2">
+                    <fieldset className="flex flex-col gap-3">
                       <legend className="text-sm font-semibold text-slate-700">
                         Histórico acadêmico
                       </legend>
                       {academicHistory.map((entry, index) => (
                         <div
                           key={index}
-                          className="flex flex-col gap-2 rounded border border-slate-200 bg-slate-50 p-3"
+                          className="rounded border border-slate-200 bg-slate-50 p-4"
                         >
-                          <div className="flex-1">
-                            <Input
-                              label="Item"
-                              required
-                              value={entry.item}
-                              onChange={(e) =>
-                                updateAcademic(index, "item", e.target.value)
-                              }
-                              hint="Ex.: Bacharelado em Direção — UNICAP (concluído)"
-                            />
+                          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                            <div className="min-w-0">
+                              <Input
+                                label="Item"
+                                required
+                                value={entry.item}
+                                onChange={(e) =>
+                                  updateAcademic(index, "item", e.target.value)
+                                }
+                                hint="Ex.: Bacharelado em Direção — UNICAP (concluído)"
+                              />
+                            </div>
+                            <div className="w-28 shrink-0">
+                              <Input
+                                label="Ano"
+                                required
+                                inputMode="numeric"
+                                value={entry.year}
+                                onChange={(e) =>
+                                  updateAcademic(index, "year", e.target.value)
+                                }
+                              />
+                            </div>
                           </div>
-                          <div className="w-28">
-                            <Input
-                              label="Ano"
-                              required
-                              inputMode="numeric"
-                              value={entry.year}
-                              onChange={(e) =>
-                                updateAcademic(index, "year", e.target.value)
+                          <div className="mt-2 flex justify-end">
+                            <Button
+                              variant="secondary"
+                              onClick={() =>
+                                setAcademicHistory((list) =>
+                                  list.filter((_, i) => i !== index),
+                                )
                               }
-                            />
+                            >
+                              Remover
+                            </Button>
                           </div>
-                          <Button
-                            variant="secondary"
-                            onClick={() =>
-                              setAcademicHistory((list) =>
-                                list.filter((_, i) => i !== index),
-                              )
-                            }
-                          >
-                            Remover
-                          </Button>
                         </div>
                       ))}
                       {academicHistory.length < MAX_ACADEMIC ? (
@@ -711,9 +800,9 @@ export function ResumeForm() {
                       {languages.map((language, index) => (
                         <div
                           key={index}
-                          className="flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-slate-50 p-3"
+                          className="flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-slate-50 p-4"
                         >
-                          <div className="min-w-40 flex-1">
+                          <div className="min-w-0 flex-1">
                             <Input
                               label="Idioma"
                               required
@@ -724,7 +813,7 @@ export function ResumeForm() {
                               }
                             />
                           </div>
-                          <div className="w-44">
+                          <div className="w-44 shrink-0">
                             <label
                               htmlFor={`language-level-${index}`}
                               className="text-sm font-semibold text-slate-700"
@@ -746,16 +835,18 @@ export function ResumeForm() {
                               ))}
                             </select>
                           </div>
-                          <Button
-                            variant="secondary"
-                            onClick={() =>
-                              setLanguages((list) =>
-                                list.filter((_, i) => i !== index),
-                              )
-                            }
-                          >
-                            Remover
-                          </Button>
+                          <div className="flex justify-end">
+                            <Button
+                              variant="secondary"
+                              onClick={() =>
+                                setLanguages((list) =>
+                                  list.filter((_, i) => i !== index),
+                                )
+                              }
+                            >
+                              Remover
+                            </Button>
+                          </div>
                         </div>
                       ))}
                       {languages.length < MAX_LANGUAGES ? (
@@ -930,34 +1021,50 @@ export function ResumeForm() {
                       ) : null}
                     </fieldset>
                   )}
+
+                  {/* Erros de validação do bloco em edição — junto dos
+                      campos e dos botões (nunca no topo da página). */}
+                  {errors.length > 0 ? (
+                    <div
+                      role="alert"
+                      className="rounded border border-danger bg-white px-3 py-2"
+                    >
+                      <p className="text-sm font-semibold text-danger">
+                        Corrija os pontos abaixo:
+                      </p>
+                      <ul className="mt-1 list-disc pl-5 text-sm text-danger">
+                        {errors.map((e) => (
+                          <li key={e}>{e}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  {/* Barra de ação do bloco em edição. */}
+                  <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={cancelEdit}
+                      disabled={pending}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="primary"
+                      onClick={() => void persist()}
+                      disabled={pending}
+                    >
+                      {pending ? "Salvando…" : "Salvar"}
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
           </section>
         );
       })}
-
-      {/* Barra de ação do bloco em edição. */}
-      {editingBlock !== null ? (
-        <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={cancelEdit}
-            disabled={pending}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="button"
-            variant="primary"
-            onClick={() => void persist()}
-            disabled={pending}
-          >
-            {pending ? "Salvando…" : "Salvar"}
-          </Button>
-        </div>
-      ) : null}
     </form>
   );
 }

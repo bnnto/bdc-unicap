@@ -239,9 +239,7 @@ export function ProfilePage() {
       // reativo e o AuthGate cai na vitrine; a rota também volta a /.
       navigateTo("/");
     } catch (err) {
-      setDeleteError(
-        err instanceof Error ? err.message : "Falha ao excluir a conta.",
-      );
+      setDeleteError(friendlyErrorMessage(err));
     } finally {
       setDeleting(false);
     }

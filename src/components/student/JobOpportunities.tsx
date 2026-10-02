@@ -4,6 +4,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import { friendlyErrorMessage } from "../../lib/toastMessages";
 import {
   STAGE_LABELS,
   checkRequiredPrerequisites,
@@ -413,10 +414,7 @@ export function JobOpportunities() {
                         } catch (err) {
                           setErrors((prev) => ({
                             ...prev,
-                            [String(job._id)]:
-                              err instanceof Error
-                                ? err.message
-                                : "Falha ao se candidatar.",
+                            [String(job._id)]: friendlyErrorMessage(err),
                           }));
                         }
                       })();

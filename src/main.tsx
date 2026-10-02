@@ -30,6 +30,12 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
+    {/* [UX_REFINEMENT] Etapa 1 — Toasts globais: erros e sucessos de toda
+        a aplicação num único lugar, com auto-dismiss.
+        [FIX_UX] Camada externa: fica FORA do ErrorBoundary e dos
+        providers para nunca ser desmontada/remontada junto com a árvore
+        (um remount no meio de um erro faz o toast "atrasar"/sumir). */}
+    <Toaster position="top-right" closeButton richColors />
     {/* [S8-4] CA 1 — erro de renderização não derruba o portal: limite
         externo com fallback acessível e registro para a monitoração. */}
     <ErrorBoundary
@@ -40,9 +46,6 @@ createRoot(rootElement).render(
       }}
     >
       <ConvexProvider client={convex}>
-        {/* [UX_REFINEMENT] Etapa 1 — Toasts globais: erros e sucessos de
-            toda a aplicação num único lugar, com auto-dismiss. */}
-        <Toaster position="top-right" closeButton richColors />
         <AuthProvider client={convex}>
           <ConsentGate>
             <App />
