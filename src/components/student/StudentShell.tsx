@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useAuthState } from "../auth/authContext";
 import { navigateTo } from "../../lib/router";
-import { StudentHomePage } from "./StudentHomePage";
 import { ResumeBuilderPage } from "./ResumeBuilderPage";
 import { JobOpportunities } from "./JobOpportunities";
 import { MyApplicationsPage } from "./MyApplicationsPage";
@@ -19,14 +18,13 @@ import { MyApplicationsPage } from "./MyApplicationsPage";
  * [S8-2] — as abas usam role=tablist/tab/tabpanel com aria-controls;
  * o landmark main continua único no App.
  */
-export type StudentTab =
-  "curriculo" | "oportunidades" | "candidaturas" | "perfil";
+
+export type StudentTab = "curriculo" | "oportunidades" | "candidaturas";
 
 const TABS: Array<{ key: StudentTab; label: string }> = [
   { key: "curriculo", label: "Meu Currículo" },
   { key: "oportunidades", label: "Oportunidades" },
   { key: "candidaturas", label: "Minhas Candidaturas" },
-  { key: "perfil", label: "Meu Perfil" },
 ];
 
 /** Iniciais do avatar: primeira + última palavra em caixa alta. */
@@ -157,17 +155,6 @@ export function StudentShell() {
             tabIndex={-1}
           >
             <MyApplicationsPage />
-          </div>
-        ) : null}
-        {active === "perfil" ? (
-          // Aba "Meu Perfil" — visão geral do discente (painel interno).
-          <div
-            role="tabpanel"
-            id="panel-perfil"
-            aria-label="Meu Perfil"
-            tabIndex={-1}
-          >
-            <StudentHomePage />
           </div>
         ) : null}
       </main>

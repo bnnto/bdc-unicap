@@ -74,4 +74,17 @@ describe("[UX_REFINEMENT] friendlyErrorMessage — erros amigáveis", () => {
       "Informe seu nome completo.",
     );
   });
+
+  it("erros em inglês sem tradução específica nunca vazam em inglês", () => {
+    expect(friendlyErrorMessage("User already exists")).toBe(GENERIC_ERROR);
+    expect(friendlyErrorMessage("Please enter a valid email address")).toBe(
+      GENERIC_ERROR,
+    );
+    expect(friendlyErrorMessage("Password must be at least 8 characters")).toBe(
+      GENERIC_ERROR,
+    );
+    expect(friendlyErrorMessage("No account found for pedro@unicap.br")).toBe(
+      "E-mail ou palavra-passe incorretos.",
+    );
+  });
 });

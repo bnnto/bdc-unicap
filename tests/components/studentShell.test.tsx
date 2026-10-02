@@ -81,7 +81,7 @@ function renderAluno() {
 }
 
 describe("StudentShell — navbar com abas (Etapa 1)", () => {
-  it("exibe as 4 abas centrais na ordem do REFACTOR_ALUNO", () => {
+  it("exibe as 3 abas centrais na ordem do REFACTOR_ALUNO", () => {
     renderAluno();
     const nav = screen.getByRole("navigation", { name: /seções do portal/i });
     const tabs = within(nav).getAllByRole("tab");
@@ -89,19 +89,17 @@ describe("StudentShell — navbar com abas (Etapa 1)", () => {
       "Meu Currículo",
       "Oportunidades",
       "Minhas Candidaturas",
-      "Meu Perfil",
     ]);
   });
 
   it("aba 'Meu Currículo' é a padrão e só ela aparece", () => {
     renderAluno();
     const nav = screen.getByRole("navigation", { name: /seções do portal/i });
-    const [curriculo, oportunidades, candidaturas, perfil] =
+    const [curriculo, oportunidades, candidaturas] =
       within(nav).getAllByRole("tab");
     expect(curriculo).toHaveAttribute("aria-selected", "true");
     expect(oportunidades).toHaveAttribute("aria-selected", "false");
     expect(candidaturas).toHaveAttribute("aria-selected", "false");
-    expect(perfil).toHaveAttribute("aria-selected", "false");
 
     expect(
       screen.getByRole("tabpanel", { name: "Meu Currículo" }),
@@ -134,14 +132,14 @@ describe("StudentShell — navbar com abas (Etapa 1)", () => {
     ).toBeInTheDocument();
   });
 
-  it("clicar em 'Meu Perfil' abre a aba de perfil (Etapa 3)", async () => {
-    const { userEvent } = await import("@testing-library/user-event");
+  it("não existe aba 'Meu Perfil' — o perfil fica só no /perfil do avatar", () => {
     renderAluno();
     const nav = screen.getByRole("navigation", { name: /seções do portal/i });
-    await userEvent.click(within(nav).getAllByRole("tab")[3]!);
-    expect(
-      screen.getByRole("tabpanel", { name: "Meu Perfil" }),
-    ).toBeInTheDocument();
+    const labels = within(nav)
+      .getAllByRole("tab")
+      .map((tab) => tab.textContent);
+    expect(labels).not.toContain("Meu Perfil");
+    expect(screen.queryByRole("tabpanel", { name: "Meu Perfil" })).toBeNull();
   });
 });
 
