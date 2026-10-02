@@ -15,18 +15,31 @@ describe("[UX_REFINEMENT] friendlyErrorMessage — erros amigáveis", () => {
       "[CONVEX A(auth:signIn)] [Request Failed] Uncaught (in promise) Error: E-mail ou senha incorretos.\n" +
       "    at signIn (http://localhost:8080/main.js:1:1)\n" +
       "    at async AuthPage (http://localhost:8080/App.js:2:2)";
-    expect(friendlyErrorMessage(raw)).toBe(
-      "E-mail ou palavra-passe incorretos.",
-    );
+    expect(friendlyErrorMessage(raw)).toBe("E-mail ou senha incorretos.");
   });
 
   it("credenciais em inglês caem na mesma mensagem canônica", () => {
     expect(friendlyErrorMessage("Invalid credentials")).toBe(
-      "E-mail ou palavra-passe incorretos.",
+      "E-mail ou senha incorretos.",
     );
     expect(friendlyErrorMessage("Incorrect email or password")).toBe(
-      "E-mail ou palavra-passe incorretos.",
+      "E-mail ou senha incorretos.",
     );
+  });
+
+  it("[FINAL_UPGRADE] erros literais de senha incorreta do Convex", () => {
+    expect(friendlyErrorMessage("Incorrect password")).toBe(
+      "E-mail ou senha incorretos.",
+    );
+    expect(friendlyErrorMessage("Password is incorrect")).toBe(
+      "E-mail ou senha incorretos.",
+    );
+    expect(friendlyErrorMessage("Wrong password")).toBe(
+      "E-mail ou senha incorretos.",
+    );
+    expect(
+      friendlyErrorMessage("[CONVEX A(auth:signIn)] Error: Invalid password"),
+    ).toBe("E-mail ou senha incorretos.");
   });
 
   it("conta duplicada e conta desativada têm mensagens próprias", () => {
@@ -84,7 +97,7 @@ describe("[UX_REFINEMENT] friendlyErrorMessage — erros amigáveis", () => {
       GENERIC_ERROR,
     );
     expect(friendlyErrorMessage("No account found for pedro@unicap.br")).toBe(
-      "E-mail ou palavra-passe incorretos.",
+      "E-mail ou senha incorretos.",
     );
   });
 });

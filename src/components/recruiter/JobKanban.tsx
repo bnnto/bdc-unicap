@@ -119,6 +119,9 @@ export function JobKanban() {
     ) ?? undefined;
   const moveApplication = useMutation(api.applications.moveApplication);
   const rejectApplication = useMutation(api.applications.rejectApplication);
+  // [FINAL_UPGRADE Etapa 3] — contador (mock) de Visualizações do Perfil:
+  // disparado quando o recrutador clica no contato/LinkedIn do aluno.
+  const trackProfileView = useMutation(api.applications.trackProfileView);
 
   async function handleMove(applicationId: string, to: ApplicationStage) {
     setCardErrors((prev) => {
@@ -468,7 +471,21 @@ export function JobKanban() {
                     ) : null}
                     {application.contactReleased ? (
                       <p className="mt-1 text-xs text-primary">
-                        {application.email ?? "E-mail não cadastrado"}
+                        {application.email !== undefined ? (
+                          <a
+                            href={`mailto:${application.email}`}
+                            onClick={() =>
+                              void trackProfileView({
+                                applicationId:
+                                  application.applicationId as Id<"applications">,
+                              }).catch(() => undefined)
+                            }
+                          >
+                            {application.email}
+                          </a>
+                        ) : (
+                          "E-mail não cadastrado"
+                        )}
                         {application.linkedinUrl !== undefined ? (
                           <>
                             {" · "}
@@ -476,7 +493,12 @@ export function JobKanban() {
                               href={application.linkedinUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="underline"
+                              onClick={() =>
+                                void trackProfileView({
+                                  applicationId:
+                                    application.applicationId as Id<"applications">,
+                                }).catch(() => undefined)
+                              }
                             >
                               LinkedIn
                             </a>
