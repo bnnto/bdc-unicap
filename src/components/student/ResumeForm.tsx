@@ -16,6 +16,7 @@ import {
   validateResumeData,
   type AcademicEntry,
 } from "../../lib/resume";
+import { isValidUrl } from "../../lib/studentProfile";
 import {
   LANGUAGE_LEVELS,
   MAX_LANGUAGES,
@@ -139,6 +140,7 @@ export function ResumeForm() {
   );
   const saveResume = useMutation(api.students.saveResumeData);
   const saveSkills = useMutation(api.students.saveSkillsAndLanguages);
+  const saveContactLinks = useMutation(api.students.saveContactLinks);
 
   // Valores atuais do formulário (prefilled do CV salvo).
   const [headline, setHeadline] = useState("");
@@ -147,6 +149,10 @@ export function ResumeForm() {
   const [academicHistory, setAcademicHistory] = useState<AcademicDraft[]>([]);
   const [githubUrl, setGithubUrl] = useState("");
   const [lattesUrl, setLattesUrl] = useState("");
+  // [FINAL_UPGRADE Etapa 1.3] — LinkedIn e Portfólio editáveis no Bloco 3
+  // (antes só do cadastro de perfil; agora salvos via saveContactLinks).
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const [portfolioUrl, setPortfolioUrl] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [skillDraft, setSkillDraft] = useState("");
   const [languages, setLanguages] = useState<LanguageEntry[]>([]);
@@ -184,6 +190,8 @@ export function ResumeForm() {
         setProjectsText(resume.projectsText ?? "");
         setCertifications(resume.certifications ?? []);
       }
+      setLinkedinUrl(profile.linkedinUrl ?? "");
+      setPortfolioUrl(profile.portfolioUrl ?? "");
       setSkills(profile.skills ?? []);
       setLanguages(profile.languages ?? []);
     }
@@ -275,10 +283,34 @@ export function ResumeForm() {
       return;
     }
 
+    // [FINAL_UPGRADE Etapa 1.3] — URLs do Bloco 3 validadas antes do
+    // servidor (mensagem clara junto dos campos, CA 2).
+    if (editingBlock === 2) {
+      const linkErrors: string[] = [];
+      if (!isValidUrl(linkedinUrl)) {
+        linkErrors.push("URL do LinkedIn deve usar https://.");
+      }
+      if (!isValidUrl(portfolioUrl)) {
+        linkErrors.push("URL de GitHub/Portfólio deve usar https://.");
+      }
+      if (linkErrors.length > 0) {
+        setErrors(linkErrors);
+        return;
+      }
+    }
+
     setPending(true);
     try {
       await saveResume(validation.normalized);
       await saveSkills({ skills, languages });
+      // [FINAL_UPGRADE Etapa 1.3] — links do perfil salvos ao editar o
+      // Bloco 3 (mesma regra https validada no servidor também).
+      if (editingBlock === 2) {
+        await saveContactLinks({
+          linkedinUrl: linkedinUrl.trim() || undefined,
+          portfolioUrl: portfolioUrl.trim() || undefined,
+        });
+      }
       // Sucesso: o bloco volta à visualização (Etapa 2 — inline edit).
       setEditingBlock(null);
       setErrors([]);
@@ -305,6 +337,19 @@ export function ResumeForm() {
     resetToProfile();
     setErrors([]);
     setEditingBlock(null);
+  }
+
+  /**
+   * [FINAL_UPGRADE Etapa 1.2] — o lápis é um BOTÃO LIGA/DESLIGA:
+   * clicar nele com o bloco já em edição fecha a edição (equivale a
+   * Cancelar) e volta à visualização.
+   */
+  function toggleEdit(block: number): void {
+    if (editingBlock === block) {
+      cancelEdit();
+    } else {
+      startEdit(block);
+    }
   }
 
   function resetToProfile(): void {
@@ -340,6 +385,8 @@ export function ResumeForm() {
       setProjectsText("");
       setCertifications([]);
     }
+    setLinkedinUrl(profile?.linkedinUrl ?? "");
+    setPortfolioUrl(profile?.portfolioUrl ?? "");
     setSkills(profile?.skills ?? []);
     setLanguages(profile?.languages ?? []);
     setErrors([]);
@@ -408,7 +455,7 @@ export function ResumeForm() {
                       : block.index === 1
                         ? "Dados acadêmicos do cadastro e seu histórico"
                         : block.index === 2
-                          ? "LinkedIn e portfólio vêm do seu cadastro; GitHub e Lattes são editados aqui"
+                          ? "Todos os links são editados aqui: LinkedIn, portfólio, GitHub e Lattes"
                           : block.index === 3
                             ? "As mesmas competências usadas no matching com vagas"
                             : block.index === 4
@@ -421,10 +468,23 @@ export function ResumeForm() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => startEdit(block.index)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/5 text-primary transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                  aria-label={`Editar ${block.label}`}
-                  title={`Editar ${block.label}`}
+                  onClick={() => toggleEdit(block.index)}
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                    isEditing
+                      ? "bg-primary text-white"
+                      : "bg-primary/5 text-primary hover:bg-primary hover:text-white"
+                  }`}
+                  aria-label={
+                    isEditing
+                      ? `Fechar edição de ${block.label}`
+                      : `Editar ${block.label}`
+                  }
+                  aria-pressed={isEditing}
+                  title={
+                    isEditing
+                      ? `Fechar edição de ${block.label}`
+                      : `Editar ${block.label}`
+                  }
                 >
                   <svg
                     className="h-5 w-5"
@@ -508,6 +568,14 @@ export function ResumeForm() {
                         </span>
                         <span className="break-all font-medium text-slate-800">
                           {profile.linkedinUrl || "Não cadastrado"}
+                        </span>
+                      </p>
+                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          Portfólio
+                        </span>
+                        <span className="break-all font-medium text-slate-800">
+                          {profile.portfolioUrl || "Não cadastrado"}
                         </span>
                       </p>
                       <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
@@ -737,6 +805,22 @@ export function ResumeForm() {
                   )}
                   {block.index === 2 && (
                     <div className="grid gap-3 sm:grid-cols-2">
+                      <Input
+                        label="LinkedIn"
+                        type="url"
+                        value={linkedinUrl}
+                        onChange={(e) => setLinkedinUrl(e.target.value)}
+                        placeholder="https://www.linkedin.com/in/seu-perfil"
+                        hint="Opcional — https://"
+                      />
+                      <Input
+                        label="Portfólio"
+                        type="url"
+                        value={portfolioUrl}
+                        onChange={(e) => setPortfolioUrl(e.target.value)}
+                        placeholder="https://seu-portfolio.com"
+                        hint="Opcional — https://"
+                      />
                       <Input
                         label="GitHub / GitLab"
                         type="url"

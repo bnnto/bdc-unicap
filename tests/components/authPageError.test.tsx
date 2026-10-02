@@ -41,9 +41,7 @@ describe("AuthPage — erros de login via Toast amigável (Etapa 1)", () => {
     await userEvent.type(screen.getByLabelText(/Senha/i), "senha-errada");
     await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
-    expect(toast.error).toHaveBeenCalledWith(
-      "E-mail ou palavra-passe incorretos.",
-    );
+    expect(toast.error).toHaveBeenCalledWith("E-mail ou senha incorretos.");
     // Nenhuma caixa de erro crua no formulário (Etapa 1).
     expect(screen.queryByText(/CONVEX/i)).not.toBeInTheDocument();
     expect(

@@ -59,6 +59,9 @@ type ApplicationRow = {
  */
 export function MyApplicationsPage() {
   const myApplications = useQuery(api.applications.myApplications, {});
+  // [FINAL_UPGRADE Etapa 3] — métricas calculadas NO SERVIDOR (TDD em
+  // src/lib/analytics.ts): taxa de sucesso, totais, média e visualizações.
+  const myStats = useQuery(api.applications.myStats, {});
   const acceptProcess = useMutation(api.applications.acceptProcess);
   const revokeProcessAcceptance = useMutation(
     api.applications.revokeProcessAcceptance,
@@ -107,6 +110,70 @@ export function MyApplicationsPage() {
           <p className="text-xs text-slate-500">Melhor match</p>
         </div>
       </div>
+
+      {/* [FINAL_UPGRADE Etapa 3] — Estatísticas do Meu Perfil: cards
+          estilo SaaS com a Taxa de Sucesso e os números do aluno
+          (dados calculados no backend via applications.myStats). */}
+      <section
+        aria-label="Estatísticas do meu perfil"
+        className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-level1"
+      >
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-serif text-base font-bold text-primary">
+            Estatísticas do Meu Perfil
+          </h2>
+          <p className="text-xs text-slate-500">
+            Taxa de sucesso = (Entrevista + Aprovado) / Total × 100
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded border border-primary/20 bg-[#FDF2F4] p-3 text-center">
+            <p className="text-2xl font-bold text-primary">
+              {myStats !== undefined && myStats !== null
+                ? `${myStats.successRate}%`
+                : "—"}
+            </p>
+            <p className="text-xs text-slate-500">Taxa de Sucesso</p>
+          </div>
+          <div className="rounded border border-slate-200 bg-slate-50 p-3 text-center">
+            <p className="text-2xl font-bold text-primary">
+              {myStats !== undefined && myStats !== null ? myStats.total : "—"}
+            </p>
+            <p className="text-xs text-slate-500">Total de Candidaturas</p>
+          </div>
+          <div className="rounded border border-slate-200 bg-slate-50 p-3 text-center">
+            <p className="text-2xl font-bold text-primary">
+              {myStats !== undefined && myStats !== null
+                ? myStats.profileViews
+                : "—"}
+            </p>
+            <p className="text-xs text-slate-500">Visualizações do Perfil</p>
+          </div>
+          <div className="rounded border border-slate-200 bg-slate-50 p-3 text-center">
+            <p className="text-2xl font-bold text-primary">
+              {myStats !== undefined && myStats !== null
+                ? `${myStats.averageMatch}%`
+                : "—"}
+            </p>
+            <p className="text-xs text-slate-500">Média de Match</p>
+          </div>
+        </div>
+        {myStats !== undefined && myStats !== null ? (
+          <div
+            className="mt-3 flex flex-wrap gap-2"
+            aria-label="Distribuição por etapa"
+          >
+            {Object.entries(myStats.byStage).map(([stage, count]) => (
+              <span
+                key={stage}
+                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+              >
+                {STAGE_LABELS[stage as ApplicationStage]}: {count}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </section>
 
       <Card title="Todas as candidaturas" accent="secondary">
         {myApplications === undefined ? (

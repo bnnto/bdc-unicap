@@ -8,6 +8,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { CURRENT_TERM_VERSION } from "./consentTerms";
 import {
+  isValidUrl,
   validateStudentProfile,
   type StudentProfileInput,
 } from "../src/lib/studentProfile";
@@ -286,6 +287,48 @@ export const setContactConsent = mutation({
     }
     await ctx.db.patch(student._id, { showContactToRecruiters: allow });
     return { ok: true as const, allow };
+  },
+});
+
+/**
+ * [FINAL_UPGRADE Etapa 1.3] — Salva os links profissionais (LinkedIn e
+ * Portfólio) direto do Bloco 3 do construtor de currículo, sem passar
+ * pelo formulário completo de perfil. Mesma regra pura de URL do perfil
+ * (https obrigatório, vazio = remove) e mesmas guards R7/papel.
+ */
+export const saveContactLinks = mutation({
+  args: {
+    linkedinUrl: v.optional(v.string()),
+    portfolioUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<{ ok: true }> => {
+    const consent = await requireActiveConsentUser(ctx);
+    if (!consent.ok) {
+      throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
+    }
+    if (consent.role !== "aluno") {
+      throw new Error("Apenas alunos editam os próprios links.");
+    }
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_user", (q) => q.eq("userId", consent.userId))
+      .unique();
+    if (student === null) {
+      throw new Error(
+        "Complete o cadastro do perfil antes de editar os links.",
+      );
+    }
+    const linkedinUrl = args.linkedinUrl?.trim() || undefined;
+    const portfolioUrl = args.portfolioUrl?.trim() || undefined;
+    if (!isValidUrl(linkedinUrl)) {
+      throw new Error("URL do LinkedIn deve usar https://.");
+    }
+    if (!isValidUrl(portfolioUrl)) {
+      throw new Error("URL de GitHub/Portfólio deve usar https://.");
+    }
+    // undefined remove o campo (validator não aceita null).
+    await ctx.db.patch(student._id, { linkedinUrl, portfolioUrl });
+    return { ok: true as const };
   },
 });
 

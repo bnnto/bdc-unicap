@@ -11,7 +11,7 @@
 export const GENERIC_ERROR = "Algo deu errado. Tente novamente.";
 
 /** Mensagens canônicas (fonte única de verdade das traduções). */
-const CREDENTIALS = "E-mail ou palavra-passe incorretos.";
+const CREDENTIALS = "E-mail ou senha incorretos.";
 const DUPLICATE_ACCOUNT = "Já existe uma conta com este e-mail.";
 const DEACTIVATED_ACCOUNT = "Conta desativada. Procure a coordenação.";
 const SESSION_EXPIRED = "Sua sessão expirou. Entre novamente.";
@@ -61,9 +61,12 @@ export function friendlyErrorMessage(error: unknown): string {
     /e[\s-]*mail ou (senha|palavra-passe) incorretos/i.test(msg) ||
     /credenciais (inválidas|incorretas)/i.test(msg) ||
     /invalid credentials/i.test(msg) ||
+    /incorrect (email( or)? password|password)/i.test(msg) ||
+    /password (is )?incorrect/i.test(msg) ||
     /incorrect email or password/i.test(msg) ||
     /wrong (email|email address|password)/i.test(msg) ||
     /invalid (email|password|credential)/i.test(msg) ||
+    /unrecognized (email|password)/i.test(msg) ||
     /bad (email|password|credentials)/i.test(msg) ||
     /no account found/i.test(msg) ||
     /unknown user/i.test(msg)

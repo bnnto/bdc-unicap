@@ -24,6 +24,7 @@ vi.mock("../../convex/_generated/api", () => ({
       saveResumeData: "mut:students.saveResumeData",
       setVisibility: "mut:students.setVisibility",
       saveSkillsAndLanguages: "mut:students.saveSkillsAndLanguages",
+      saveContactLinks: "mut:students.saveContactLinks",
     },
   },
 }));

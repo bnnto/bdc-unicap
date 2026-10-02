@@ -28,6 +28,7 @@ vi.mock("../../convex/_generated/api", () => ({
       jobBoard: "query:applications.jobBoard",
       moveApplication: "mut:applications.moveApplication",
       rejectApplication: "mut:applications.rejectApplication",
+      trackProfileView: "mut:applications.trackProfileView",
     },
   },
 }));

@@ -1,5 +1,6 @@
 import { query, mutation, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { CURRENT_TERM_VERSION } from "./consentTerms";
 import { computeMatchScore } from "../src/lib/matching";
@@ -19,6 +20,8 @@ import {
   type RejectionReason,
 } from "../src/lib/application";
 import type { LanguageLevel } from "../src/lib/skills";
+import { shouldNotifyStageAdvance } from "../src/lib/emailNotify";
+import { computeStudentAnalytics } from "../src/lib/analytics";
 import { getCurrentUser } from "./lib/currentUser";
 
 /**
@@ -239,6 +242,59 @@ export const myApplications = query({
 });
 
 /**
+ * [FINAL_UPGRADE Etapa 3] — Dashboard de Analytics do aluno: total de
+ * candidaturas, Taxa de Sucesso ((Entrevista + Aprovado) / Total × 100),
+ * distribuição por etapa, média de match e Visualizações do Perfil.
+ * Cálculo PURO em src/lib/analytics.ts (TDD) executado NO SERVIDOR.
+ */
+export const myStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireActiveUser(ctx);
+    if (user.role !== "aluno") return null;
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    if (student === null) return null;
+    const rows = await ctx.db
+      .query("applications")
+      .withIndex("by_student", (q) => q.eq("studentId", student._id))
+      .take(500);
+    return computeStudentAnalytics(
+      rows.map((row) => ({ stage: row.stage, matchScore: row.matchScore })),
+      student.profileViews ?? 0,
+    );
+  },
+});
+
+/**
+ * [FINAL_UPGRADE Etapa 3] — contador (mock) de Visualizações do Perfil:
+ * o recrutador dono da vaga "clicou" no contato/LinkedIn do aluno no
+ * Kanban. Guarda pelo dono da vaga (mesma regra do jobBoard).
+ */
+export const trackProfileView = mutation({
+  args: { applicationId: v.id("applications") },
+  handler: async (ctx, { applicationId }) => {
+    const user = await requireActiveUser(ctx);
+    const application = await ctx.db.get(applicationId);
+    if (application === null) {
+      throw new Error("Candidatura não encontrada.");
+    }
+    const job = await ctx.db.get(application.jobId);
+    if (job === null) throw new Error("Vaga não encontrada.");
+    if (job.recruiterId !== user._id) {
+      throw new Error("Apenas o recrutador da vaga conta visualizações.");
+    }
+    const student = await ctx.db.get(application.studentId);
+    if (student === null) throw new Error("Perfil de aluno não encontrado.");
+    const profileViews = (student.profileViews ?? 0) + 1;
+    await ctx.db.patch(student._id, { profileViews });
+    return { ok: true as const, profileViews };
+  },
+});
+
+/**
  * Candidaturas de uma vaga para o recrutador dono (CA 2), ordenadas do
  * maior para o menor % de compatibilidade.
  */
@@ -394,6 +450,29 @@ export const moveApplication = mutation({
       await ctx.db.patch(job._id, { filledAt: now });
     } else if (decision.jobUnfilled) {
       await ctx.db.patch(job._id, { filledAt: undefined });
+    }
+
+    // [FINAL_UPGRADE Etapa 2] — avanço de etapa para "Entrevista" ou
+    // "Aprovado" notifica o aluno por e-mail. A action (Resend ou mock
+    // com console.log quando falta RESEND_API_KEY) é AGENDADA — o envio
+    // nunca quebra a transação do Kanban — e respeita a preferência
+    // "Atualizações de Candidatura" do usuário (padrão ligado).
+    if (shouldNotifyStageAdvance(application.stage, decision.nextStage)) {
+      const student = await ctx.db.get(application.studentId);
+      const owner = student !== null ? await ctx.db.get(student.userId) : null;
+      if (
+        student !== null &&
+        owner !== null &&
+        owner.email !== undefined &&
+        (owner.notifyApplicationUpdates ?? true)
+      ) {
+        await ctx.scheduler.runAfter(0, internal.emails.sendStageNotification, {
+          to: owner.email,
+          studentName: student.fullName,
+          jobTitle: job.title,
+          stage: decision.nextStage as "entrevista" | "aprovado",
+        });
+      }
     }
     return { ok: true as const, stage: decision.nextStage };
   },

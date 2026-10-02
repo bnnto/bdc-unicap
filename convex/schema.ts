@@ -106,6 +106,15 @@ export default defineSchema({
     /** R6 — autorização geral de contato (default ausente = false). */
     showContactToRecruiters: v.optional(v.boolean()),
 
+    /**
+     * [FINAL_UPGRADE Etapa 3] — contador (mock) de Visualizações do
+     * Perfil: quantas vezes um recrutador clicou no contato/perfil
+     * deste aluno no Kanban. Incrementado pela mutation
+     * `applications.trackProfileView` e exibido no Dashboard de
+     * Analytics do aluno.
+     */
+    profileViews: v.optional(v.number()),
+
     /** [S1-5] — competências (chips, máx. 20) e idiomas com nível (máx. 8). */
     skills: v.optional(v.array(v.string())),
     languages: v.optional(

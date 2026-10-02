@@ -26,6 +26,7 @@ vi.mock("../../convex/_generated/api", () => ({
       saveResumeData: "mut:students.saveResumeData",
       setVisibility: "mut:students.setVisibility",
       saveSkillsAndLanguages: "mut:students.saveSkillsAndLanguages",
+      saveContactLinks: "mut:students.saveContactLinks",
     },
   },
 }));
@@ -39,6 +40,7 @@ const mockedUseMutation = vi.mocked(useMutation);
 
 const saveResumeData = vi.fn().mockResolvedValue({ ok: true });
 const saveSkillsAndLanguages = vi.fn().mockResolvedValue({ ok: true });
+const saveContactLinks = vi.fn().mockResolvedValue({ ok: true });
 
 const PROFILE = {
   _id: "s1",
@@ -70,7 +72,9 @@ beforeEach(() => {
   mockedUseMutation.mockImplementation(((mutation: unknown) =>
     mutation === "mut:students.saveResumeData"
       ? saveResumeData
-      : saveSkillsAndLanguages) as never);
+      : mutation === "mut:students.saveContactLinks"
+        ? saveContactLinks
+        : saveSkillsAndLanguages) as never);
 });
 
 const PENCILS = [
@@ -175,5 +179,68 @@ describe("[UX_REFINEMENT] ResumeForm — edição inline por bloco (Etapa 2)", (
     expect(alert).toHaveTextContent(/corrija os pontos abaixo/i);
     // Continua no modo de edição para corrigir.
     expect(screen.getByLabelText(/headline/i)).toBeInTheDocument();
+  });
+
+  it("[FINAL_UPGRADE] lápis funciona como liga/desliga: fecha a edição", async () => {
+    render(<ResumeForm />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Editar Dados Pessoais" }),
+    );
+    expect(screen.getByLabelText(/headline/i)).toBeInTheDocument();
+
+    // Com o bloco em edição, o mesmo lápis vira "Fechar edição".
+    await userEvent.click(
+      screen.getByRole("button", { name: "Fechar edição de Dados Pessoais" }),
+    );
+    expect(screen.queryByLabelText(/headline/i)).toBeNull();
+    // Fechar pelo lápis NÃO salva (equivale ao Cancelar).
+    expect(saveResumeData).not.toHaveBeenCalled();
+    expect(saveSkillsAndLanguages).not.toHaveBeenCalled();
+    // De volta ao modo de visualização com o lápis comum.
+    expect(
+      screen.getByRole("button", { name: "Editar Dados Pessoais" }),
+    ).toBeInTheDocument();
+  });
+
+  it("[FINAL_UPGRADE] Bloco 3: LinkedIn e Portfólio são inputs editáveis", async () => {
+    render(<ResumeForm />);
+    await userEvent.click(screen.getByRole("button", { name: "Editar Links" }));
+
+    const linkedin = screen.getByLabelText(/linkedin/i);
+    const portfolio = screen.getByLabelText(/portfólio/i);
+    expect(linkedin).toBeInTheDocument();
+    expect(portfolio).toBeInTheDocument();
+
+    await userEvent.type(linkedin, "https://www.linkedin.com/in/maria");
+    await userEvent.type(portfolio, "https://maria.dev");
+    await userEvent.click(screen.getByRole("button", { name: /^salvar$/i }));
+
+    expect(saveContactLinks).toHaveBeenCalledTimes(1);
+    expect(saveContactLinks.mock.calls[0]?.[0]).toEqual({
+      linkedinUrl: "https://www.linkedin.com/in/maria",
+      portfolioUrl: "https://maria.dev",
+    });
+    expect(toast.success).toHaveBeenCalledWith("Currículo salvo com sucesso.");
+    // Voltou à visualização (lápis de volta como "Editar").
+    expect(screen.queryByLabelText(/linkedin/i)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Editar Links" }),
+    ).toBeInTheDocument();
+  });
+
+  it("[FINAL_UPGRADE] Bloco 3: URL fora de https bloqueia o salvamento", async () => {
+    render(<ResumeForm />);
+    await userEvent.click(screen.getByRole("button", { name: "Editar Links" }));
+    await userEvent.type(
+      screen.getByLabelText(/linkedin/i),
+      "http://insecure.example",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^salvar$/i }));
+
+    expect(saveContactLinks).not.toHaveBeenCalled();
+    expect(saveResumeData).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(/https/i);
+    // Continua em edição para corrigir.
+    expect(screen.getByLabelText(/linkedin/i)).toBeInTheDocument();
   });
 });
