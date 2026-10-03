@@ -26,6 +26,13 @@ import {
   validateLanguages,
   type LanguageEntry,
 } from "../../lib/skills";
+import { ResumeBlockContent } from "./ResumeView";
+import {
+  BLOCK_LABELS,
+  BLOCO_IDS,
+  LEVEL_LABELS,
+  type ResumeBlockData,
+} from "./resumeBlocks";
 
 type ExperienceDraft = {
   company: string;
@@ -47,71 +54,6 @@ const EMPTY_EXPERIENCE: ExperienceDraft = {
 };
 
 const EMPTY_ACADEMIC: AcademicDraft = { item: "", year: "" };
-
-const LEVEL_LABELS: Record<LanguageEntry["level"], string> = {
-  basico: "Básico",
-  intermediario: "Intermediário",
-  avancado: "Avançado",
-  fluente: "Fluente",
-  nativo: "Nativo",
-};
-
-/**
- * Rótulos dos 7 blocos do currículo (ícone de lápis em cada um,
- * Etapa 2 do UX_REFINEMENT). `label` curto vai no aria-label do lápis;
- * `heading` rico é o título h2 exibido na página (spec dos 7 blocos).
- */
-const BLOCK_LABELS: Array<{
-  index: number;
-  label: string;
-  heading: string;
-}> = [
-  {
-    index: 0,
-    label: "Dados Pessoais",
-    heading: "Dados Pessoais & Apresentação Profissional",
-  },
-  {
-    index: 1,
-    label: "Formação",
-    heading: "Formação Acadêmica Institucional UNICAP",
-  },
-  {
-    index: 2,
-    label: "Links",
-    heading: "Links Profissionais, Portfólio & Lattes",
-  },
-  {
-    index: 3,
-    label: "Competências",
-    heading: "Competências & Tecnologias (Skills)",
-  },
-  {
-    index: 4,
-    label: "Idiomas",
-    heading: "Idiomas & Nível de Proficiência",
-  },
-  {
-    index: 5,
-    label: "Experiências",
-    heading: "Experiências Profissionais e Projetos de Extensão",
-  },
-  {
-    index: 6,
-    label: "Certificações",
-    heading: "Certificações & Atividades Complementares",
-  },
-];
-
-const BLOCO_IDS = [
-  "pessoais",
-  "academico",
-  "links",
-  "competencias",
-  "idiomas",
-  "experiencias",
-  "certificacoes",
-] as const;
 
 /**
  * Currículo Vitae (issue [S2-1] + REFATOR_ALUNO Etapa 2) — os 7 blocos do
@@ -418,6 +360,28 @@ export function ResumeForm() {
     );
   }
 
+  /**
+   * [RECRUITER_VIEW_PROFILE] Os blocos em modo VISUALIZAÇÃO usam o
+   * componente compartilhado `ResumeBlockContent` (o mesmo que renderiza
+   * o currículo somente-leitura da página do candidato) — um único
+   * design de visualização para o portal do aluno e para o recrutador.
+   */
+  const viewData: ResumeBlockData = {
+    course: profile.course,
+    headline,
+    summary,
+    academicHistory,
+    linkedinUrl: profile.linkedinUrl ?? "",
+    portfolioUrl: profile.portfolioUrl ?? "",
+    githubUrl,
+    lattesUrl,
+    skills,
+    languages,
+    experiences,
+    projectsText,
+    certifications,
+  };
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -502,197 +466,11 @@ export function ResumeForm() {
                 </button>
               </div>
 
-              {/* VISUALIZAÇÃO do bloco —idades apenas leitura. */}
+              {/* VISUALIZAÇÃO do bloco — componente compartilhado de
+                  somente leitura (o mesmo usado pela página dedicada
+                  do candidato no portal do recrutador). */}
               {!isEditing ? (
-                <div className="space-y-4">
-                  {block.index === 0 && (
-                    <>
-                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Headline
-                        </span>
-                        <span className="font-medium text-slate-800">
-                          {headline || "—"}
-                        </span>
-                      </p>
-                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Resumo profissional
-                        </span>
-                        <span className="whitespace-pre-wrap font-medium text-slate-800">
-                          {summary || "—"}
-                        </span>
-                      </p>
-                    </>
-                  )}
-
-                  {block.index === 1 && (
-                    <>
-                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Curso
-                        </span>
-                        <span className="font-medium text-slate-800">
-                          {profile.course}
-                        </span>
-                      </p>
-                      {academicHistory.length === 0 ? (
-                        <p className="text-sm text-slate-500">
-                          Nenhum item no histórico acadêmico ainda.
-                        </p>
-                      ) : (
-                        <ul className="flex flex-col gap-2">
-                          {academicHistory.map((entry, index) => (
-                            <li
-                              key={index}
-                              className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                            >
-                              <span className="min-w-0 break-words text-slate-800">
-                                {entry.item}
-                              </span>
-                              <span className="shrink-0 font-mono text-xs text-slate-500">
-                                {entry.year}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </>
-                  )}
-
-                  {block.index === 2 && (
-                    <div className="space-y-2">
-                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          LinkedIn
-                        </span>
-                        <span className="break-all font-medium text-slate-800">
-                          {profile.linkedinUrl || "Não cadastrado"}
-                        </span>
-                      </p>
-                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Portfólio
-                        </span>
-                        <span className="break-all font-medium text-slate-800">
-                          {profile.portfolioUrl || "Não cadastrado"}
-                        </span>
-                      </p>
-                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          GitHub
-                        </span>
-                        <span className="break-all font-medium text-slate-800">
-                          {githubUrl || "Não cadastrado"}
-                        </span>
-                      </p>
-                      <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                        <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          Currículo Lattes
-                        </span>
-                        <span className="break-all font-medium text-slate-800">
-                          {lattesUrl || "Não cadastrado"}
-                        </span>
-                      </p>
-                    </div>
-                  )}
-
-                  {block.index === 3 && (
-                    <div
-                      className="flex flex-wrap gap-2"
-                      aria-label="Competências atuais"
-                    >
-                      {skills.length === 0 ? (
-                        <p className="text-sm text-slate-500">
-                          Nenhuma competência adicionada ainda.
-                        </p>
-                      ) : (
-                        skills.map((skill) => (
-                          <span
-                            key={skill}
-                            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
-                          >
-                            {skill}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                  )}
-
-                  {block.index === 4 && (
-                    <ul className="flex flex-col gap-2">
-                      {languages.length === 0 ? (
-                        <li className="text-sm text-slate-500">
-                          Nenhum idioma cadastrado ainda.
-                        </li>
-                      ) : (
-                        languages.map((language, index) => (
-                          <li
-                            key={index}
-                            className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-                          >
-                            <span>
-                              {language.name} — {LEVEL_LABELS[language.level]}
-                            </span>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  )}
-
-                  {block.index === 5 && (
-                    <div className="space-y-3">
-                      {experiences.map((exp, index) => (
-                        <div
-                          key={index}
-                          className="rounded border border-slate-200 bg-slate-50 px-3 py-3 text-sm"
-                        >
-                          <p className="font-semibold text-slate-800">
-                            {exp.company} — {exp.role}
-                          </p>
-                          <p className="text-xs text-slate-500">{exp.period}</p>
-                          {exp.description ? (
-                            <p className="mt-2 text-xs text-slate-600">
-                              {exp.description}
-                            </p>
-                          ) : null}
-                        </div>
-                      ))}
-                      {projectsText ? (
-                        <div className="rounded border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Projetos de Extensão
-                          </p>
-                          <p className="mt-1 text-xs text-slate-600">
-                            {projectsText}
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
-
-                  {block.index === 6 && (
-                    <div className="space-y-2">
-                      {certifications.length === 0 ? (
-                        <p className="text-sm text-slate-500">
-                          Nenhuma certificação registrada.
-                        </p>
-                      ) : (
-                        certifications.map((item, index) => (
-                          <p
-                            key={index}
-                            className="flex items-center gap-2 text-sm text-slate-700"
-                          >
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 font-mono text-xs text-primary">
-                              {index + 1}
-                            </span>
-                            {item}
-                          </p>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
+                <ResumeBlockContent blockIndex={block.index} data={viewData} />
               ) : (
                 /* EDIÇÃO do bloco — campos no próprio local. */
                 <div className="space-y-4">

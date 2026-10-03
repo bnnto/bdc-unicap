@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { AuthPage } from "./components/auth/AuthPage";
 import { LandingPage } from "./components/landing/LandingPage";
 import { ProfilePage } from "./components/profile/ProfilePage";
-import { navigateTo } from "./lib/router";
+import { navigateTo, parseCandidateProfilePath } from "./lib/router";
 import { useAuthState } from "./components/auth/authContext";
 import { StudentShell } from "./components/student/StudentShell";
 import { TalentSearchPage } from "./components/talent/TalentSearchPage";
 import { JobsPanel } from "./components/recruiter/JobsPanel";
 import { JobKanban } from "./components/recruiter/JobKanban";
+import { CandidateProfilePage } from "./components/recruiter/CandidateProfilePage";
 import { OperationalPanel } from "./components/operational/OperationalPanel";
 import { ManagerDashboard } from "./components/manager/ManagerDashboard";
 import { ROLE_LABELS } from "./lib/roles";
@@ -246,6 +247,21 @@ function AuthGate() {
   }
 
   const isRecruiterSide = role === "recrutador" || role === "gestor";
+
+  // [RECRUITER_VIEW_PROFILE] Rota dedicada `/recrutador/candidato/:id` —
+  // só existe do lado do recrutador/gestor; o shell do aluno ignora a
+  // rota (voltar ao currículo do próprio aluno).
+  const candidateStudentId = isRecruiterSide
+    ? parseCandidateProfilePath(publicPath)
+    : null;
+  if (candidateStudentId !== null) {
+    return (
+      <>
+        <SkipLink />
+        <CandidateProfilePage studentId={candidateStudentId} />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-canvas">

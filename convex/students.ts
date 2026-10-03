@@ -18,6 +18,7 @@ import {
   type LanguageEntry,
 } from "../src/lib/skills";
 import { validateResumeData } from "../src/lib/resume";
+import { contactProjectionForApplication } from "../src/lib/application";
 import {
   canAppearInTalentBank,
   chooseTalentScanPlan,
@@ -494,6 +495,100 @@ export const publicProfile = query({
       portfolioUrl:
         view.email !== undefined ? (student.portfolioUrl ?? null) : null,
       availability: student.availability,
+    };
+  },
+});
+
+/**
+ * [RECRUITER_VIEW_PROFILE] Perfil completo do candidato para a página
+ * dedicada `/recrutador/candidato/:studentId` (spec Etapa 1).
+ *
+ * Guard: recrutador/gestor autenticado com consentimento vigente (R7).
+ *
+ * Regra de acesso (nota de segurança da spec): o recrutador só visualiza
+ * o perfil (incluindo `resumeData`, `skills`, `languages`) se
+ *  (a) o aluno estiver com visibilidade "publico" (Banco de Talentos)
+ *      com vínculo válido R1 (não inativo); OU
+ *  (b) o aluno tiver candidatura em vaga DESTE recrutador (qualquer
+ *      etapa — o card permanece no pipeline, mesmo reprovado).
+ *
+ * Contato (R6) segue o mesmo padrão do Kanban: e-mail/LinkedIn/portfólio
+ * só saem do servidor com autorização geral do aluno ou aceite no
+ * processo (`contactProjectionForApplication`).
+ */
+export const getCandidateProfile = query({
+  args: { studentId: v.id("students") },
+  handler: async (ctx, { studentId }) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (identity === null) throw new Error("Não autenticado.");
+    const user = await getCurrentUser(ctx);
+    if (user === null) throw new Error("Usuário não encontrado.");
+    const consents = await ctx.db
+      .query("consents")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    if (!consents.some((c) => c.termVersion === CURRENT_TERM_VERSION)) {
+      throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
+    }
+    if (user.role !== "recrutador" && user.role !== "gestor") {
+      throw new Error(
+        "Apenas recrutadores e gestores visualizam perfis de candidatos.",
+      );
+    }
+
+    const student = await ctx.db.get(studentId);
+    if (student === null) return null;
+
+    // Candidaturas do aluno em vagas DESTA conta (índice by_student).
+    const rows = await ctx.db
+      .query("applications")
+      .withIndex("by_student", (q) => q.eq("studentId", studentId))
+      .collect();
+    const ownApplications: Array<{
+      application: Doc<"applications">;
+      job: Doc<"jobs">;
+    }> = [];
+    for (const application of rows) {
+      const job = await ctx.db.get(application.jobId);
+      if (job !== null && job.recruiterId === user._id) {
+        ownApplications.push({ application, job });
+      }
+    }
+
+    const isPublic =
+      (student.visibility ?? "somente_candidaturas") === "publico";
+    const canView =
+      ownApplications.length > 0 || (isPublic && student.status !== "inativo");
+    if (!canView) return null;
+
+    // R6 — contato projetado no servidor (mesma regra do Kanban).
+    const owner = await ctx.db.get(student.userId);
+    const contact = contactProjectionForApplication({
+      showContactToRecruiters: student.showContactToRecruiters ?? false,
+      processAccepted: ownApplications.some(
+        (entry) => entry.application.processAccepted ?? false,
+      ),
+      email: owner?.email,
+    });
+    const released = contact.contactReleased;
+
+    return {
+      studentId: student._id,
+      fullName: student.fullName,
+      course: student.course,
+      status: student.status,
+      availability: student.availability,
+      graduationYear: student.graduationYear,
+      semester: student.semester ?? null,
+      location: student.location ?? null,
+      headline: student.resumeData?.headline ?? null,
+      resume: student.resumeData ?? null,
+      skills: student.skills ?? [],
+      languages: student.languages ?? [],
+      contactReleased: released,
+      email: released ? contact.email : undefined,
+      linkedinUrl: released ? (student.linkedinUrl ?? undefined) : undefined,
+      portfolioUrl: released ? (student.portfolioUrl ?? undefined) : undefined,
     };
   },
 });

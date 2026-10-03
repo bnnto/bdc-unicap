@@ -14,6 +14,7 @@ import {
   type TalentSortOption,
 } from "../../lib/talentSearch";
 import { COURSES } from "../../lib/talentBenchmark";
+import { candidateProfilePath, navigateTo } from "../../lib/router";
 
 type SearchArgs = {
   search?: string;
@@ -87,8 +88,9 @@ type SearchResult = {
  *    botão "Limpar" à direita);
  * 2. Duas colunas: sidebar de filtros (Área & Curso, Previsão de Conclusão,
  *    Competências) + conteúdo com dropdown "Ordenar por";
- * 3. Cards em grid de 2 colunas com ações "Visualizar Perfil & CV" e
- *    "Convidar" (a navegação para o perfil completo chega em issue futura);
+ * 3. Cards em grid de 2 colunas com ações "Visualizar Perfil & CV"
+ *    ([RECRUITER_VIEW_PROFILE] abre a página dedicada do candidato) e
+ *    "Convidar";
  * 4. Paginação centralizada no rodapé.
  *
  * R1 (ativo/egresso) e R2 (apenas públicos) permanecem no servidor; a
@@ -629,9 +631,16 @@ export function TalentSearchPage() {
                         </p>
                       ) : null}
 
-                      {/* Rodapé do card com as ações da referência. */}
+                      {/* Rodapé do card com as ações da referência —
+                          [RECRUITER_VIEW_PROFILE] "Visualizar Perfil & CV"
+                          abre a página dedicada (somente leitura). */}
                       <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-                        <Button variant="secondary">
+                        <Button
+                          variant="secondary"
+                          onClick={() =>
+                            navigateTo(candidateProfilePath(talent.studentId))
+                          }
+                        >
                           Visualizar Perfil &amp; CV
                         </Button>
                         <Button variant="primary">Convidar</Button>
