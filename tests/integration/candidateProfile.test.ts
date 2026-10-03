@@ -78,6 +78,7 @@ async function seedWorld(
       name: "Maria da Silva",
       role: "aluno",
       active: true,
+      phone: "81988887777",
     });
     const studentId = await ctx.db.insert("students", {
       userId: studentUserId,
@@ -206,6 +207,9 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
     expect(profile?.languages).toEqual([
       { name: "Inglês", level: "intermediario" },
     ]);
+    // [QUICK_WIN_RECRUITER] matrícula usada pelo template de impressão
+    // ("Matrícula …") do PDF — presente mesmo sem liberação de contato.
+    expect(profile?.enrollment).toBe("1234567");
     expect(profile?.semester).toBe(6);
     expect(profile?.location).toBe("Recife, PE");
   });
@@ -314,6 +318,7 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
       .query(api.students.getCandidateProfile, { studentId });
     expect(semContato?.contactReleased).toBe(false);
     expect(semContato?.email).toBeUndefined();
+    expect(semContato?.phone).toBeUndefined();
     expect(semContato?.linkedinUrl).toBeUndefined();
     expect(semContato?.portfolioUrl).toBeUndefined();
 
@@ -327,6 +332,8 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
       .query(api.students.getCandidateProfile, { studentId });
     expect(comContato?.contactReleased).toBe(true);
     expect(comContato?.email).toBe("aluno@unicap.br");
+    // [QUICK_WIN_RECRUITER] telefone projetado junto do e-mail (R6).
+    expect(comContato?.phone).toBe("81988887777");
     expect(comContato?.linkedinUrl).toBe("https://www.linkedin.com/in/maria");
     expect(comContato?.portfolioUrl).toBe("https://maria.dev");
   });

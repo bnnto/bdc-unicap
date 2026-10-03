@@ -569,12 +569,18 @@ export const getCandidateProfile = query({
         (entry) => entry.application.processAccepted ?? false,
       ),
       email: owner?.email,
+      // [QUICK_WIN_RECRUITER] Telefone/WhatsApp projetado junto do
+      // e-mail — mesmo gate R6, para o botão de copiar da página.
+      phone: owner?.phone,
     });
     const released = contact.contactReleased;
 
     return {
       studentId: student._id,
       fullName: student.fullName,
+      // Matrícula entra no template de impressão ("Matrícula …") —
+      // [QUICK_WIN_RECRUITER] dado acadêmico, não contato (R6).
+      enrollment: student.enrollment,
       course: student.course,
       status: student.status,
       availability: student.availability,
@@ -587,6 +593,7 @@ export const getCandidateProfile = query({
       languages: student.languages ?? [],
       contactReleased: released,
       email: released ? contact.email : undefined,
+      phone: released ? contact.phone : undefined,
       linkedinUrl: released ? (student.linkedinUrl ?? undefined) : undefined,
       portfolioUrl: released ? (student.portfolioUrl ?? undefined) : undefined,
     };
