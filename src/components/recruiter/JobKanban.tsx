@@ -19,6 +19,7 @@ import {
 } from "../../lib/application";
 import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
 import { formatDay } from "../../lib/formatters";
+import { candidateProfilePath, navigateTo } from "../../lib/router";
 
 const MATCH_CHIP: Record<
   ReturnType<typeof matchBand>,
@@ -344,8 +345,9 @@ export function JobKanban() {
           ← Trocar vaga
         </Button>
         <p className="text-xs text-slate-500">
-          Arraste os cards ou use as setas do teclado; para reprovar, escolha o
-          motivo — ele fica registrado para auditoria.
+          Arraste os cards ou use as setas do teclado; clique no nome ou em Ver
+          Perfil para abrir o currículo completo do candidato; para reprovar,
+          escolha o motivo — ele fica registrado para auditoria.
         </p>
       </div>
 
@@ -435,9 +437,19 @@ export function JobKanban() {
                     className="cursor-grab rounded border border-slate-200 bg-white p-3 shadow-level1 focus-visible:ring-2 focus-visible:ring-secondary active:cursor-grabbing"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-semibold text-slate-800">
+                      <button
+                        type="button"
+                        aria-label={`Ver perfil de ${application.fullName}`}
+                        title="Ver currículo completo (somente leitura)"
+                        onClick={() =>
+                          navigateTo(
+                            candidateProfilePath(application.studentId),
+                          )
+                        }
+                        className="rounded text-left text-sm font-semibold text-slate-800 transition-colors hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                      >
                         {application.fullName}
-                      </p>
+                      </button>
                       <Badge
                         variant={MATCH_CHIP[matchBand(application.matchScore)]}
                       >
@@ -551,6 +563,18 @@ export function JobKanban() {
                           Reprovar
                         </Button>
                       ) : null}
+                      {/* [RECRUITER_VIEW_PROFILE] Etapa 3 — acesso à
+                          página dedicada (currículo somente leitura). */}
+                      <Button
+                        variant="secondary"
+                        onClick={() =>
+                          navigateTo(
+                            candidateProfilePath(application.studentId),
+                          )
+                        }
+                      >
+                        Ver Perfil
+                      </Button>
                     </div>
                   </article>
                 );
