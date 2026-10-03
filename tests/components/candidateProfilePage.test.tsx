@@ -12,7 +12,8 @@
  * dos testes do Kanban).
  */
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("convex/react", () => ({
   useQuery: vi.fn(),
@@ -45,6 +46,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useQuery } from "convex/react";
+import { toast } from "sonner";
 import { CandidateProfilePage } from "../../src/components/recruiter/CandidateProfilePage";
 import App from "../../src/App";
 import { AuthStateContext } from "../../src/components/auth/authContext";
@@ -76,6 +78,7 @@ const RESUME = {
 const profileFixture = {
   studentId: "k57abc123",
   fullName: "Maria da Silva",
+  enrollment: "1234567",
   course: "Ciência da Computação",
   status: "ativo",
   availability: "estagio",
@@ -270,5 +273,82 @@ describe("Rota /recrutador/candidato/:studentId (App)", () => {
     expect(
       screen.getByRole("tab", { name: /meu currículo/i }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Quick actions — Baixar PDF + Copiar (QUICK_WIN_RECRUITER)", () => {
+  function setClipboard(value: unknown): void {
+    Object.defineProperty(navigator, "clipboard", {
+      value,
+      configurable: true,
+    });
+  }
+
+  // window.print não é implementado no jsdom — spy próprio (evita
+  // referenciar o método solto em window: regra unbound-method).
+  const printSpy = vi.fn();
+
+  beforeEach(() => {
+    Object.defineProperty(window, "print", {
+      value: printSpy,
+      configurable: true,
+    });
+    setClipboard(undefined);
+  });
+
+  afterEach(() => {
+    document.getElementById("unicap-resume-print-root")?.remove();
+    document.getElementById("unicap-resume-print-style")?.remove();
+    setClipboard(undefined);
+  });
+
+  it("'Baixar Currículo em PDF' reusa a lógica de impressão do aluno (@media print)", () => {
+    mockProfileQuery(profileFixture);
+    render(<CandidateProfilePage studentId="k57abc123" />);
+
+    const baixar = screen.getByRole("button", {
+      name: /baixar currículo em pdf/i,
+    });
+    fireEvent.click(baixar);
+
+    // Mesma lógica do Portal do Aluno: template + window.print().
+    expect(printSpy).toHaveBeenCalled();
+    const root = document.getElementById("unicap-resume-print-root");
+    expect(root).not.toBeNull();
+    expect(root?.textContent).toContain("Maria da Silva");
+    expect(root?.textContent).toContain("Matrícula 1234567");
+    expect(document.getElementById("unicap-resume-print-style")).not.toBeNull();
+  });
+
+  it("ícones de Copiar ao lado do E-mail e Telefone copiam com 1 clique e avisam via Toast", async () => {
+    mockProfileQuery({
+      ...profileFixture,
+      contactReleased: true,
+      email: "aluno@unicap.br",
+      phone: "81988887777",
+      linkedinUrl: "https://www.linkedin.com/in/maria",
+      portfolioUrl: "https://maria.dev",
+    });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    setClipboard({ writeText });
+    render(<CandidateProfilePage studentId="k57abc123" />);
+
+    // Dados Pessoais: e-mail e telefone aparecem para o recrutador.
+    expect(
+      screen.getByRole("link", { name: /aluno@unicap\.br/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("81988887777")).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /copiar e-mail/i }),
+    );
+    expect(writeText).toHaveBeenCalledWith("aluno@unicap.br");
+    expect(toast.success).toHaveBeenCalledWith("E-mail copiado!");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /copiar telefone/i }),
+    );
+    expect(writeText).toHaveBeenCalledWith("81988887777");
+    expect(toast.success).toHaveBeenCalledWith("Telefone copiado!");
   });
 });

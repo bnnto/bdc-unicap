@@ -12,11 +12,23 @@
  *    AuthGate — o estado da aberta sobrevive à navegação).
  *  - Contato (R6) só aparece quando o servidor liberou; caso contrário a
  *    página explica a omissão em vez de exibir valores reservados.
+ *  - [QUICK_WIN_RECRUITER] Ações rápidas: "Baixar Currículo em PDF"
+ *    reusa a MESMA lógica de impressão do Portal do Aluno
+ *    (`printResumeDocument` + `@media print`) e ícones de copiar ao
+ *    lado do E-mail/Telefone colocam o contato na área de transferência
+ *    com 1 clique (Toast de confirmação).
  */
 import { useQuery } from "convex/react";
+import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
+import { copyTextToClipboard } from "../../lib/clipboard";
 import { navigateTo } from "../../lib/router";
+import {
+  buildResumeDocument,
+  buildResumeMarkup,
+} from "../../lib/resumeDocument";
+import { printResumeDocument } from "../../lib/resumePrint";
 import type { Availability } from "../../lib/studentProfile";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -34,6 +46,39 @@ const STATUS_LABELS = {
   egresso: "Egresso",
   inativo: "Inativo",
 } as const;
+
+/** [QUICK_WIN_RECRUITER] Ícone de copiar (1 clique + Toast). */
+function CopyIconButton({
+  ariaLabel,
+  onClick,
+}: {
+  ariaLabel: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      title={ariaLabel}
+      onClick={onClick}
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-slate-500 transition-colors hover:bg-primary hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+    >
+      <svg
+        className="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="9" y="9" width="13" height="13" rx="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </svg>
+    </button>
+  );
+}
 
 /** Card de dado acadêmico (mesma estética `bg-slate-50` do currículo). */
 function MetaCard({ label, value }: { label: string; value: string }) {
@@ -90,6 +135,53 @@ export function CandidateProfilePage({ studentId }: { studentId: string }) {
     contactBlocked: profile?.contactReleased !== true,
   };
 
+  /**
+   * [QUICK_WIN_RECRUITER] Mesmo template do Portal do Aluno: documento
+   * puro (`buildResumeDocument`) + markup imprimível; o botão do
+   * cabeçalho dispara `printResumeDocument` → `window.print()` com o
+   * `@media print` do aluno — só o currículo limpo vai pro PDF, os
+   * botões/navegação desta tela ficam ocultos na impressão.
+   */
+  const doc =
+    profile !== undefined && profile !== null
+      ? buildResumeDocument({
+          student: {
+            fullName: profile.fullName,
+            enrollment: profile.enrollment,
+            course: profile.course,
+            status: profile.status,
+            graduationYear: profile.graduationYear,
+            semester: profile.semester,
+            location: profile.location,
+            linkedinUrl: profile.linkedinUrl ?? null,
+            portfolioUrl: profile.portfolioUrl ?? null,
+            availability: profile.availability,
+            skills: profile.skills,
+            languages: profile.languages.map((language) => ({
+              name: language.name,
+              level: language.level,
+            })),
+          },
+          resume: profile.resume,
+        })
+      : null;
+  const printMarkup = doc !== null && doc.ok ? buildResumeMarkup(doc) : null;
+
+  function baixarCurriculoPdf(): void {
+    if (printMarkup === null) return;
+    printResumeDocument(printMarkup);
+  }
+
+  /** [QUICK_WIN_RECRUITER] Copia em 1 clique e avisa via Toast. */
+  async function copiarDado(valor: string, rotulo: string): Promise<void> {
+    const ok = await copyTextToClipboard(valor);
+    if (ok) {
+      toast.success(`${rotulo} copiado!`);
+    } else {
+      toast.error(`Não foi possível copiar ${rotulo}.`);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-canvas pb-12">
       {/* Barra superior: identidade do portal + Voltar proeminente. */}
@@ -109,9 +201,23 @@ export function CandidateProfilePage({ studentId }: { studentId: string }) {
               <p className="text-xs text-slate-500">Perfil do candidato</p>
             </div>
           </div>
-          <Button variant="primary" onClick={voltarAoKanban}>
-            ← Voltar ao Kanban
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={baixarCurriculoPdf}
+              disabled={printMarkup === null}
+              title={
+                printMarkup === null
+                  ? "Este candidato ainda não preencheu o currículo."
+                  : undefined
+              }
+            >
+              Baixar Currículo em PDF
+            </Button>
+            <Button variant="primary" onClick={voltarAoKanban}>
+              ← Voltar ao Kanban
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -192,39 +298,78 @@ export function CandidateProfilePage({ studentId }: { studentId: string }) {
                 />
               </div>
 
-              {/* Contato (R6) — projetado pelo servidor. */}
+              {/* Dados Pessoais (R6) — projetado pelo servidor; os
+                  ícones de copiar entregam o contato em 1 clique. */}
               {profile.contactReleased ? (
-                <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 text-sm">
-                  {profile.email !== undefined && profile.email !== "" ? (
-                    <a
-                      href={`mailto:${profile.email}`}
-                      className="font-semibold text-primary hover:underline"
-                    >
-                      {profile.email}
-                    </a>
-                  ) : null}
-                  {profile.linkedinUrl !== undefined &&
-                  profile.linkedinUrl !== "" ? (
-                    <a
-                      href={profile.linkedinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-primary hover:underline"
-                    >
-                      LinkedIn
-                    </a>
-                  ) : null}
-                  {profile.portfolioUrl !== undefined &&
-                  profile.portfolioUrl !== "" ? (
-                    <a
-                      href={profile.portfolioUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-primary hover:underline"
-                    >
-                      Portfólio
-                    </a>
-                  ) : null}
+                <div className="mt-4 border-t border-slate-100 pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Dados Pessoais — contato
+                  </p>
+                  <ul className="mt-2 flex flex-col gap-2 text-sm">
+                    {profile.email !== undefined && profile.email !== "" ? (
+                      <li className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2">
+                        <span className="min-w-0 break-all">
+                          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            E-mail
+                          </span>
+                          <a
+                            href={`mailto:${profile.email}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {profile.email}
+                          </a>
+                        </span>
+                        <CopyIconButton
+                          ariaLabel="Copiar e-mail"
+                          onClick={() =>
+                            void copiarDado(profile.email ?? "", "E-mail")
+                          }
+                        />
+                      </li>
+                    ) : null}
+                    {profile.phone !== undefined && profile.phone !== "" ? (
+                      <li className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2">
+                        <span className="min-w-0 break-all">
+                          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Telefone/WhatsApp
+                          </span>
+                          <span className="font-medium text-slate-800">
+                            {profile.phone}
+                          </span>
+                        </span>
+                        <CopyIconButton
+                          ariaLabel="Copiar telefone"
+                          onClick={() =>
+                            void copiarDado(profile.phone ?? "", "Telefone")
+                          }
+                        />
+                      </li>
+                    ) : null}
+                  </ul>
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                    {profile.linkedinUrl !== undefined &&
+                    profile.linkedinUrl !== "" ? (
+                      <a
+                        href={profile.linkedinUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-primary hover:underline"
+                      >
+                        LinkedIn
+                      </a>
+                    ) : null}
+                    {profile.portfolioUrl !== undefined &&
+                    profile.portfolioUrl !== "" ? (
+                      <a
+                        href={profile.portfolioUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-primary hover:underline"
+                      >
+                        Portfólio
+                      </a>
+                    ) : null}
+                  </div>
                 </div>
               ) : (
                 <p className="mt-4 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
