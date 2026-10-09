@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 import { AuthPage } from "./components/auth/AuthPage";
+import { ResetPasswordPage } from "./components/auth/ResetPasswordPage";
 import { LandingPage } from "./components/landing/LandingPage";
 import { ProfilePage } from "./components/profile/ProfilePage";
-import { navigateTo, parseCandidateProfilePath } from "./lib/router";
+import {
+  isPasswordResetPath,
+  navigateTo,
+  parseCandidateProfilePath,
+} from "./lib/router";
 import { useAuthState } from "./components/auth/authContext";
 import { StudentShell } from "./components/student/StudentShell";
 import { TalentSearchPage } from "./components/talent/TalentSearchPage";
@@ -202,6 +207,18 @@ function AuthGate() {
       >
         <p className="text-sm text-slate-500">Carregando…</p>
       </div>
+    );
+  }
+
+  // [ONBOARDING_RECOVERY] Rota pública de recuperação de senha: funciona
+  // com ou sem sessão (o link do e-mail abre direto, sem passar pelo login).
+  if (isPasswordResetPath(publicPath)) {
+    // ResetPasswordPage é dona do próprio landmark main (#conteudo).
+    return (
+      <>
+        <SkipLink />
+        <ResetPasswordPage />
+      </>
     );
   }
 

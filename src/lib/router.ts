@@ -1,3 +1,5 @@
+import { PASSWORD_RESET_PATH } from "./passwordReset";
+
 /**
  * [PERFIL_E_LGPD] Navegação SPA sem router: o AuthGate do App observa a
  * rota pública via `popstate`. `navigateTo` troca a URL com History API
@@ -9,6 +11,18 @@ export function navigateTo(path: string): void {
   if (window.location.pathname === path) return;
   window.history.pushState({}, "", path);
   window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+/**
+ * [ONBOARDING_RECOVERY] Rota pública de recuperação de senha — a fonte
+ * única do caminho é `PASSWORD_RESET_PATH` (lib/passwordReset), a mesma
+ * usada no link do e-mail; aqui fica só o predicado de rota do AuthGate.
+ */
+export function isPasswordResetPath(pathname: string): boolean {
+  return (
+    pathname === PASSWORD_RESET_PATH ||
+    pathname.startsWith(`${PASSWORD_RESET_PATH}/`)
+  );
 }
 
 /**
