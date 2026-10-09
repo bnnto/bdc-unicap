@@ -2,6 +2,8 @@ import { useId, useState, type FormEvent } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { toast } from "sonner";
 import { friendlyErrorMessage } from "../../lib/toastMessages";
+import { navigateTo } from "../../lib/router";
+import { PASSWORD_RESET_PATH } from "../../lib/passwordReset";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { RoleSelect } from "./RoleSelect";
@@ -193,6 +195,19 @@ export function AuthPage() {
                   ? "Entrar"
                   : "Criar conta"}
             </Button>
+
+            {/* [ONBOARDING_RECOVERY] Recuperação de senha junto do login. */}
+            {mode === "signIn" ? (
+              <p className="text-center text-sm">
+                <button
+                  type="button"
+                  onClick={() => navigateTo(PASSWORD_RESET_PATH)}
+                  className="font-semibold text-primary underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  Esqueci minha senha
+                </button>
+              </p>
+            ) : null}
           </form>
         </div>
 

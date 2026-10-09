@@ -16,7 +16,14 @@ import {
   validateResumeData,
   type AcademicEntry,
 } from "../../lib/resume";
-import { isValidUrl } from "../../lib/studentProfile";
+import {
+  AVAILABILITY,
+  ENROLLMENT_STATUS,
+  isValidUrl,
+  validateStudentProfile,
+  type Availability,
+  type EnrollmentStatus,
+} from "../../lib/studentProfile";
 import {
   LANGUAGE_LEVELS,
   MAX_LANGUAGES,
@@ -33,6 +40,19 @@ import {
   LEVEL_LABELS,
   type ResumeBlockData,
 } from "./resumeBlocks";
+
+const STATUS_LABELS: Record<EnrollmentStatus, string> = {
+  ativo: "Aluno ativo",
+  egresso: "Egresso (formado)",
+  inativo: "Inativo",
+};
+
+const AVAILABILITY_LABELS: Record<Availability, string> = {
+  estagio: "Estágio",
+  integral: "Integral",
+  meio_periodo: "Meio período",
+  freelancer: "Freelancer",
+};
 
 type ExperienceDraft = {
   company: string;
@@ -74,12 +94,21 @@ const EMPTY_ACADEMIC: AcademicDraft = { item: "", year: "" };
  *
  * Persistência via `students.saveResumeData` e
  * `students.saveSkillsAndLanguages` (R7).
+ *
+ * [ONBOARDING_RECOVERY] Etapa 1 — fim do beco sem saída das contas novas:
+ * sem perfil, o Bloco 1 ("Dados Pessoais & Apresentação") NASCE ABERTO e
+ * grava via `students.upsertProfile` (upsert: cria o registro ou atualiza).
+ * Nada manda o utilizador para o antigo "Meu Perfil" e nenhum bloco é
+ * bloqueado — os demais orientam para o Bloco 1 enquanto o perfil não
+ * existe. A apresentação (headline/resumo) só é exigida quando já há
+ * currículo salvo, então a conta nova salva de primeira, sem erros.
  */
 export function ResumeForm() {
   const profile: Doc<"students"> | null | undefined = useQuery(
     api.students.myProfile,
     {},
   );
+  const upsertProfile = useMutation(api.students.upsertProfile);
   const saveResume = useMutation(api.students.saveResumeData);
   const saveSkills = useMutation(api.students.saveSkillsAndLanguages);
   const saveContactLinks = useMutation(api.students.saveContactLinks);
@@ -100,6 +129,16 @@ export function ResumeForm() {
   const [languages, setLanguages] = useState<LanguageEntry[]>([]);
   const [projectsText, setProjectsText] = useState("");
   const [certifications, setCertifications] = useState<string[]>([]);
+
+  // [ONBOARDING_RECOVERY] Dados pessoais do Bloco 1 (upsert do perfil).
+  const [fullName, setFullName] = useState("");
+  const [enrollment, setEnrollment] = useState("");
+  const [status, setStatus] = useState<EnrollmentStatus>("ativo");
+  const [course, setCourse] = useState("");
+  const [graduationYear, setGraduationYear] = useState("");
+  const [semester, setSemester] = useState("");
+  const [location, setLocation] = useState("");
+  const [availability, setAvailability] = useState<Availability>("estagio");
 
   // Estados de controle do modo inline.
   const [errors, setErrors] = useState<string[]>([]);
@@ -136,6 +175,30 @@ export function ResumeForm() {
       setPortfolioUrl(profile.portfolioUrl ?? "");
       setSkills(profile.skills ?? []);
       setLanguages(profile.languages ?? []);
+      // [ONBOARDING_RECOVERY] dados pessoais do Bloco 1 (upsert idempotente).
+      setFullName(profile.fullName);
+      setEnrollment(profile.enrollment);
+      setStatus(profile.status);
+      setCourse(profile.course);
+      setGraduationYear(String(profile.graduationYear));
+      setSemester(
+        profile.semester !== undefined && profile.semester !== null
+          ? String(profile.semester)
+          : "",
+      );
+      setLocation(profile.location ?? "");
+      setAvailability(profile.availability);
+    }
+  }, [profile]);
+
+  /**
+   * [ONBOARDING_RECOVERY] Conta nova (perfil ainda sem registro): o Bloco 1
+   * nasce em modo de EDIÇÃO, com os dados pessoais prontos para preencher.
+   * Só abre uma vez — cancelar enquanto o perfil continua nulo não reabre.
+   */
+  useEffect(() => {
+    if (profile === null) {
+      setEditingBlock((current) => current ?? 0);
     }
   }, [profile]);
 
@@ -190,7 +253,15 @@ export function ResumeForm() {
     );
   }
 
-  /** Validação e persistência compartilhados por "Salvar" de bloco e submit. */
+  /**
+   * Validação e persistência compartilhados por "Salvar" de bloco e submit.
+   *
+   * [ONBOARDING_RECOVERY] O Bloco 1 valida os dados pessoais com a mesma
+   * regra pura do servidor e grava via `students.upsertProfile` (UPsert —
+   * cria o perfil da conta nova ou atualiza o existente). A apresentação
+   * (headline/resumo) só é exigida quando já existe currículo salvo, para
+   * a conta nova salvar de primeira, sem bloqueios.
+   */
   async function persist(): Promise<void> {
     // Histórico: ano vazio ou inválido vira erro de formulário antes do
     // servidor (mensagens claras, CA 2).
@@ -211,18 +282,52 @@ export function ResumeForm() {
       return;
     }
 
-    const validation = validateResumeData({
-      headline,
-      summary,
-      experiences,
-      academicHistory: academic,
-      links: { github: githubUrl, lattes: lattesUrl },
-      projectsText,
-      certifications,
-    });
-    if (!validation.ok) {
-      setErrors(validation.errors);
-      return;
+    // [ONBOARDING_RECOVERY] Dados pessoais do Bloco 1 (regra pura unificada).
+    let profileCheck: ReturnType<typeof validateStudentProfile> | null = null;
+    if (editingBlock === 0) {
+      const semesterRaw = semester.trim();
+      const semesterValue =
+        semesterRaw.length > 0 ? Number.parseInt(semesterRaw, 10) : undefined;
+      if (semesterRaw.length > 0 && !Number.isFinite(semesterValue)) {
+        setErrors(["Semestre deve ser um número."]);
+        return;
+      }
+      profileCheck = validateStudentProfile({
+        fullName,
+        enrollment,
+        status,
+        course,
+        graduationYear: Number.parseInt(graduationYear, 10),
+        semester: semesterValue,
+        location,
+        availability,
+      });
+      if (!profileCheck.ok) {
+        setErrors(profileCheck.errors);
+        return;
+      }
+    }
+
+    // Apresentação: exigida se já houver CV salvo; opcional na criação do
+    // perfil (conta nova preenche só os dados pessoais e já sai salva).
+    const hasPresentation =
+      headline.trim().length > 0 || summary.trim().length > 0;
+    const mustSaveResume = hasPresentation || profile?.resumeData !== undefined;
+    let validation: ReturnType<typeof validateResumeData> | null = null;
+    if (mustSaveResume) {
+      validation = validateResumeData({
+        headline,
+        summary,
+        experiences,
+        academicHistory: academic,
+        links: { github: githubUrl, lattes: lattesUrl },
+        projectsText,
+        certifications,
+      });
+      if (!validation.ok) {
+        setErrors(validation.errors);
+        return;
+      }
     }
 
     // [FINAL_UPGRADE Etapa 1.3] — URLs do Bloco 3 validadas antes do
@@ -243,8 +348,23 @@ export function ResumeForm() {
 
     setPending(true);
     try {
-      await saveResume(validation.normalized);
-      await saveSkills({ skills, languages });
+      let createdProfile = false;
+      // [ONBOARDING_RECOVERY] Bloco 1 → UPsert do perfil (cria ou atualiza)
+      // junto de skills/idiomas — mesma mutation do cadastro, sem etapa extra.
+      if (editingBlock === 0 && profileCheck !== null && profileCheck.ok) {
+        const result = await upsertProfile({
+          ...profileCheck.normalized,
+          skills,
+          languages,
+        });
+        createdProfile = result.created;
+      }
+      if (validation !== null && validation.ok) {
+        await saveResume(validation.normalized);
+      }
+      if (editingBlock !== 0) {
+        await saveSkills({ skills, languages });
+      }
       // [FINAL_UPGRADE Etapa 1.3] — links do perfil salvos ao editar o
       // Bloco 3 (mesma regra https validada no servidor também).
       if (editingBlock === 2) {
@@ -256,7 +376,11 @@ export function ResumeForm() {
       // Sucesso: o bloco volta à visualização (Etapa 2 — inline edit).
       setEditingBlock(null);
       setErrors([]);
-      toast.success("Currículo salvo com sucesso.");
+      toast.success(
+        createdProfile
+          ? "Perfil criado com sucesso. Continue preenchendo o currículo."
+          : "Currículo salvo com sucesso.",
+      );
     } catch (err) {
       // [UX_REFINEMENT] erro de servidor vira Toast amigável, nunca um
       // bloco cru no formulário.
@@ -267,6 +391,18 @@ export function ResumeForm() {
   }
 
   function startEdit(block: number): void {
+    // [ONBOARDING_RECOVERY] Sem perfil, os demais blocos dependem do Bloco 1:
+    // em vez de erro do servidor ("perfil não encontrado"), o próprio
+    // formulário abre o Bloco 1 — o utilizador nunca sai da página.
+    if (profile === null && block !== 0) {
+      toast.info(
+        "Preencha seus dados pessoais no Bloco 1 para liberar os demais blocos.",
+      );
+      resetToProfile();
+      setErrors([]);
+      setEditingBlock(0);
+      return;
+    }
     // Se outro bloco estava sendo editado, o rascunho é descartado.
     if (editingBlock !== null && editingBlock !== block) {
       resetToProfile();
@@ -331,6 +467,23 @@ export function ResumeForm() {
     setPortfolioUrl(profile?.portfolioUrl ?? "");
     setSkills(profile?.skills ?? []);
     setLanguages(profile?.languages ?? []);
+    // [ONBOARDING_RECOVERY] dados pessoais voltam ao estado salvo.
+    setFullName(profile?.fullName ?? "");
+    setEnrollment(profile?.enrollment ?? "");
+    setStatus(profile?.status ?? "ativo");
+    setCourse(profile?.course ?? "");
+    setGraduationYear(
+      profile?.graduationYear !== undefined
+        ? String(profile.graduationYear)
+        : "",
+    );
+    setSemester(
+      profile?.semester !== undefined && profile?.semester !== null
+        ? String(profile.semester)
+        : "",
+    );
+    setLocation(profile?.location ?? "");
+    setAvailability(profile?.availability ?? "estagio");
     setErrors([]);
   }
 
@@ -352,14 +505,6 @@ export function ResumeForm() {
     );
   }
 
-  if (profile === null) {
-    return (
-      <p className="text-sm text-slate-600">
-        Complete o cadastro do perfil antes de preencher o currículo.
-      </p>
-    );
-  }
-
   /**
    * [RECRUITER_VIEW_PROFILE] Os blocos em modo VISUALIZAÇÃO usam o
    * componente compartilhado `ResumeBlockContent` (o mesmo que renderiza
@@ -367,12 +512,12 @@ export function ResumeForm() {
    * design de visualização para o portal do aluno e para o recrutador.
    */
   const viewData: ResumeBlockData = {
-    course: profile.course,
+    course: profile?.course ?? "",
     headline,
     summary,
     academicHistory,
-    linkedinUrl: profile.linkedinUrl ?? "",
-    portfolioUrl: profile.portfolioUrl ?? "",
+    linkedinUrl: profile?.linkedinUrl ?? "",
+    portfolioUrl: profile?.portfolioUrl ?? "",
     githubUrl,
     lattesUrl,
     skills,
@@ -415,7 +560,7 @@ export function ResumeForm() {
                   ) : null}
                   <p className="mt-0.5 text-xs text-slate-500">
                     {block.index === 0
-                      ? "Dados do cadastro (somente leitura) e sua apresentação profissional"
+                      ? "Seus dados pessoais (salvos aqui mesmo — criam ou atualizam o perfil) e sua apresentação profissional"
                       : block.index === 1
                         ? "Dados acadêmicos do cadastro e seu histórico"
                         : block.index === 2
@@ -476,6 +621,110 @@ export function ResumeForm() {
                 <div className="space-y-4">
                   {block.index === 0 && (
                     <>
+                      {/* [ONBOARDING_RECOVERY] Dados pessoais editáveis no
+                          Bloco 1: a conta nova cria o perfil por aqui (upsert)
+                          — sem passar por nenhuma outra tela. */}
+                      <fieldset className="flex flex-col gap-3">
+                        <legend className="text-sm font-semibold text-slate-700">
+                          Dados pessoais
+                        </legend>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Input
+                            label="Nome completo"
+                            required
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            autoComplete="name"
+                          />
+                          <Input
+                            label="Matrícula"
+                            required
+                            inputMode="numeric"
+                            value={enrollment}
+                            onChange={(e) => setEnrollment(e.target.value)}
+                            hint="6 a 12 dígitos"
+                          />
+                          <Input
+                            label="Curso"
+                            required
+                            value={course}
+                            onChange={(e) => setCourse(e.target.value)}
+                          />
+                          <Input
+                            label="Ano de formação"
+                            required
+                            inputMode="numeric"
+                            value={graduationYear}
+                            onChange={(e) => setGraduationYear(e.target.value)}
+                          />
+                          <Input
+                            label="Semestre atual (opcional)"
+                            inputMode="numeric"
+                            value={semester}
+                            onChange={(e) => setSemester(e.target.value)}
+                          />
+                          <Input
+                            label="Cidade/UF (opcional)"
+                            value={location}
+                            onChange={(e) => setLocation(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <p className="text-sm font-semibold text-slate-700">
+                            Status de vínculo
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {ENROLLMENT_STATUS.map((entry) => (
+                              <label
+                                key={entry}
+                                className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                                  status === entry
+                                    ? "border-primary bg-[#FDF2F4] font-semibold text-primary"
+                                    : "border-slate-300 bg-white text-slate-700 hover:border-primary"
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="resume-status"
+                                  value={entry}
+                                  checked={status === entry}
+                                  onChange={() => setStatus(entry)}
+                                  className="accent-primary"
+                                />
+                                {STATUS_LABELS[entry]}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <p className="text-sm font-semibold text-slate-700">
+                            Disponibilidade
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {AVAILABILITY.map((entry) => (
+                              <label
+                                key={entry}
+                                className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
+                                  availability === entry
+                                    ? "border-primary bg-[#FDF2F4] font-semibold text-primary"
+                                    : "border-slate-300 bg-white text-slate-700 hover:border-primary"
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="resume-availability"
+                                  value={entry}
+                                  checked={availability === entry}
+                                  onChange={() => setAvailability(entry)}
+                                  className="accent-primary"
+                                />
+                                {AVAILABILITY_LABELS[entry]}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </fieldset>
+
                       <Input
                         label="Headline"
                         required

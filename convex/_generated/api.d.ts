@@ -24,6 +24,7 @@ import type * as lib_currentUser from "../lib/currentUser.js";
 import type * as manager from "../manager.js";
 import type * as operational from "../operational.js";
 import type * as password from "../password.js";
+import type * as passwordResets from "../passwordResets.js";
 import type * as students from "../students.js";
 import type * as users from "../users.js";
 
@@ -50,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   manager: typeof manager;
   operational: typeof operational;
   password: typeof password;
+  passwordResets: typeof passwordResets;
   students: typeof students;
   users: typeof users;
 }>;

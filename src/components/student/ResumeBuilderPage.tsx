@@ -94,8 +94,11 @@ export function ResumeBuilderPage() {
                   Carregando perfil…
                 </p>
               ) : profile === null ? (
+                /* [ONBOARDING_RECOVERY] conta nova: sem beco sem saída — o
+                   próprio Bloco 1 do currículo cria o perfil (upsert). */
                 <p className="mt-3 text-sm text-slate-600">
-                  Complete o cadastro do perfil no menu “Meu Perfil”.
+                  Perfil novo: preencha o Bloco 1 (Dados Pessoais) abaixo e
+                  salve — seus dados ficam por aqui, direto no currículo.
                 </p>
               ) : (
                 <>

@@ -76,7 +76,7 @@ export function ResumeDownload() {
       <p className="text-sm text-slate-600">
         {reason === "curriculo_inexistente"
           ? "Salve o currículo no formulário acima antes de gerar o PDF."
-          : "Complete o cadastro do perfil antes de gerar o currículo."}
+          : "Preencha o Bloco 1 (Dados Pessoais) e salve para gerar o PDF do seu currículo."}
       </p>
     );
   }

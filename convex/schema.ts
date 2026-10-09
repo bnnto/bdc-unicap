@@ -181,6 +181,22 @@ export default defineSchema({
     .index("by_status_availability", ["status", "availability"]),
 
   /**
+   * [ONBOARDING_RECOVERY] Pedidos de recuperação de senha ("Esqueci minha
+   * senha"). Um token aleatório de 256 bits por pedido, com validade de 30
+   * minutos (`expiresAt`); o registo é APAGADO quando o token é usado
+   * (uso único) e um novo pedido invalida os anteriores. A nova senha
+   * HASHADA fica só em `authAccounts` — nunca aqui.
+   */
+  passwordResets: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    token: v.string(),
+    expiresAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_user", ["userId"]),
+
+  /**
    * Vagas publicadas por recrutadores (issue [S3-1]).
    * Pré-requisitos com flag `required` — base para R3 (matching) e R8
    * (explicação dos critérios nas próximas issues). `status` controla o
