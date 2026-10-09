@@ -44,7 +44,7 @@ export function Input({
             .filter((x) => x !== null)
             .join(" ") || undefined
         }
-        className={`rounded border bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ${
+        className={`rounded-md border bg-white px-3 py-2 text-slate-900 transition-all duration-200 ease-in-out placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 ${
           error ? "border-danger" : "border-slate-300"
         }`}
         {...rest}

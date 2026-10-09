@@ -318,10 +318,19 @@ describe("emails.sendPasswordResetEmail — transporte", () => {
     const body = JSON.parse(init.body as string) as {
       to: string[];
       text: string;
+      html: string;
+      from: string;
     };
     expect(body.to).toEqual([EMAIL]);
     expect(body.text).toContain(
       `${APP_URL}/recuperar-senha?token=${row.token}`,
     );
+    // [UI_OVERHAUL] O payload leva o template HTML com identidade UNICAP
+    // e um remetente configurado (não-genérico).
+    expect(body.html).toContain("#6B1426");
+    expect(body.html).toContain(
+      `${APP_URL}/recuperar-senha?token=${row.token}`,
+    );
+    expect(body.from).toMatch(/UNICAP/i);
   });
 });

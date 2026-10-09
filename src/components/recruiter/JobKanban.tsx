@@ -20,6 +20,17 @@ import {
 import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
 import { formatDay } from "../../lib/formatters";
 import { candidateProfilePath, navigateTo } from "../../lib/router";
+import { ArrowLeft, ArrowRight, Briefcase, Inbox, Target } from "lucide-react";
+import { EmptyState } from "../ui/emptyState";
+
+/** [UI_OVERHAUL] Iniciais do candidato para o avatar circular do card. */
+function initialsOf(name: string): string {
+  const parts = name.split(" ").filter((part) => part.length > 0);
+  if (parts.length === 0) return "?";
+  const first = parts[0]!.charAt(0);
+  const last = parts.length > 1 ? parts[parts.length - 1]!.charAt(0) : "";
+  return (first + last).toUpperCase();
+}
 
 const MATCH_CHIP: Record<
   ReturnType<typeof matchBand>,
@@ -289,9 +300,11 @@ export function JobKanban() {
   if (jobs.length === 0) {
     return (
       <Card title="Pipeline de candidaturas" accent="primary">
-        <p className="text-sm text-slate-600">
-          Publique uma vaga para acompanhar o pipeline de candidaturas.
-        </p>
+        <EmptyState
+          icon={Briefcase}
+          title="Nenhuma vaga publicada"
+          description="Publique uma vaga para começar a acompanhar o pipeline de candidaturas em tempo real."
+        />
       </Card>
     );
   }
@@ -309,6 +322,7 @@ export function JobKanban() {
                 variant="secondary"
                 onClick={() => setSelectedJobId(String(job._id))}
               >
+                <Briefcase className="h-4 w-4" aria-hidden="true" />
                 {job.title}
               </Button>
             </li>
@@ -341,9 +355,16 @@ export function JobKanban() {
   return (
     <Card title={`Pipeline — ${selectedJobTitle}`} accent="primary">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <Button variant="secondary" onClick={() => setSelectedJobId(null)}>
-          ← Trocar vaga
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" onClick={() => setSelectedJobId(null)}>
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            Trocar vaga
+          </Button>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-[#FDF2F4] px-3 py-1 text-xs font-semibold text-primary">
+            <Briefcase className="h-3.5 w-3.5" aria-hidden="true" />
+            {selectedJobTitle}
+          </span>
+        </div>
         <p className="text-xs text-slate-500">
           Arraste os cards ou use as setas do teclado; clique no nome ou em Ver
           Perfil para abrir o currículo completo do candidato; para reprovar,
@@ -392,7 +413,13 @@ export function JobKanban() {
               </h3>
 
               {grouped[stage].length === 0 ? (
-                <p className="text-xs text-a11y-slate-500">Sem cards</p>
+                <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-slate-300/80 px-2 py-6 text-center">
+                  <Inbox
+                    className="h-5 w-5 text-slate-300"
+                    aria-hidden="true"
+                  />
+                  <p className="text-xs text-a11y-slate-500">Sem cards</p>
+                </div>
               ) : null}
 
               {grouped[stage].map((application) => {
@@ -434,25 +461,34 @@ export function JobKanban() {
                         void handleMove(application.applicationId, nextStage);
                       }
                     }}
-                    className="cursor-grab rounded border border-slate-200 bg-white p-3 shadow-level1 focus-visible:ring-2 focus-visible:ring-secondary active:cursor-grabbing"
+                    className="cursor-grab rounded-lg border border-slate-200 bg-white p-3 shadow-level1 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-level2 focus-visible:ring-2 focus-visible:ring-secondary active:cursor-grabbing"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <button
-                        type="button"
-                        aria-label={`Ver perfil de ${application.fullName}`}
-                        title="Ver currículo completo (somente leitura)"
-                        onClick={() =>
-                          navigateTo(
-                            candidateProfilePath(application.studentId),
-                          )
-                        }
-                        className="rounded text-left text-sm font-semibold text-slate-800 transition-colors hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
-                      >
-                        {application.fullName}
-                      </button>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          aria-hidden="true"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary ring-1 ring-primary/20"
+                        >
+                          {initialsOf(application.fullName)}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={`Ver perfil de ${application.fullName}`}
+                          title="Ver currículo completo (somente leitura)"
+                          onClick={() =>
+                            navigateTo(
+                              candidateProfilePath(application.studentId),
+                            )
+                          }
+                          className="truncate rounded text-left text-sm font-semibold text-slate-800 transition-colors hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
+                        >
+                          {application.fullName}
+                        </button>
+                      </div>
                       <Badge
                         variant={MATCH_CHIP[matchBand(application.matchScore)]}
                       >
+                        <Target className="h-3 w-3" aria-hidden="true" />
                         {application.matchScore}%
                       </Badge>
                     </div>
@@ -530,7 +566,7 @@ export function JobKanban() {
                             )
                           }
                         >
-                          ←
+                          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                         </Button>
                       ) : null}
                       {nextStage !== null ? (
@@ -544,7 +580,7 @@ export function JobKanban() {
                             )
                           }
                         >
-                          →
+                          <ArrowRight className="h-4 w-4" aria-hidden="true" />
                         </Button>
                       ) : null}
                       {stage !== "reprovado" ? (
