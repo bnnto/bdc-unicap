@@ -18,6 +18,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  Users,
   X,
 } from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
@@ -61,7 +62,12 @@ const NEXT_STATUS: Record<
  * em `jobs` (CA 1 de S3-1) com ciclo de vida aberta/fechada/encerrada,
  * prazo de expiração R4 (publicação, aviso e renovação de 30 dias).
  */
-export function JobsPanel() {
+export function JobsPanel({
+  onViewCandidates,
+}: {
+  /** [RECRUITER_UX_UPGRADE] Master-Detail: abre o Kanban da vaga escolhida. */
+  onViewCandidates?: (jobId: Doc<"jobs">["_id"]) => void;
+} = {}) {
   // [RECRUITER_WORKFLOW] Etapa 3 — a lista de vagas do recrutador logado
   // (`getMyJobs`, índice by_recruiter — nunca as de outro recrutador).
   const jobs = useQuery(api.jobs.getMyJobs, {});
@@ -234,6 +240,17 @@ export function JobsPanel() {
                 ))}
               </ul>
               <div className="mt-3 flex flex-wrap items-center gap-2">
+                {/* [RECRUITER_UX_UPGRADE] Master-Detail: a lista é a tela;
+                    o pipeline abre num clique, com a vaga já selecionada. */}
+                {onViewCandidates !== undefined ? (
+                  <Button
+                    variant="primary"
+                    onClick={() => onViewCandidates(job._id)}
+                  >
+                    <Users className="h-4 w-4" aria-hidden="true" />
+                    Ver Candidatos
+                  </Button>
+                ) : null}
                 {job.status !== "encerrada" ? (
                   <Button
                     variant="accent"

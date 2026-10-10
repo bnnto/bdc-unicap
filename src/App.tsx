@@ -11,8 +11,7 @@ import {
 import { useAuthState } from "./components/auth/authContext";
 import { StudentShell } from "./components/student/StudentShell";
 import { TalentSearchPage } from "./components/talent/TalentSearchPage";
-import { JobsPanel } from "./components/recruiter/JobsPanel";
-import { JobKanban } from "./components/recruiter/JobKanban";
+import { RecruiterJobsPage } from "./components/recruiter/RecruiterJobsPage";
 import { CandidateProfilePage } from "./components/recruiter/CandidateProfilePage";
 import { OperationalPanel } from "./components/operational/OperationalPanel";
 import { ManagerDashboard } from "./components/manager/ManagerDashboard";
@@ -309,10 +308,10 @@ function AuthGate() {
           ) : isRecruiterSide && activeTab === "talentos" ? (
             <TalentSearchPage />
           ) : isRecruiterSide && activeTab === "vagas" ? (
-            <div className="flex flex-col gap-8">
-              <JobsPanel />
-              <JobKanban />
-            </div>
+            /* [RECRUITER_UX_UPGRADE] Master-Detail: a aba mostra a lista de
+               vagas; o Kanban abre a tela inteira ao clicar em "Ver
+               Candidatos" (com botão de voltar). */
+            <RecruiterJobsPage />
           ) : (
             <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
               {/* [S8-2] h2 em vez de h1: o h1 da página é o título do portal
