@@ -5,6 +5,7 @@
  * Sem I/O — a action `emails.sendPasswordResetEmail` só compõe e
  * transporta (mesmo padrão de src/lib/emailNotify.ts, TDD).
  */
+import { renderBrandedEmail } from "./emailTemplate";
 
 /** Rota da página que lê `?token=` da URL e troca a senha. */
 export const PASSWORD_RESET_PATH = "/recuperar-senha";
@@ -37,12 +38,18 @@ export function buildPasswordResetEmail(args: { link: string }): {
     "",
     "Se não foi você, ignore este e-mail — a sua senha atual continua a valer.",
   ].join("\n");
-  const html = [
-    "<p>Olá!</p>",
-    "<p>Recebemos um pedido para redefinir a sua senha no <strong>Portal de Carreiras UNICAP</strong>.</p>",
-    `<p><a href="${args.link}">Clique aqui para escolher uma nova senha</a> (válido por 30 minutos).</p>`,
-    `<p>Ou copie e cole no navegador: ${args.link}</p>`,
-    "<p>Se não foi você, ignore este e-mail — a sua senha atual continua a valer.</p>",
-  ].join("\n");
+  const escapedLink = args.link;
+  const html = renderBrandedEmail({
+    preheader: "Redefina a sua senha no Portal de Carreiras UNICAP.",
+    heading: "Redefina a sua senha",
+    bodyHtml: [
+      '<p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:24px;">Olá!</p>',
+      '<p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:24px;">Recebemos um pedido para redefinir a sua senha no <strong>Portal de Carreiras UNICAP</strong>. O botão abaixo é válido por <strong>30 minutos</strong>.</p>',
+      `<p style="margin:16px 0 0;color:#64748B;font-size:13px;line-height:20px;">Se o botão não funcionar, copie e cole este link no navegador:<br /><span style="word-break:break-all;color:#6B1426;">${escapedLink}</span></p>`,
+    ].join(""),
+    cta: { label: "Escolher nova senha", url: args.link },
+    footerNote:
+      "Se não foi você, ignore este e-mail — a sua senha atual continua a valer.",
+  });
   return { subject, text, html };
 }

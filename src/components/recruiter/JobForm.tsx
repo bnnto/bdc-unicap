@@ -6,6 +6,7 @@ import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Plus, Save, Send, Trash2, X } from "lucide-react";
 import {
   KNOWN_LANGUAGES,
   LANGUAGE_LEVELS,
@@ -275,6 +276,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
                   setPrerequisites((list) => list.filter((_, i) => i !== index))
                 }
               >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
                 Remover
               </Button>
             </div>
@@ -301,7 +303,8 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
               ])
             }
           >
-            + Adicionar pré-requisito
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Adicionar pré-requisito
           </Button>
         ) : null}
       </fieldset>
@@ -406,6 +409,11 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
 
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" disabled={pending}>
+          {initial === null && !pending ? (
+            <Send className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <Save className="h-4 w-4" aria-hidden="true" />
+          )}
           {pending
             ? "Salvando…"
             : initial !== null
@@ -413,6 +421,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
               : "Publicar vaga"}
         </Button>
         <Button variant="secondary" onClick={onDone}>
+          <X className="h-4 w-4" aria-hidden="true" />
           Cancelar
         </Button>
       </div>

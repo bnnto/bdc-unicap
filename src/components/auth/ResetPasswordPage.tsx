@@ -6,6 +6,7 @@ import { friendlyErrorMessage } from "../../lib/toastMessages";
 import { navigateTo } from "../../lib/router";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Mail, ShieldCheck } from "lucide-react";
 
 /**
  * [ONBOARDING_RECOVERY] Etapa 3 — página pública `/recuperar-senha`.
@@ -130,6 +131,7 @@ export function ResetPasswordPage() {
                     autoComplete="email"
                   />
                   <Button type="submit" variant="primary" disabled={pending}>
+                    <Mail className="h-4 w-4" aria-hidden="true" />
                     {pending ? "Enviando…" : "Enviar link de recuperação"}
                   </Button>
                 </form>
@@ -171,6 +173,7 @@ export function ResetPasswordPage() {
                   autoComplete="new-password"
                 />
                 <Button type="submit" variant="primary" disabled={pending}>
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                   {pending ? "Salvando…" : "Redefinir senha"}
                 </Button>
               </form>

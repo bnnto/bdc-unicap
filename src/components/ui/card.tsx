@@ -23,7 +23,7 @@ export function Card({ title, accent, headingLevel = 2, children }: CardProps) {
   return (
     <section
       data-testid="card"
-      className={`rounded-lg border border-slate-200 bg-white shadow-level1 ${accentClass ? `border-l-4 ${accentClass}` : ""}`}
+      className={`rounded-xl border border-slate-200 bg-white shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2 ${accentClass ? `border-l-4 ${accentClass}` : ""}`}
     >
       <Heading className="font-serif text-lg font-bold text-primary">
         {title}

@@ -22,6 +22,8 @@ import {
   type OpenJobFilters,
 } from "../../lib/jobSearch";
 import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
+import { Banknote, MapPin, Search, Send } from "lucide-react";
+import { EmptyState } from "../ui/emptyState";
 
 /** Vaga do mural — `matchScore` chega calculado no servidor (R8). */
 type OpenJob = Doc<"jobs"> & { matchScore?: number | null };
@@ -159,16 +161,22 @@ export function JobOpportunities() {
             >
               Buscar vagas
             </label>
-            <input
-              id="mural-busca"
-              type="search"
-              role="searchbox"
-              aria-label="Buscar vagas por cargo, skill ou palavra-chave"
-              value={filters.query}
-              onChange={(e) => update("query", e.target.value)}
-              placeholder="Cargo, skill ou palavra-chave…"
-              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-            />
+            <div className="relative mt-1">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                id="mural-busca"
+                type="search"
+                role="searchbox"
+                aria-label="Buscar vagas por cargo, skill ou palavra-chave"
+                value={filters.query}
+                onChange={(e) => update("query", e.target.value)}
+                placeholder="Cargo, skill ou palavra-chave…"
+                className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1"
+              />
+            </div>
           </div>
           <div>
             <label
@@ -294,10 +302,19 @@ export function JobOpportunities() {
       ) : null}
 
       {visibleJobs.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">
-          Nenhuma vaga corresponde aos filtros. Ajuste a busca ou limpe os
-          filtros para ver todas as oportunidades.
-        </p>
+        <EmptyState
+          icon={Search}
+          title="Nenhuma vaga encontrada"
+          description="Nenhuma vaga corresponde aos filtros. Ajuste a busca ou limpe os filtros para ver todas as oportunidades."
+          action={
+            hasActiveFilters
+              ? {
+                  label: "Limpar filtros",
+                  onClick: () => setFilters(DEFAULT_JOB_FILTERS),
+                }
+              : undefined
+          }
+        />
       ) : (
         <ul
           aria-label="Vagas encontradas"
@@ -315,7 +332,7 @@ export function JobOpportunities() {
             return (
               <li
                 key={job._id}
-                className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-level1 transition-shadow hover:border-primary/40 hover:shadow-level2"
+                className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-1 hover:scale-[1.02] hover:border-primary/40 hover:shadow-level2"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -327,7 +344,8 @@ export function JobOpportunities() {
                         {CONTRACT_LABELS[job.contractType]}
                       </span>
                       <span aria-hidden="true">·</span>
-                      <span>
+                      <span className="inline-flex items-center gap-1">
+                        <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                         {formatSalaryRange(
                           job.salaryMin ?? null,
                           job.salaryMax ?? null,
@@ -336,7 +354,13 @@ export function JobOpportunities() {
                       {job.location !== undefined && job.location !== null ? (
                         <>
                           <span aria-hidden="true">·</span>
-                          <span>{job.location}</span>
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin
+                              className="h-3.5 w-3.5"
+                              aria-hidden="true"
+                            />
+                            {job.location}
+                          </span>
                         </>
                       ) : null}
                     </p>
@@ -420,6 +444,9 @@ export function JobOpportunities() {
                       })();
                     }}
                   >
+                    {!applied ? (
+                      <Send className="h-4 w-4" aria-hidden="true" />
+                    ) : null}
                     {applied ? "Você já se candidatou" : "Candidatar-se"}
                   </Button>
                 </div>

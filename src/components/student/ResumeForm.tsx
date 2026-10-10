@@ -40,6 +40,32 @@ import {
   LEVEL_LABELS,
   type ResumeBlockData,
 } from "./resumeBlocks";
+import {
+  Award,
+  Briefcase,
+  Code,
+  GraduationCap,
+  Languages,
+  Link2,
+  Pencil,
+  Plus,
+  Save,
+  Trash2,
+  User,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+
+/** [UI_OVERHAUL] Ícone contextual de cada bloco do currículo. */
+const BLOCK_ICONS: LucideIcon[] = [
+  User, // 0 · Dados Pessoais
+  GraduationCap, // 1 · Formação
+  Link2, // 2 · Links
+  Code, // 3 · Competências
+  Languages, // 4 · Idiomas
+  Briefcase, // 5 · Experiências
+  Award, // 6 · Certificações
+];
 
 const STATUS_LABELS: Record<EnrollmentStatus, string> = {
   ativo: "Aluno ativo",
@@ -539,46 +565,57 @@ export function ResumeForm() {
           <section
             key={block.index}
             id={`bloco-${BLOCO_IDS[block.index]}`}
-            className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
+            className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-level1 transition-all duration-300 ease-in-out hover:shadow-level2"
           >
             {/* Cabeçalho do bloco: título + ícone de lápis. */}
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="font-serif text-lg font-bold text-primary">
-                    {block.index + 1}. {block.heading}
-                  </h2>
-                  {block.index === 0 ? (
-                    <p
-                      id="resume-summary-count"
-                      className="text-xs text-slate-500"
-                      aria-live="polite"
-                    >
-                      {summary.trim().length}/{SUMMARY_MAX} caracteres (mínimo{" "}
-                      {SUMMARY_MIN})
+                <div className="flex min-w-0 items-start gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"
+                  >
+                    {(() => {
+                      const Icon = BLOCK_ICONS[block.index]!;
+                      return <Icon className="h-5 w-5" strokeWidth={2} />;
+                    })()}
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="font-serif text-lg font-bold text-primary">
+                      {block.index + 1}. {block.heading}
+                    </h2>
+                    {block.index === 0 ? (
+                      <p
+                        id="resume-summary-count"
+                        className="text-xs text-slate-500"
+                        aria-live="polite"
+                      >
+                        {summary.trim().length}/{SUMMARY_MAX} caracteres (mínimo{" "}
+                        {SUMMARY_MIN})
+                      </p>
+                    ) : null}
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {block.index === 0
+                        ? "Seus dados pessoais (salvos aqui mesmo — criam ou atualizam o perfil) e sua apresentação profissional"
+                        : block.index === 1
+                          ? "Dados acadêmicos do cadastro e seu histórico"
+                          : block.index === 2
+                            ? "Todos os links são editados aqui: LinkedIn, portfólio, GitHub e Lattes"
+                            : block.index === 3
+                              ? "As mesmas competências usadas no matching com vagas"
+                              : block.index === 4
+                                ? "Contam para o bônus de idioma do matching quando a vaga exige"
+                                : block.index === 5
+                                  ? "Experiências em cards e projetos de extensão em um único campo"
+                                  : "Cursos, certificados e atividades que reforçam seu perfil"}{" "}
+                      — clique no lápis para editar neste local.
                     </p>
-                  ) : null}
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {block.index === 0
-                      ? "Seus dados pessoais (salvos aqui mesmo — criam ou atualizam o perfil) e sua apresentação profissional"
-                      : block.index === 1
-                        ? "Dados acadêmicos do cadastro e seu histórico"
-                        : block.index === 2
-                          ? "Todos os links são editados aqui: LinkedIn, portfólio, GitHub e Lattes"
-                          : block.index === 3
-                            ? "As mesmas competências usadas no matching com vagas"
-                            : block.index === 4
-                              ? "Contam para o bônus de idioma do matching quando a vaga exige"
-                              : block.index === 5
-                                ? "Experiências em cards e projetos de extensão em um único campo"
-                                : "Cursos, certificados e atividades que reforçam seu perfil"}{" "}
-                    — clique no lápis para editar neste local.
-                  </p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => toggleEdit(block.index)}
-                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                     isEditing
                       ? "bg-primary text-white"
                       : "bg-primary/5 text-primary hover:bg-primary hover:text-white"
@@ -595,19 +632,11 @@ export function ResumeForm() {
                       : `Editar ${block.label}`
                   }
                 >
-                  <svg
-                    className="h-5 w-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                  </svg>
+                  {isEditing ? (
+                    <X className="h-5 w-5" aria-hidden="true" />
+                  ) : (
+                    <Pencil className="h-5 w-5" aria-hidden="true" />
+                  )}
                 </button>
               </div>
 
@@ -810,6 +839,7 @@ export function ResumeForm() {
                                 )
                               }
                             >
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
                               Remover
                             </Button>
                           </div>
@@ -825,7 +855,8 @@ export function ResumeForm() {
                             ])
                           }
                         >
-                          + Adicionar item ao histórico
+                          <Plus className="h-4 w-4" aria-hidden="true" />
+                          Adicionar item ao histórico
                         </Button>
                       ) : null}
                     </fieldset>
@@ -878,7 +909,8 @@ export function ResumeForm() {
                           />
                         </div>
                         <Button variant="secondary" onClick={addSkillDraft}>
-                          + Adicionar competência
+                          <Plus className="h-4 w-4" aria-hidden="true" />
+                          Adicionar competência
                         </Button>
                       </div>
                       <div
@@ -955,6 +987,7 @@ export function ResumeForm() {
                                 )
                               }
                             >
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
                               Remover
                             </Button>
                           </div>
@@ -962,7 +995,8 @@ export function ResumeForm() {
                       ))}
                       {languages.length < MAX_LANGUAGES ? (
                         <Button variant="secondary" onClick={addLanguage}>
-                          + Adicionar idioma
+                          <Plus className="h-4 w-4" aria-hidden="true" />
+                          Adicionar idioma
                         </Button>
                       ) : null}
                     </div>
@@ -1042,6 +1076,7 @@ export function ResumeForm() {
                                 )
                               }
                             >
+                              <Trash2 className="h-4 w-4" aria-hidden="true" />
                               Remover experiência
                             </Button>
                           </div>
@@ -1127,7 +1162,8 @@ export function ResumeForm() {
                             setCertifications((list) => [...list, ""])
                           }
                         >
-                          + Adicionar certificação
+                          <Plus className="h-4 w-4" aria-hidden="true" />
+                          Adicionar certificação
                         </Button>
                       ) : null}
                     </fieldset>
@@ -1159,6 +1195,7 @@ export function ResumeForm() {
                       onClick={cancelEdit}
                       disabled={pending}
                     >
+                      <X className="h-4 w-4" aria-hidden="true" />
                       Cancelar
                     </Button>
                     <Button
@@ -1167,6 +1204,7 @@ export function ResumeForm() {
                       onClick={() => void persist()}
                       disabled={pending}
                     >
+                      <Save className="h-4 w-4" aria-hidden="true" />
                       {pending ? "Salvando…" : "Salvar"}
                     </Button>
                   </div>

@@ -9,6 +9,7 @@
  * processo…").
  */
 import { STAGE_LABELS, type ApplicationStage } from "./application";
+import { escapeHtml, renderBrandedEmail } from "./emailTemplate";
 
 /** Etapas que notificam o aluno por e-mail (spec do FINAL_UPGRADE). */
 export const NOTIFY_STAGES: readonly ApplicationStage[] = [
@@ -65,22 +66,15 @@ export function buildStageNotificationEmail(input: {
     "",
     "— Portal de Carreiras UNICAP",
   ].join("\n");
-  const html = [
-    `<p>Olá, <strong>${escapeHtml(input.studentName)}</strong>!</p>`,
-    `<p><strong>Parabéns, você avançou no processo seletivo</strong> da vaga ` +
-      `<strong>${escapeHtml(input.jobTitle)}</strong>.</p>`,
-    `<p>Etapa atual: <strong>${escapeHtml(stageLabel)}</strong>.</p>`,
-    `<p>Acesse o Portal de Carreiras UNICAP para acompanhar os próximos passos.</p>`,
-    `<p>— Portal de Carreiras UNICAP</p>`,
-  ].join("\n");
+  const html = renderBrandedEmail({
+    preheader: `Você avançou para ${stageLabel} no processo seletivo.`,
+    heading: `Parabéns! Você avançou para ${stageLabel}`,
+    bodyHtml: [
+      `<p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:24px;">Olá, <strong>${escapeHtml(input.studentName)}</strong>!</p>`,
+      `<p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:24px;">Você avançou no processo seletivo da vaga <strong>${escapeHtml(input.jobTitle)}</strong>. Etapa atual: <strong>${escapeHtml(stageLabel)}</strong>.</p>`,
+      `<p style="margin:0;color:#64748B;font-size:14px;line-height:22px;">Acesse o Portal de Carreiras UNICAP para acompanhar os próximos passos.</p>`,
+    ].join(""),
+    footerNote: "Este é um aviso automático do processo seletivo da UNICAP.",
+  });
   return { subject, text, html };
-}
-
-/** Escapa valores do usuário no HTML (nomes/vagas com < ou &). */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

@@ -31,7 +31,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`rounded border-transparent px-4 py-2 font-sans text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${VARIANT_CLASSES[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-md border-transparent px-4 py-2 font-sans text-sm font-semibold transition-all duration-200 ease-in-out hover:-translate-y-px hover:shadow-sm active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:scale-100 disabled:hover:shadow-none ${VARIANT_CLASSES[variant]} ${className}`}
       {...rest}
     />
   );

@@ -10,6 +10,24 @@ import { Card } from "../ui/card";
 import { JobForm } from "./JobForm";
 import { CONTRACT_LABELS, formatSalaryRange } from "../../lib/job";
 import { renewalWindow } from "../../lib/jobExpiry";
+import {
+  Ban,
+  Check,
+  DoorOpen,
+  Lock,
+  Pencil,
+  Plus,
+  RefreshCw,
+  X,
+} from "lucide-react";
+import { EmptyState } from "../ui/emptyState";
+
+/** [UI_OVERHAUL] Ícone por mudança de status no botão dinâmico. */
+const STATUS_BUTTON_ICON: Record<Doc<"jobs">["status"], React.ReactNode> = {
+  aberta: <DoorOpen className="h-4 w-4" aria-hidden="true" />,
+  fechada: <Lock className="h-4 w-4" aria-hidden="true" />,
+  encerrada: <Ban className="h-4 w-4" aria-hidden="true" />,
+};
 
 const STATUS_BADGE: Record<
   Doc<"jobs">["status"],
@@ -118,7 +136,8 @@ export function JobsPanel() {
     <Card title="Minhas vagas" accent="primary">
       <div className="mb-4">
         <Button variant="primary" onClick={() => setMode({ kind: "new" })}>
-          + Publicar nova vaga
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          Publicar nova vaga
         </Button>
       </div>
 
@@ -128,31 +147,21 @@ export function JobsPanel() {
         </p>
       ) : jobs.length === 0 ? (
         /* [UX-P3] H4-2 — empty state com CTA real (não só instrução textual). */
-        <div
-          role="status"
-          className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center"
-        >
-          <p className="text-sm font-semibold text-slate-700">
-            Nenhuma vaga publicada ainda.
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Publique a primeira vaga para receber candidaturas e acompanhar o
-            pipeline.
-          </p>
-          <Button
-            variant="primary"
-            className="mt-3"
-            onClick={() => setMode({ kind: "new" })}
-          >
-            + Publicar nova vaga
-          </Button>
-        </div>
+        <EmptyState
+          icon={Plus}
+          title="Nenhuma vaga publicada ainda"
+          description="Publique a primeira vaga para receber candidaturas e acompanhar o pipeline em tempo real."
+          action={{
+            label: "Publicar nova vaga",
+            onClick: () => setMode({ kind: "new" }),
+          }}
+        />
       ) : (
         <ul className="flex flex-col gap-3">
           {jobs.map((job) => (
             <li
               key={job._id}
-              className="rounded-lg border border-slate-200 bg-white p-4 shadow-level1"
+              className="rounded-xl border border-slate-200 bg-white p-4 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
@@ -232,6 +241,7 @@ export function JobsPanel() {
                     onClick={() => void handleRenew(job._id)}
                     title="Reativa o prazo de 30 dias desta vaga"
                   >
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
                     Renovar (30 dias)
                   </Button>
                 ) : null}
@@ -240,6 +250,7 @@ export function JobsPanel() {
                   disabled={actionPending === String(job._id)}
                   onClick={() => setMode({ kind: "edit", job })}
                 >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
                   Editar
                 </Button>
                 {NEXT_STATUS[job.status].map((option) => (
@@ -261,6 +272,7 @@ export function JobsPanel() {
                       });
                     }}
                   >
+                    {STATUS_BUTTON_ICON[option.value]}
                     {option.label}
                   </Button>
                 ))}
@@ -297,12 +309,14 @@ export function JobsPanel() {
                         }
                       }}
                     >
+                      <Check className="h-4 w-4" aria-hidden="true" />
                       Confirmar
                     </Button>
                     <Button
                       variant="secondary"
                       onClick={() => setPendingStatus(null)}
                     >
+                      <X className="h-4 w-4" aria-hidden="true" />
                       Cancelar
                     </Button>
                   </div>

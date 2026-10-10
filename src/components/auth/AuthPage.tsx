@@ -6,6 +6,7 @@ import { navigateTo } from "../../lib/router";
 import { PASSWORD_RESET_PATH } from "../../lib/passwordReset";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { KeyRound, LogIn } from "lucide-react";
 import { RoleSelect } from "./RoleSelect";
 import {
   PUBLIC_SIGNUP_ROLES,
@@ -189,6 +190,7 @@ export function AuthPage() {
                   : undefined
               }
             >
+              <LogIn className="h-4 w-4" aria-hidden="true" />
               {pending
                 ? "Processando…"
                 : mode === "signIn"
@@ -202,8 +204,9 @@ export function AuthPage() {
                 <button
                   type="button"
                   onClick={() => navigateTo(PASSWORD_RESET_PATH)}
-                  className="font-semibold text-primary underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="inline-flex items-center gap-1 font-semibold text-primary underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
+                  <KeyRound className="h-4 w-4" aria-hidden="true" />
                   Esqueci minha senha
                 </button>
               </p>

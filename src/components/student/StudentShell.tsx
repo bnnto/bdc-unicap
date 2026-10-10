@@ -4,6 +4,7 @@ import { navigateTo } from "../../lib/router";
 import { ResumeBuilderPage } from "./ResumeBuilderPage";
 import { JobOpportunities } from "./JobOpportunities";
 import { MyApplicationsPage } from "./MyApplicationsPage";
+import { Briefcase, FileText, Send, type LucideIcon } from "lucide-react";
 
 /**
  * [REFACTOR_ALUNO Etapa 1] — StudentShell: navbar superior em largura
@@ -21,10 +22,10 @@ import { MyApplicationsPage } from "./MyApplicationsPage";
 
 export type StudentTab = "curriculo" | "oportunidades" | "candidaturas";
 
-const TABS: Array<{ key: StudentTab; label: string }> = [
-  { key: "curriculo", label: "Meu Currículo" },
-  { key: "oportunidades", label: "Oportunidades" },
-  { key: "candidaturas", label: "Minhas Candidaturas" },
+const TABS: Array<{ key: StudentTab; label: string; icon: LucideIcon }> = [
+  { key: "curriculo", label: "Meu Currículo", icon: FileText },
+  { key: "oportunidades", label: "Oportunidades", icon: Briefcase },
+  { key: "candidaturas", label: "Minhas Candidaturas", icon: Send },
 ];
 
 /** Iniciais do avatar: primeira + última palavra em caixa alta. */
@@ -77,12 +78,16 @@ export function StudentShell() {
                     aria-controls={`panel-${tab.key}`}
                     id={`tab-${tab.key}`}
                     onClick={() => selectTab(tab.key)}
-                    className={`rounded px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                       active === tab.key
                         ? "border-b-2 border-secondary bg-[#FDF2F4] text-primary"
                         : "border-b-2 border-transparent text-slate-600 hover:bg-[#FDF2F4] hover:text-primary"
                     }`}
                   >
+                    {(() => {
+                      const Icon = tab.icon;
+                      return <Icon className="h-4 w-4" aria-hidden="true" />;
+                    })()}
                     {tab.label}
                   </button>
                 </li>
@@ -98,7 +103,7 @@ export function StudentShell() {
               type="button"
               aria-label="Meu perfil e configurações"
               onClick={() => navigateTo("/perfil")}
-              className="flex items-center gap-2 rounded-full p-0.5 pr-3 transition-colors hover:bg-[#FDF2F4] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="flex items-center gap-2 rounded-full p-0.5 pr-3 transition-all duration-200 ease-in-out hover:bg-[#FDF2F4] hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
               <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white">
                 {user?.image ? (
