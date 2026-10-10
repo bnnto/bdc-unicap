@@ -220,7 +220,7 @@ export function TalentSearchPage() {
         </p>
       </div>
 
-      <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-level1">
+      <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-level1">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="flex-1">
             <label htmlFor="talent-search" className="sr-only">
@@ -274,7 +274,7 @@ export function TalentSearchPage() {
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         <form
           aria-label="Filtros do Banco de Talentos"
-          className="flex flex-col gap-5 self-start rounded-lg border border-slate-200 bg-white p-4 shadow-level1"
+          className="flex flex-col gap-6 self-start rounded-2xl border border-slate-200 bg-white p-6 shadow-level1"
           onSubmit={(e) => e.preventDefault()}
         >
           <fieldset className="flex flex-col gap-3" aria-label="Área & Curso">
@@ -294,7 +294,7 @@ export function TalentSearchPage() {
                   setPage(0);
                 }}
                 aria-label="Curso"
-                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                className="h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todos os cursos</option>
                 {COURSES.map((name) => (
@@ -315,7 +315,7 @@ export function TalentSearchPage() {
                   setPage(0);
                 }}
                 aria-label="Formação"
-                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                className="h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todas</option>
                 <option value="ativo">Alunos ativos</option>
@@ -333,7 +333,7 @@ export function TalentSearchPage() {
                   setPage(0);
                 }}
                 aria-label="Disponibilidade"
-                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                className="h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todas</option>
                 {AVAILABILITY.map((value) => (
@@ -381,7 +381,7 @@ export function TalentSearchPage() {
                     setPage(0);
                   }}
                   aria-label="Nível mínimo do idioma"
-                  className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                  className="h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                 >
                   {LANGUAGE_LEVELS.map((level) => (
                     <option key={level} value={level}>
@@ -539,7 +539,7 @@ export function TalentSearchPage() {
                 setPage(0);
               }}
               aria-label="Ordenar por"
-              className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              className="h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             >
               {(Object.keys(SORT_LABELS) as TalentSortOption[]).map((key) => (
                 <option key={key} value={key}>

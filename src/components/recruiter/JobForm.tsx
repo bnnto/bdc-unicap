@@ -221,7 +221,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
       ) : null}
 
       {/* [RECRUITER_UX_UPGRADE] Seção 1 — campos agrupados com ícone. */}
-      <fieldset className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-5">
+      <fieldset className="flex flex-col gap-5 rounded-2xl border border-slate-100 bg-transparent p-8">
         <legend className="flex items-center gap-2 rounded-lg px-1 font-serif text-sm font-bold text-primary">
           <FileText className="h-4 w-4" aria-hidden="true" />
           Sobre a vaga
@@ -328,7 +328,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
       </fieldset>
 
       {/* [RECRUITER_UX_UPGRADE] Seção 2 — contrato, salário e local. */}
-      <fieldset className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-5">
+      <fieldset className="flex flex-col gap-5 rounded-2xl border border-slate-100 bg-transparent p-8">
         <legend className="flex items-center gap-2 rounded-lg px-1 font-serif text-sm font-bold text-primary">
           <Banknote className="h-4 w-4" aria-hidden="true" />
           Contrato &amp; Remuneração

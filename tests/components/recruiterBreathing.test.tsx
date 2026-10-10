@@ -102,19 +102,21 @@ describe("JobKanban — colunas com scroll vertical (muitos candidatos)", () => 
     }
   });
 
-  it("card do candidato tem padding generoso e ações espaçadas (sem colar)", async () => {
+  it("card do candidato tem padding mínimo p-5 e ações espaçadas (sem colar)", async () => {
     await renderBoard("job-1");
 
     const card = screen.getByText("Maria da Silva").closest("article");
     expect(card).not.toBeNull();
     if (card === null) return;
-    expect(card).toHaveClass("p-4");
+    // [FINAL_UI_POLISH] mínimo exigido: p-5 no card e mt-4 até as ações.
+    expect(card).toHaveClass("p-5");
 
     const actions = within(card).getByRole("button", {
       name: "Ver Perfil",
     }).parentElement;
     expect(actions).not.toBeNull();
     expect(actions?.className).toContain("flex-wrap");
+    expect(actions?.className).toContain("mt-4");
     expect(actions?.className).toMatch(/gap-/);
   });
 });
@@ -193,7 +195,8 @@ describe("OperationalPanel — métricas com respiro e ícone", () => {
 
     const kpi = document.querySelector("div.text-center.shadow-level1");
     expect(kpi).not.toBeNull();
-    expect(kpi).toHaveClass("p-6");
+    // [FINAL_UI_POLISH] métricas sobem para p-8 (respiro máximo).
+    expect(kpi).toHaveClass("p-8");
     expect(kpi?.querySelector("svg.lucide")).not.toBeNull();
   });
 });
