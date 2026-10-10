@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Briefcase, Timer, TrendingUp, Users } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "../ui/button";
@@ -61,6 +62,7 @@ function KpiCard({
   kpi,
   testId,
   unit,
+  icon,
 }: {
   kpi: {
     value: string | number;
@@ -70,12 +72,22 @@ function KpiCard({
   };
   testId: string;
   unit?: string;
+  /** [RECRUITER_UX_UPGRADE] Ícone lucide que ancora a métrica. */
+  icon?: React.ReactNode;
 }) {
   return (
     <div
       data-testid={testId}
-      className="rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
+      className="rounded-2xl border border-slate-200 bg-white p-6 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2"
     >
+      {icon !== undefined ? (
+        <span
+          aria-hidden="true"
+          className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF2F4] text-primary ring-1 ring-primary/20"
+        >
+          {icon}
+        </span>
+      ) : null}
       <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
         {kpi.label}
       </p>
@@ -301,7 +313,11 @@ export function ManagerDashboard() {
 
       {/* 3 — KPIs (4 colunas). */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard kpi={kpis.oportunidades} testId="kpi-oportunidades" />
+        <KpiCard
+          kpi={kpis.oportunidades}
+          testId="kpi-oportunidades"
+          icon={<Briefcase className="h-5 w-5" />}
+        />
         <KpiCard
           kpi={{
             value: kpis.empregabilidade.value,
@@ -310,6 +326,7 @@ export function ManagerDashboard() {
             hasData: kpis.empregabilidade.hasData,
           }}
           testId="kpi-empregabilidade"
+          icon={<TrendingUp className="h-5 w-5" />}
         />
         <KpiCard
           kpi={{
@@ -320,8 +337,13 @@ export function ManagerDashboard() {
           }}
           testId="kpi-tempo-contratacao"
           unit={kpis.tempoContratacao.hasData ? "dias" : undefined}
+          icon={<Timer className="h-5 w-5" />}
         />
-        <KpiCard kpi={kpis.talentos} testId="kpi-talentos" />
+        <KpiCard
+          kpi={kpis.talentos}
+          testId="kpi-talentos"
+          icon={<Users className="h-5 w-5" />}
+        />
       </div>
 
       {/* 4 — Sessão central: funil + empregabilidade por curso (reais). */}

@@ -6,7 +6,17 @@ import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Plus, Save, Send, Trash2, X } from "lucide-react";
+import {
+  Banknote,
+  FileText,
+  ListChecks,
+  Plus,
+  Save,
+  Send,
+  Target,
+  Trash2,
+  X,
+} from "lucide-react";
 import {
   KNOWN_LANGUAGES,
   LANGUAGE_LEVELS,
@@ -210,55 +220,63 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         </div>
       ) : null}
 
-      <Input
-        label="Título da vaga"
-        required
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        hint="Ex.: Estágio em Desenvolvimento Web (5–120 caracteres)"
-      />
-
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="job-description"
-          className="text-sm font-semibold text-slate-700"
-        >
-          Descrição
-          <span className="ml-0.5 text-danger" aria-hidden="true">
-            *
-          </span>
-        </label>
-        <textarea
-          id="job-description"
+      {/* [RECRUITER_UX_UPGRADE] Seção 1 — campos agrupados com ícone. */}
+      <fieldset className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-5">
+        <legend className="flex items-center gap-2 rounded-lg px-1 font-serif text-sm font-bold text-primary">
+          <FileText className="h-4 w-4" aria-hidden="true" />
+          Sobre a vaga
+        </legend>
+        <Input
+          label="Título da vaga"
           required
-          rows={5}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Responsabilidades, rotinas, etapa do processo seletivo…"
-          maxLength={DESCRIPTION_MAX}
-          aria-describedby="job-description-count"
-          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          hint="Ex.: Estágio em Desenvolvimento Web (5–120 caracteres)"
         />
-        <p
-          id="job-description-count"
-          className="text-xs text-slate-500"
-          aria-live="polite"
-        >
-          {description.trim().length}/{DESCRIPTION_MAX} caracteres (mínimo 30)
-        </p>
-      </div>
+
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="job-description"
+            className="text-sm font-semibold text-slate-700"
+          >
+            Descrição
+            <span className="ml-0.5 text-danger" aria-hidden="true">
+              *
+            </span>
+          </label>
+          <textarea
+            id="job-description"
+            required
+            rows={5}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Responsabilidades, rotinas, etapa do processo seletivo…"
+            maxLength={DESCRIPTION_MAX}
+            aria-describedby="job-description-count"
+            className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 transition-colors placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+          />
+          <p
+            id="job-description-count"
+            className="text-xs text-slate-500"
+            aria-live="polite"
+          >
+            {description.trim().length}/{DESCRIPTION_MAX} caracteres (mínimo 30)
+          </p>
+        </div>
+      </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-semibold text-slate-700">
+        <legend className="flex items-center gap-2 font-serif text-sm font-bold text-primary">
+          <ListChecks className="h-4 w-4" aria-hidden="true" />
           Pré-requisitos{" "}
-          <span className="font-normal text-xs text-slate-500">
+          <span className="font-sans text-xs font-normal text-slate-500">
             ({prerequisites.length}/{MAX_PREREQS}) — marque se são obrigatórios
           </span>
         </legend>
         {prerequisites.map((prereq, index) => (
           <div
             key={index}
-            className="flex flex-col gap-2 rounded border border-slate-200 bg-slate-50 p-3"
+            className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:border-primary/30"
           >
             <div className="flex items-end gap-2">
               <div className="flex-1">
@@ -309,53 +327,61 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         ) : null}
       </fieldset>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-semibold text-slate-700">
-            Tipo de contrato
-            <span className="ml-0.5 text-danger" aria-hidden="true">
-              *
+      {/* [RECRUITER_UX_UPGRADE] Seção 2 — contrato, salário e local. */}
+      <fieldset className="flex flex-col gap-4 rounded-2xl border border-slate-100 bg-slate-50/60 p-5">
+        <legend className="flex items-center gap-2 rounded-lg px-1 font-serif text-sm font-bold text-primary">
+          <Banknote className="h-4 w-4" aria-hidden="true" />
+          Contrato &amp; Remuneração
+        </legend>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-slate-700">
+              Tipo de contrato
+              <span className="ml-0.5 text-danger" aria-hidden="true">
+                *
+              </span>
             </span>
-          </span>
-          <select
-            value={contractType}
-            onChange={(e) => setContractType(e.target.value as ContractType)}
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-          >
-            {CONTRACT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {CONTRACT_LABELS[type]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Input
-          label="Salário mínimo (R$)"
-          inputMode="numeric"
-          value={salaryMin}
-          onChange={(e) => setSalaryMin(e.target.value)}
-          hint="Opcional"
-        />
-        <Input
-          label="Salário máximo (R$)"
-          inputMode="numeric"
-          value={salaryMax}
-          onChange={(e) => setSalaryMax(e.target.value)}
-          hint="Opcional; deve ser ≥ mínimo"
-        />
-      </div>
+            <select
+              value={contractType}
+              onChange={(e) => setContractType(e.target.value as ContractType)}
+              className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            >
+              {CONTRACT_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {CONTRACT_LABELS[type]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Input
+            label="Salário mínimo (R$)"
+            inputMode="numeric"
+            value={salaryMin}
+            onChange={(e) => setSalaryMin(e.target.value)}
+            hint="Opcional"
+          />
+          <Input
+            label="Salário máximo (R$)"
+            inputMode="numeric"
+            value={salaryMax}
+            onChange={(e) => setSalaryMax(e.target.value)}
+            hint="Opcional; deve ser ≥ mínimo"
+          />
+        </div>
 
-      <Input
-        label="Localização (opcional)"
-        value={location}
-        onChange={(e) => setLocation(e.target.value)}
-        hint="Ex.: Recife/PE ou Remoto"
-      />
+        <Input
+          label="Localização (opcional)"
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          hint="Ex.: Recife/PE ou Remoto"
+        />
+      </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-semibold text-slate-700">
+        <legend className="flex items-center gap-2 font-serif text-sm font-bold text-primary">
+          <Target className="h-4 w-4" aria-hidden="true" />
           Matching (opcional) —{" "}
-          <span className="font-normal text-xs text-slate-500">
+          <span className="font-sans text-xs font-normal text-slate-500">
             usados no cálculo do % de compatibilidade dos candidatos
           </span>
         </legend>
@@ -379,7 +405,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             value={languageLevel}
             onChange={(e) => setLanguageLevel(e.target.value as LanguageLevel)}
             aria-label="Nível mínimo do idioma"
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             {LANGUAGE_LEVELS.map((level) => (
               <option key={level} value={level}>
@@ -395,7 +421,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
               )
             }
             aria-label="Disponibilidade desejada"
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             <option value="">Disponibilidade: qualquer</option>
             {AVAILABILITY.map((value) => (
@@ -407,7 +433,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         </div>
       </fieldset>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
         <Button type="submit" variant="primary" disabled={pending}>
           {initial === null && !pending ? (
             <Send className="h-4 w-4" aria-hidden="true" />

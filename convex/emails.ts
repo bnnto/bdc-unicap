@@ -37,9 +37,15 @@ function appBaseUrl(): string {
   ).replace(/\/+$/, "");
 }
 
-/** Remetente padrão; sobrescrito via RESEND_FROM no dashboard Convex. */
+/**
+ * Remetente padrão; sobrescrito via RESEND_FROM no dashboard Convex.
+ * O default mantém o display name UNICAP (identidade da marca no Gmail,
+ * em vez do endereço genérico do sandbox do Resend).
+ */
 function fromAddress(): string {
-  return process.env.RESEND_FROM ?? "onboarding@resend.dev";
+  const configured = process.env.RESEND_FROM?.trim();
+  if (configured !== undefined && configured.length > 0) return configured;
+  return "UNICAP <onboarding@resend.dev>";
 }
 
 /**

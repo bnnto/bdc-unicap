@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { BadgeCheck, Briefcase, Layers, Lock } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Card } from "../ui/card";
@@ -45,12 +46,14 @@ const STATUS_OPTIONS = [
 ] as const;
 
 const SELECT_CLASS =
-  "rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
+  "rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
 
 type KpiCardProps = {
   value: string | number;
   label: string;
   hint?: string;
+  /** [RECRUITER_UX_UPGRADE] Ícone lucide que ancora a métrica. */
+  icon?: React.ReactNode;
 };
 
 /**
@@ -80,9 +83,17 @@ function LoadingSection({ label }: { label: string }) {
   );
 }
 
-function KpiCard({ value, label, hint }: KpiCardProps) {
+function KpiCard({ value, label, hint, icon }: KpiCardProps) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4 text-center shadow-level1">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
+      {icon !== undefined ? (
+        <span
+          aria-hidden="true"
+          className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF2F4] text-primary ring-1 ring-primary/20"
+        >
+          {icon}
+        </span>
+      ) : null}
       <p className="font-serif text-3xl font-bold text-primary">{value}</p>
       <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
         {label}
@@ -582,19 +593,29 @@ export function OperationalPanel() {
         active={filtersActive}
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <KpiCard
           value={summary.jobs.open}
           label="Vagas abertas"
           hint="recebendo candidaturas"
+          icon={<Briefcase className="h-5 w-5" />}
         />
-        <KpiCard value={summary.jobs.closed} label="Vagas fechadas" />
+        <KpiCard
+          value={summary.jobs.closed}
+          label="Vagas fechadas"
+          icon={<Lock className="h-5 w-5" />}
+        />
         <KpiCard
           value={summary.jobs.filled}
           label="Vagas preenchidas"
           hint="encerradas (prazo ou ciclo completo)"
+          icon={<BadgeCheck className="h-5 w-5" />}
         />
-        <KpiCard value={summary.jobs.total} label="Total de vagas" />
+        <KpiCard
+          value={summary.jobs.total}
+          label="Total de vagas"
+          icon={<Layers className="h-5 w-5" />}
+        />
       </div>
 
       {/* [REFACTOR_UI] Painel executivo: cards e gráficos distribuídos em

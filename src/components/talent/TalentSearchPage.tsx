@@ -15,6 +15,26 @@ import {
 } from "../../lib/talentSearch";
 import { COURSES } from "../../lib/talentBenchmark";
 import { candidateProfilePath, navigateTo } from "../../lib/router";
+import {
+  ArrowUpDown,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Eye,
+  GraduationCap,
+  Languages,
+  MapPin,
+  Plus,
+  Search,
+  SearchX,
+  Send,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  X,
+} from "lucide-react";
 
 type SearchArgs = {
   search?: string;
@@ -206,26 +226,38 @@ export function TalentSearchPage() {
             <label htmlFor="talent-search" className="sr-only">
               Buscar talentos por nome, curso, competência ou cidade
             </label>
-            <input
-              id="talent-search"
-              type="search"
-              role="searchbox"
-              aria-label="Buscar talentos"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(0);
-              }}
-              placeholder="Buscar por nome, curso, competência (ex.: React), cidade ou idioma…"
-              className="w-full rounded border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-            />
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                aria-hidden="true"
+              />
+              <input
+                id="talent-search"
+                type="search"
+                role="searchbox"
+                aria-label="Buscar talentos"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Buscar por nome, curso, competência (ex.: React), cidade ou idioma…"
+                className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-4 text-sm text-slate-900 transition-colors placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-3">
-            <p className="text-sm text-slate-600" aria-live="polite">
-              <strong className="font-semibold text-slate-900">
-                {result === undefined ? "…" : result.total}
-              </strong>{" "}
-              Estudantes Disponíveis
+            <p
+              className="flex items-center gap-1.5 text-sm text-slate-600"
+              aria-live="polite"
+            >
+              <Users className="h-4 w-4 text-primary" aria-hidden="true" />
+              <span>
+                <strong className="font-semibold text-slate-900">
+                  {result === undefined ? "…" : result.total}
+                </strong>{" "}
+                Estudantes Disponíveis
+              </span>
             </p>
             <Button
               variant="secondary"
@@ -246,7 +278,11 @@ export function TalentSearchPage() {
           onSubmit={(e) => e.preventDefault()}
         >
           <fieldset className="flex flex-col gap-3" aria-label="Área & Curso">
-            <legend className="text-sm font-semibold text-slate-700">
+            <legend className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <GraduationCap
+                className="h-4 w-4 text-primary"
+                aria-hidden="true"
+              />
               Área &amp; Curso
             </legend>
             <label className="flex flex-col gap-1">
@@ -258,7 +294,7 @@ export function TalentSearchPage() {
                   setPage(0);
                 }}
                 aria-label="Curso"
-                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todos os cursos</option>
                 {COURSES.map((name) => (
@@ -279,7 +315,7 @@ export function TalentSearchPage() {
                   setPage(0);
                 }}
                 aria-label="Formação"
-                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todas</option>
                 <option value="ativo">Alunos ativos</option>
@@ -297,7 +333,7 @@ export function TalentSearchPage() {
                   setPage(0);
                 }}
                 aria-label="Disponibilidade"
-                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todas</option>
                 {AVAILABILITY.map((value) => (
@@ -345,7 +381,7 @@ export function TalentSearchPage() {
                     setPage(0);
                   }}
                   aria-label="Nível mínimo do idioma"
-                  className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                  className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                 >
                   {LANGUAGE_LEVELS.map((level) => (
                     <option key={level} value={level}>
@@ -366,7 +402,11 @@ export function TalentSearchPage() {
             className="flex flex-col gap-2"
             aria-label="Previsão de Conclusão"
           >
-            <legend className="text-sm font-semibold text-slate-700">
+            <legend className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <CalendarDays
+                className="h-4 w-4 text-primary"
+                aria-hidden="true"
+              />
               Previsão de Conclusão
             </legend>
             <div className="flex items-center gap-2">
@@ -426,7 +466,8 @@ export function TalentSearchPage() {
           </fieldset>
 
           <fieldset className="flex flex-col gap-2" aria-label="Competências">
-            <legend className="text-sm font-semibold text-slate-700">
+            <legend className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
               Competências
             </legend>
             <div className="flex gap-2">
@@ -445,6 +486,7 @@ export function TalentSearchPage() {
                 className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               />
               <Button variant="secondary" onClick={addSkillChip}>
+                <Plus className="h-4 w-4" aria-hidden="true" />
                 Adicionar
               </Button>
             </div>
@@ -467,7 +509,7 @@ export function TalentSearchPage() {
                       className="inline-flex items-center gap-1 rounded-full border border-primary bg-[#FDF2F4] px-3 py-1 text-xs font-semibold text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     >
                       {chip}
-                      <span aria-hidden="true">×</span>
+                      <X className="h-3 w-3" aria-hidden="true" />
                     </button>
                   </li>
                 ))}
@@ -481,8 +523,12 @@ export function TalentSearchPage() {
           <div className="mb-4 flex items-center justify-end gap-2">
             <label
               htmlFor="talent-sort"
-              className="text-sm font-medium text-slate-600"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600"
             >
+              <ArrowUpDown
+                className="h-4 w-4 text-primary"
+                aria-hidden="true"
+              />
               Ordenar por
             </label>
             <select
@@ -493,7 +539,7 @@ export function TalentSearchPage() {
                 setPage(0);
               }}
               aria-label="Ordenar por"
-              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             >
               {(Object.keys(SORT_LABELS) as TalentSortOption[]).map((key) => (
                 <option key={key} value={key}>
@@ -517,7 +563,11 @@ export function TalentSearchPage() {
               role="status"
               className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center"
             >
-              <p className="text-sm font-semibold text-slate-700">
+              <SearchX
+                className="mx-auto h-10 w-10 text-slate-300"
+                aria-hidden="true"
+              />
+              <p className="mt-2 text-sm font-semibold text-slate-700">
                 Nenhum talento encontrado com os filtros atuais.
               </p>
               <p className="mt-1 text-xs text-slate-500">
@@ -536,12 +586,12 @@ export function TalentSearchPage() {
               >
                 {result.items.map((talent) => (
                   <li key={talent.studentId}>
-                    <article className="flex h-full flex-col rounded-lg border border-slate-200 bg-white p-4 shadow-level1">
+                    <article className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-level2">
                       <div className="flex items-start gap-3">
                         {/* Placeholder circular de foto (referência). */}
                         <span
                           aria-hidden="true"
-                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] font-serif text-base font-bold text-primary"
+                          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] font-serif text-base font-bold text-primary ring-1 ring-primary/20"
                         >
                           {talent.fullName
                             .split(" ")
@@ -600,22 +650,40 @@ export function TalentSearchPage() {
                       ) : null}
 
                       <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                        <span>
-                          <span aria-hidden="true">🕒</span>{" "}
+                        <span className="inline-flex items-center gap-1">
+                          <Clock
+                            className="h-3.5 w-3.5 text-primary"
+                            aria-hidden="true"
+                          />
                           {AVAILABILITY_LABELS[talent.availability]}
                         </span>
                         {talent.location !== null ? (
-                          <span>
-                            <span aria-hidden="true">📍</span> {talent.location}
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin
+                              className="h-3.5 w-3.5 text-primary"
+                              aria-hidden="true"
+                            />
+                            {talent.location}
                           </span>
                         ) : null}
                         <span
-                          className={
+                          className={`inline-flex items-center gap-1 ${
                             talent.contactAllowed
                               ? "font-semibold text-success"
                               : ""
-                          }
+                          }`}
                         >
+                          {talent.contactAllowed ? (
+                            <ShieldCheck
+                              className="h-3.5 w-3.5"
+                              aria-hidden="true"
+                            />
+                          ) : (
+                            <ShieldAlert
+                              className="h-3.5 w-3.5"
+                              aria-hidden="true"
+                            />
+                          )}
                           {talent.contactAllowed
                             ? "Contato autorizado pelo aluno"
                             : "Contato não autorizado"}
@@ -623,7 +691,11 @@ export function TalentSearchPage() {
                       </p>
 
                       {talent.languages.length > 0 ? (
-                        <p className="mt-1 text-xs text-slate-600">
+                        <p className="mt-1 flex items-center gap-1 text-xs text-slate-600">
+                          <Languages
+                            className="h-3.5 w-3.5 text-primary"
+                            aria-hidden="true"
+                          />
                           Idiomas:{" "}
                           {talent.languages
                             .map((l) => `${l.name} (${LEVEL_LABELS[l.level]})`)
@@ -641,9 +713,13 @@ export function TalentSearchPage() {
                             navigateTo(candidateProfilePath(talent.studentId))
                           }
                         >
+                          <Eye className="h-4 w-4" aria-hidden="true" />
                           Visualizar Perfil &amp; CV
                         </Button>
-                        <Button variant="primary">Convidar</Button>
+                        <Button variant="primary">
+                          <Send className="h-4 w-4" aria-hidden="true" />
+                          Convidar
+                        </Button>
                       </div>
                     </article>
                   </li>
@@ -660,7 +736,8 @@ export function TalentSearchPage() {
                   disabled={!result.hasPrev}
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                 >
-                  ← Anterior
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                  Anterior
                 </Button>
                 <p className="text-sm text-slate-600">
                   Página {result.page + 1} de {result.pageCount} ·{" "}
@@ -673,7 +750,8 @@ export function TalentSearchPage() {
                   disabled={!result.hasNext}
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Próxima →
+                  Próxima
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </nav>
             </>
