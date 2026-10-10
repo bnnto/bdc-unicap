@@ -399,7 +399,7 @@ export function JobKanban({
             <section
               key={stage}
               aria-label={`${STAGE_LABELS[stage]} — ${grouped[stage].length} candidatura(s)`}
-              className={`flex max-h-[68vh] min-h-40 flex-col gap-3 rounded-xl border p-4 transition-colors ${
+              className={`flex max-h-[68vh] min-h-40 flex-col gap-4 rounded-xl border p-5 transition-colors ${
                 dropTarget === stage
                   ? "border-secondary bg-[#FDF2F4]"
                   : "border-slate-200 bg-slate-50"
@@ -431,7 +431,7 @@ export function JobKanban({
 
               {/* [RECRUITER_UX_UPGRADE] Muitos candidatos não partem o
                   ecrã: a coluna cresce até max-h e o corpo rola. */}
-              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
                 {grouped[stage].length === 0 ? (
                   <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-slate-300/80 px-2 py-6 text-center">
                     <Inbox
@@ -481,7 +481,7 @@ export function JobKanban({
                           void handleMove(application.applicationId, nextStage);
                         }
                       }}
-                      className="cursor-grab rounded-lg border border-slate-200 bg-white p-4 shadow-level1 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-level2 focus-visible:ring-2 focus-visible:ring-secondary active:cursor-grabbing"
+                      className="cursor-grab rounded-lg border border-slate-200 bg-white p-5 shadow-level1 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-level2 focus-visible:ring-2 focus-visible:ring-secondary active:cursor-grabbing"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
@@ -514,15 +514,15 @@ export function JobKanban({
                           {application.matchScore}%
                         </Badge>
                       </div>
-                      <p className="mt-0.5 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-slate-500">
                         {application.course} ·{" "}
                         {MATCH_BAND_LABELS[matchBand(application.matchScore)]}
                       </p>
                       {/* [UX-P3] H6-2 — idade do processo no próprio card. */}
-                      <p className="mt-0.5 text-xs text-a11y-slate-500">
+                      <p className="mt-1 text-xs text-a11y-slate-500">
                         Candidatou-se em {formatDay(application.appliedAt)}
                       </p>
-                      <p className="mt-1 text-xs font-semibold">
+                      <p className="mt-2 text-xs font-semibold">
                         {application.contactReleased ? (
                           <span className="text-success">Contato liberado</span>
                         ) : (
@@ -540,7 +540,7 @@ export function JobKanban({
                         </p>
                       ) : null}
                       {application.contactReleased ? (
-                        <p className="mt-1 text-xs text-primary">
+                        <p className="mt-2 text-xs text-primary">
                           {application.email !== undefined ? (
                             <a
                               href={`mailto:${application.email}`}
@@ -576,7 +576,7 @@ export function JobKanban({
                           ) : null}
                         </p>
                       ) : null}
-                      <div className="mt-3 flex flex-wrap gap-2">
+                      <div className="mt-4 flex flex-wrap gap-2">
                         {prevStage !== null ? (
                           <Button
                             variant="secondary"

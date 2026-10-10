@@ -46,7 +46,7 @@ const STATUS_OPTIONS = [
 ] as const;
 
 const SELECT_CLASS =
-  "rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
+  "h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
 
 type KpiCardProps = {
   value: string | number;
@@ -85,7 +85,7 @@ function LoadingSection({ label }: { label: string }) {
 
 function KpiCard({ value, label, hint, icon }: KpiCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
+    <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
       {icon !== undefined ? (
         <span
           aria-hidden="true"
@@ -593,7 +593,7 @@ export function OperationalPanel() {
         active={filtersActive}
       />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
         <KpiCard
           value={summary.jobs.open}
           label="Vagas abertas"

@@ -10,6 +10,7 @@ import {
 } from "./lib/router";
 import { useAuthState } from "./components/auth/authContext";
 import { StudentShell } from "./components/student/StudentShell";
+import { Kanban, LayoutDashboard, Users } from "lucide-react";
 import { TalentSearchPage } from "./components/talent/TalentSearchPage";
 import { RecruiterJobsPage } from "./components/recruiter/RecruiterJobsPage";
 import { CandidateProfilePage } from "./components/recruiter/CandidateProfilePage";
@@ -73,10 +74,19 @@ function MainLandmark({ children }: { children: React.ReactNode }) {
 /** Abas do portal (REFACTOR_UI Etapa 2). */
 type TabKey = "dashboard" | "talentos" | "vagas";
 
-const TABS: Array<{ key: TabKey; label: string }> = [
-  { key: "dashboard", label: "Dashboard de Métricas" },
-  { key: "talentos", label: "Banco de Talentos" },
-  { key: "vagas", label: "Vagas & Pipeline" },
+const TABS: Array<{
+  key: TabKey;
+  label: string;
+  /** [FINAL_UI_POLISH] Ícone lucide ao lado do texto (gap-2). */
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
+}> = [
+  {
+    key: "dashboard",
+    label: "Dashboard de Métricas",
+    icon: LayoutDashboard,
+  },
+  { key: "talentos", label: "Banco de Talentos", icon: Users },
+  { key: "vagas", label: "Vagas & Pipeline", icon: Kanban },
 ];
 
 /**
@@ -133,12 +143,13 @@ function RecruiterNavbar({
                   aria-controls={`panel-${tab.key}`}
                   id={`tab-${tab.key}`}
                   onClick={() => onChange(tab.key)}
-                  className={`rounded px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                  className={`flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                     active === tab.key
                       ? "border-b-2 border-secondary bg-[#FDF2F4] text-primary"
                       : "border-b-2 border-transparent text-slate-600 hover:bg-[#FDF2F4] hover:text-primary"
                   }`}
                 >
+                  <tab.icon className="h-4 w-4" aria-hidden={true} />
                   {tab.label}
                 </button>
               </li>
@@ -295,7 +306,7 @@ function AuthGate() {
           id={`panel-${activeTab}`}
           aria-labelledby={`tab-${activeTab}`}
           tabIndex={-1}
-          className="mx-auto w-full max-w-[1440px] px-6 py-6"
+          className="mx-auto w-full max-w-[1440px] px-8 py-8"
         >
           {isRecruiterSide && activeTab === "dashboard" ? (
             /* [REFACTOR_GESTOR] Etapa 4 — o gestor recebe o Painel

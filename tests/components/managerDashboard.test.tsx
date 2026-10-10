@@ -189,6 +189,8 @@ describe("REFACTOR_GESTOR — Painel Estratégico (Etapa 4)", () => {
 
   it("4 KPIs no topo com dados reais quando disponíveis", () => {
     render(<ManagerDashboard />);
+    // [FINAL_UI_POLISH] cards de métrica com respiro máximo (p-8).
+    expect(screen.getByTestId("kpi-oportunidades")).toHaveClass("p-8");
     expect(screen.getByTestId("kpi-oportunidades")).toHaveTextContent("12");
     expect(screen.getByTestId("kpi-empregabilidade")).toHaveTextContent("64%");
     expect(screen.getByTestId("kpi-tempo-contratacao")).toHaveTextContent("21");

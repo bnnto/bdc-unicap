@@ -27,7 +27,7 @@ export function EmptyState({
     <div
       role="status"
       aria-live="polite"
-      className={`flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/60 text-center ${
+      className={`flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-transparent text-center ${
         compact ? "gap-2 p-6" : "gap-3 p-10"
       }`}
     >

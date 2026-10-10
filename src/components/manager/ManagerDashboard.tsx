@@ -78,7 +78,7 @@ function KpiCard({
   return (
     <div
       data-testid={testId}
-      className="rounded-2xl border border-slate-200 bg-white p-6 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2"
+      className="rounded-2xl border border-slate-200 bg-white p-8 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2"
     >
       {icon !== undefined ? (
         <span
@@ -268,7 +268,7 @@ export function ManagerDashboard() {
             aria-label="Curso"
             value={draftCourse}
             onChange={(e) => setDraftCourse(e.target.value)}
-            className="w-56 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            className="w-56 h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             <option value="">Todos os Cursos</option>
             {COURSE_OPTIONS.map((course) => (
@@ -286,7 +286,7 @@ export function ManagerDashboard() {
             aria-label="Semestre"
             value={draftSemester}
             onChange={(e) => setDraftSemester(e.target.value)}
-            className="w-48 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            className="w-48 h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             <option value="">Todos os semestres</option>
             {SEMESTER_OPTIONS.map((semester) => (
