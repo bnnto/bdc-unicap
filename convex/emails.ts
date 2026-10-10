@@ -39,7 +39,10 @@ function appBaseUrl(): string {
 
 /** Remetente padrão; sobrescrito via RESEND_FROM no dashboard Convex. */
 function fromAddress(): string {
-  return process.env.RESEND_FROM ?? "onboarding@resend.dev";
+  return (
+    process.env.RESEND_FROM ??
+    "Portal de Carreiras UNICAP <onboarding@resend.dev>"
+  );
 }
 
 /**
