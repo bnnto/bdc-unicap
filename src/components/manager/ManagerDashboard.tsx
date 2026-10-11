@@ -256,7 +256,7 @@ export function ManagerDashboard() {
 
       {/* 2 — Barra de filtros. */}
       <div
-        className="mb-6 flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-level1"
+        className="mb-6 flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
         role="group"
         aria-label="Filtros do painel estratégico"
       >

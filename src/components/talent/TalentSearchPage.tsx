@@ -586,7 +586,7 @@ export function TalentSearchPage() {
               >
                 {result.items.map((talent) => (
                   <li key={talent.studentId}>
-                    <article className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-level2">
+                    <article className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-level2">
                       <div className="flex items-start gap-3">
                         {/* Placeholder circular de foto (referência). */}
                         <span
