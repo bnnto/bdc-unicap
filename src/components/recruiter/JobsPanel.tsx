@@ -167,7 +167,7 @@ export function JobsPanel({
           {jobs.map((job) => (
             <li
               key={job._id}
-              className="rounded-xl border border-slate-200 bg-white p-4 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2"
+              className="rounded-xl border border-slate-200 bg-white p-5 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>

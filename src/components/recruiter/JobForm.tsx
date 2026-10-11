@@ -181,7 +181,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         e.preventDefault();
         void handleSubmit();
       }}
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-6"
       aria-label={
         initial !== null
           ? "Formulário de edição de vaga"

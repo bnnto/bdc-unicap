@@ -138,7 +138,7 @@ function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
     <section
       data-testid="dashboard-filters"
       aria-label="Filtros do dashboard"
-      className="mb-4 rounded-lg border border-slate-200 bg-white p-4 shadow-level1"
+      className="mb-4 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="font-serif text-sm font-bold uppercase tracking-wide text-primary">
