@@ -46,7 +46,7 @@ const STATUS_OPTIONS = [
 ] as const;
 
 const SELECT_CLASS =
-  "h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
+  "appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
 
 type KpiCardProps = {
   value: string | number;
@@ -246,7 +246,7 @@ function TimeToHireSection({ stats }: { stats: TimeToHireStats | undefined }) {
       className="min-w-0"
       aria-label="Time to hire"
     >
-      <Card title="Time-to-Hire médio" accent="secondary">
+      <Card title="Time-to-Hire médio" accent="primary">
         {stats === undefined ? (
           <LoadingSection label="Carregando time-to-hire" />
         ) : (
@@ -380,7 +380,7 @@ function RankingSection({
       className="mt-3 grid gap-3 md:grid-cols-2"
       aria-label="Empresas e vagas mais ativas"
     >
-      <Card title="Empresas mais ativas" accent="secondary">
+      <Card title="Empresas mais ativas" accent="primary">
         {rankings === undefined ? (
           <LoadingSection label="Carregando ranking" />
         ) : rankings.topCompanies.length === 0 ? (
@@ -417,7 +417,7 @@ function RankingSection({
         )}
       </Card>
 
-      <Card title="Vagas mais procuradas">
+      <Card title="Vagas mais procuradas" accent="primary">
         {rankings === undefined ? (
           <LoadingSection label="Carregando ranking" />
         ) : rankings.topJobs.length === 0 ? (
@@ -546,14 +546,11 @@ export function OperationalPanel() {
       {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
-            Indicadores
-          </p>
           <h2 className="font-serif text-2xl font-bold text-primary">
             Painel Operacional
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            Visão geral das vagas e do desempenho dos processos seletivos —
+            Visão geral das vagas e do desempenho dos processos seletivos,
             atualizado em tempo real com o banco do portal.
           </p>
         </div>
@@ -621,7 +618,7 @@ export function OperationalPanel() {
       {/* [REFACTOR_UI] Painel executivo: cards e gráficos distribuídos em
           CSS Grid (sem empilhamento vertical de documento). */}
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <Card title="Taxa de Empregabilidade" accent="secondary">
+        <Card title="Taxa de Empregabilidade" accent="primary">
           <p className="font-serif text-3xl font-bold text-primary">
             {formatEmployabilityRate(summary.employability.rate)}
           </p>
@@ -629,7 +626,7 @@ export function OperationalPanel() {
             Aprovados sobre finalizados
           </p>
         </Card>
-        <Card title="Candidaturas em andamento">
+        <Card title="Candidaturas em andamento" accent="primary">
           <p className="font-serif text-3xl font-bold text-primary">
             {summary.applications.inProgress}
           </p>
@@ -637,7 +634,7 @@ export function OperationalPanel() {
             Inscrito, triagem e entrevista
           </p>
         </Card>
-        <Card title="Resultados finais">
+        <Card title="Resultados finais" accent="primary">
           <p className="font-serif text-3xl font-bold text-primary">
             {summary.applications.finalized}
           </p>

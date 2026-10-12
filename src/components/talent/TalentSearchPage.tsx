@@ -208,16 +208,9 @@ export function TalentSearchPage() {
     <div role="region" aria-label="Busca de talentos" className="px-6 py-8">
       {/* 1 — Barra de busca superior larga. */}
       <div className="mb-6">
-        <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
-          Recrutadores
-        </p>
         <h2 className="font-serif text-2xl font-bold text-primary">
           Banco de Talentos
         </h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Alunos ativos e egressos que autorizaram a divulgação do perfil
-          (R1/R2). O contato só aparece quando o aluno autoriza (R6).
-        </p>
       </div>
 
       <div className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-level1">
@@ -271,14 +264,14 @@ export function TalentSearchPage() {
       </div>
 
       {/* 2 — Duas colunas: sidebar de filtros + conteúdo. */}
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[300px_1fr]">
         <form
           aria-label="Filtros do Banco de Talentos"
           className="flex flex-col gap-6 self-start rounded-2xl border border-slate-200 bg-white p-6 shadow-level1"
           onSubmit={(e) => e.preventDefault()}
         >
           <fieldset className="flex flex-col gap-3" aria-label="Área & Curso">
-            <legend className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <legend className="flex items-center gap-2 text-sm font-semibold text-slate-700 pb-3">
               <GraduationCap
                 className="h-4 w-4 text-primary"
                 aria-hidden="true"
@@ -294,7 +287,7 @@ export function TalentSearchPage() {
                   setPage(0);
                 }}
                 aria-label="Curso"
-                className="h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todos os cursos</option>
                 {COURSES.map((name) => (
@@ -315,7 +308,7 @@ export function TalentSearchPage() {
                   setPage(0);
                 }}
                 aria-label="Formação"
-                className="h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todas</option>
                 <option value="ativo">Alunos ativos</option>
@@ -333,7 +326,7 @@ export function TalentSearchPage() {
                   setPage(0);
                 }}
                 aria-label="Disponibilidade"
-                className="h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Todas</option>
                 {AVAILABILITY.map((value) => (
@@ -381,7 +374,7 @@ export function TalentSearchPage() {
                     setPage(0);
                   }}
                   aria-label="Nível mínimo do idioma"
-                  className="h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                  className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                 >
                   {LANGUAGE_LEVELS.map((level) => (
                     <option key={level} value={level}>
@@ -402,7 +395,7 @@ export function TalentSearchPage() {
             className="flex flex-col gap-2"
             aria-label="Previsão de Conclusão"
           >
-            <legend className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <legend className="flex items-center gap-2 text-sm font-semibold text-slate-700 pb-3">
               <CalendarDays
                 className="h-4 w-4 text-primary"
                 aria-hidden="true"
@@ -466,7 +459,7 @@ export function TalentSearchPage() {
           </fieldset>
 
           <fieldset className="flex flex-col gap-2" aria-label="Competências">
-            <legend className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+            <legend className="flex items-center gap-2 text-sm font-semibold text-slate-700 pb-3">
               <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
               Competências
             </legend>
@@ -539,7 +532,7 @@ export function TalentSearchPage() {
                 setPage(0);
               }}
               aria-label="Ordenar por"
-              className="h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              className="appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             >
               {(Object.keys(SORT_LABELS) as TalentSortOption[]).map((key) => (
                 <option key={key} value={key}>

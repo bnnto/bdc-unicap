@@ -221,7 +221,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
       ) : null}
 
       {/* [RECRUITER_UX_UPGRADE] Seção 1 — campos agrupados com ícone. */}
-      <fieldset className="flex flex-col gap-5 rounded-2xl border border-slate-100 bg-transparent p-8">
+      <fieldset className="flex flex-col gap-5 rounded-2xl border border-slate-300 bg-transparent p-8">
         <legend className="flex items-center gap-2 rounded-lg px-1 font-serif text-sm font-bold text-primary">
           <FileText className="h-4 w-4" aria-hidden="true" />
           Sobre a vaga
@@ -266,7 +266,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="flex items-center gap-2 font-serif text-sm font-bold text-primary">
+        <legend className="flex items-center gap-2 font-serif text-sm font-bold text-primary pb-3">
           <ListChecks className="h-4 w-4" aria-hidden="true" />
           Pré-requisitos{" "}
           <span className="font-sans text-xs font-normal text-slate-500">
@@ -278,7 +278,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             key={index}
             className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:border-primary/30"
           >
-            <div className="flex items-end gap-2">
+            <div className="flex items-starts gap-2">
               <div className="flex-1">
                 <Input
                   label={`Pré-requisito ${index + 1}`}
@@ -290,6 +290,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
               </div>
               <Button
                 variant="secondary"
+                className="mt-6 h-10 shrink-0"
                 onClick={() =>
                   setPrerequisites((list) => list.filter((_, i) => i !== index))
                 }
@@ -314,6 +315,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         {prerequisites.length < MAX_PREREQS ? (
           <Button
             variant="secondary"
+            className="mt-2"
             onClick={() =>
               setPrerequisites((list) => [
                 ...list,
@@ -328,7 +330,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
       </fieldset>
 
       {/* [RECRUITER_UX_UPGRADE] Seção 2 — contrato, salário e local. */}
-      <fieldset className="flex flex-col gap-5 rounded-2xl border border-slate-100 bg-transparent p-8">
+      <fieldset className="flex flex-col gap-5 rounded-2xl border border-slate-300 bg-transparent p-8">
         <legend className="flex items-center gap-2 rounded-lg px-1 font-serif text-sm font-bold text-primary">
           <Banknote className="h-4 w-4" aria-hidden="true" />
           Contrato &amp; Remuneração
@@ -378,7 +380,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="flex items-center gap-2 font-serif text-sm font-bold text-primary">
+        <legend className="flex items-center gap-2 font-serif text-sm font-bold text-primary pb-3">
           <Target className="h-4 w-4" aria-hidden="true" />
           Matching (opcional) —{" "}
           <span className="font-sans text-xs font-normal text-slate-500">
@@ -405,7 +407,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             value={languageLevel}
             onChange={(e) => setLanguageLevel(e.target.value as LanguageLevel)}
             aria-label="Nível mínimo do idioma"
-            className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            className="appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             {LANGUAGE_LEVELS.map((level) => (
               <option key={level} value={level}>
@@ -421,7 +423,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
               )
             }
             aria-label="Disponibilidade desejada"
-            className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            className="appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             <option value="">Disponibilidade: qualquer</option>
             {AVAILABILITY.map((value) => (

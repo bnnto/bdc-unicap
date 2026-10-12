@@ -385,7 +385,7 @@ export function JobKanban({
         <p className="text-xs text-slate-500">
           Arraste os cards ou use as setas do teclado; clique no nome ou em Ver
           Perfil para abrir o currículo completo do candidato; para reprovar,
-          escolha o motivo — ele fica registrado para auditoria.
+          escolha o motivo, ele fica registrado para auditoria.
         </p>
       </div>
 
@@ -674,7 +674,7 @@ export function JobKanban({
             >
               {rejectingApplication.fullName} — {rejectingApplication.course}.
               Escolha o motivo padronizado: ele fica registrado para auditoria
-              do processo (R5) e aparece para o candidato.
+              do processo e aparece para o candidato.
             </p>
             <div className="mt-3 flex flex-col gap-2">
               <label
