@@ -1,6 +1,6 @@
 type CardProps = {
   title: string;
-  accent?: "primary" | "secondary";
+  accent?: "primary";
   /** Nível do título (h2 por padrão; ajuste para não saltar níveis — [S8-2]). */
   headingLevel?: 2 | 3 | 4;
   children: React.ReactNode;
@@ -12,12 +12,7 @@ type CardProps = {
  * do título é configurável para preservar a hierarquia sem saltos (1.3.1).
  */
 export function Card({ title, accent, headingLevel = 2, children }: CardProps) {
-  const accentClass =
-    accent === "primary"
-      ? "border-l-primary"
-      : accent === "secondary"
-        ? "border-l-secondary"
-        : "";
+  const accentClass = accent === "primary" ? "border-l-primary" : "";
   const Heading = `h${headingLevel}` as "h2";
 
   return (

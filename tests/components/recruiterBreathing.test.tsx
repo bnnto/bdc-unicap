@@ -102,14 +102,14 @@ describe("JobKanban — colunas com scroll vertical (muitos candidatos)", () => 
     }
   });
 
-  it("card do candidato tem padding mínimo p-5 e ações espaçadas (sem colar)", async () => {
+  it("card do candidato tem padding p-6 e ações espaçadas (sem colar)", async () => {
     await renderBoard("job-1");
 
     const card = screen.getByText("Maria da Silva").closest("article");
     expect(card).not.toBeNull();
     if (card === null) return;
-    // [FINAL_UI_POLISH] mínimo exigido: p-5 no card e mt-4 até as ações.
-    expect(card).toHaveClass("p-5");
+    // [REFATORACAO_UI] regra de ouro: p-6 no card e mt-4 até as ações.
+    expect(card).toHaveClass("p-6");
 
     const actions = within(card).getByRole("button", {
       name: "Ver Perfil",
@@ -146,7 +146,7 @@ describe("JobKanban — fluxo Master-Detail (initialJobId + onBack)", () => {
 });
 
 describe("TalentSearchPage — filtros com respiro (seta do dropdown)", () => {
-  it("todos os selects têm padding à direita para a seta não encavalitar no texto", () => {
+  it("todos os selects usam o dropdown SVG padronizado (pr-10, sem seta nativa)", () => {
     mockedUseQuery.mockReturnValue({
       items: [],
       page: 0,
@@ -160,7 +160,7 @@ describe("TalentSearchPage — filtros com respiro (seta do dropdown)", () => {
     const selects = document.querySelectorAll("select");
     expect(selects.length).toBeGreaterThan(0);
     for (const select of selects) {
-      expect(select).toHaveClass("pr-9");
+      expect(select).toHaveClass("appearance-none", "pr-10");
     }
   });
 });

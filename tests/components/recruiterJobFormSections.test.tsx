@@ -52,13 +52,13 @@ describe("JobForm — seções visuais com ícones", () => {
     }
   });
 
-  it("todos os selects do formulário têm respiro para a seta (pr-9)", () => {
+  it("todos os selects usam o dropdown SVG padronizado (sem seta nativa)", () => {
     render(<JobForm initial={null} onDone={vi.fn()} />);
 
     const selects = document.querySelectorAll("select");
     expect(selects.length).toBeGreaterThan(0);
     for (const select of selects) {
-      expect(select).toHaveClass("pr-9");
+      expect(select).toHaveClass("appearance-none", "pr-10");
     }
   });
 });

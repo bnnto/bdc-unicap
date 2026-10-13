@@ -14,6 +14,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { ResumeForm } from "./ResumeForm";
 import { ResumeDownload } from "./ResumeDownload";
+import { FileText } from "lucide-react";
 
 /** Âncoras dos 7 blocos do formulário (navegação rápida da sidebar). */
 const SECTION_LINKS: Array<{ href: string; label: string }> = [
@@ -76,7 +77,7 @@ export function ResumeBuilderPage() {
         <aside className="space-y-4 lg:col-span-4 lg:sticky lg:top-24">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-level1">
             <div className="h-16 bg-gradient-to-r from-primary via-[#8a1c31] to-primary" />
-            <div className="relative -mt-8 flex flex-col items-center px-4 pb-4 text-center">
+            <div className="relative -mt-8 flex flex-col items-center px-6 pb-6 text-center">
               <span
                 aria-hidden="true"
                 className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-[#FDF2F4] font-serif text-2xl font-bold text-primary shadow-level1"
@@ -123,7 +124,7 @@ export function ResumeBuilderPage() {
           </section>
 
           {/* Toggle de visibilidade (R2) — Público vs Privado. */}
-          <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-level1">
+          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
             <label className="flex cursor-pointer items-center justify-between gap-3">
               <span
                 id="visibility-switch-label"
@@ -164,7 +165,7 @@ export function ResumeBuilderPage() {
           {/* Navegação rápida por âncoras (menu do formulário). */}
           <nav
             aria-label="Navegação rápida do currículo"
-            className="rounded-lg border border-slate-200 bg-white p-4 shadow-level1"
+            className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
           >
             <p className="mb-2 font-serif text-xs font-bold uppercase tracking-wider text-slate-500">
               Navegação rápida do currículo
@@ -193,9 +194,10 @@ export function ResumeBuilderPage() {
           <ResumeForm />
           <section
             id="bloco-exportar"
-            className="rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
+            className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
           >
-            <h2 className="font-serif text-lg font-bold text-primary">
+            <h2 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
+              <FileText className="h-4 w-4" aria-hidden="true" />
               Visualizador e Exportação PDF
             </h2>
             <p className="mt-1 text-sm text-slate-600">

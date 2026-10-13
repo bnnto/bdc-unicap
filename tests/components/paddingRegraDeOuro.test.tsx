@@ -1,6 +1,6 @@
 /**
  * [FIX_PADDING_AND_LAYOUT_CRITICAL] Regra de ouro: TODO container com
- * `border` / fundo de card precisa de padding (p-6/p-5) para que nenhum
+ * `border` / fundo de card precisa de padding (p-6) para que nenhum
  * texto, input ou botão toque fisicamente na borda.
  *
  * Causa raiz: o componente partilhado `ui/Card` (border + bg-white +
@@ -9,7 +9,7 @@
  * Card propaga respiro a todo o app de uma vez.
  *
  * Reforços pontuais: card do aluno no Banco de Talentos (p-6), cards de
- * vaga (p-5), barra de filtros do Painel Operacional (p-6) e gap-6 entre
+ * vaga (p-6), barra de filtros do Painel Operacional (p-6) e gap-6 entre
  * as secções do formulário de vaga.
  */
 import { render, screen } from "@testing-library/react";
@@ -190,12 +190,12 @@ describe("Etapa 4 — Minhas Vagas com respiro", () => {
     expect(wrapper).toHaveClass("p-6");
   });
 
-  it("card individual da vaga tem p-5 (conteúdo não colado)", () => {
+  it("card individual da vaga tem p-6 (conteúdo não colado)", () => {
     render(<JobsPanel />);
     const card = screen
       .getByText("Estágio em Desenvolvimento Web")
       .closest("li");
     expect(card).not.toBeNull();
-    expect(card).toHaveClass("p-5");
+    expect(card).toHaveClass("p-6");
   });
 });

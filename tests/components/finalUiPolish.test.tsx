@@ -10,7 +10,7 @@
  * gap-2, sem alterar o texto acessível das abas.
  *
  * Etapas 3/4 — Respiro: métricas p-8, filtros com h-10, sidebar do Banco
- * de Talentos com p-6/gap-6 e cards do Kanban com p-5/gap-4.
+ * de Talentos com p-6/gap-6 e cards do Kanban com p-6/gap-4.
  */
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";

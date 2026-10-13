@@ -33,6 +33,7 @@ import type { Availability } from "../../lib/studentProfile";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { ResumeView, type ResumeBlockData } from "../student/ResumeView";
+import { ArrowLeft, Download } from "lucide-react";
 
 const AVAILABILITY_LABELS: Record<Availability, string> = {
   estagio: "Estágio",
@@ -212,10 +213,12 @@ export function CandidateProfilePage({ studentId }: { studentId: string }) {
                   : undefined
               }
             >
+              <Download className="h-4 w-4" aria-hidden="true" />
               Baixar Currículo em PDF
             </Button>
             <Button variant="primary" onClick={voltarAoKanban}>
-              ← Voltar ao Kanban
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+              Voltar ao Kanban
             </Button>
           </div>
         </div>

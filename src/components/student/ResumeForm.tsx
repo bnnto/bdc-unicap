@@ -565,7 +565,7 @@ export function ResumeForm() {
           <section
             key={block.index}
             id={`bloco-${BLOCO_IDS[block.index]}`}
-            className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-level1 transition-all duration-300 ease-in-out hover:shadow-level2"
+            className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-level1 transition-all duration-300 ease-in-out hover:shadow-level2"
           >
             {/* Cabeçalho do bloco: título + ícone de lápis. */}
             <div className="space-y-4">
@@ -804,7 +804,7 @@ export function ResumeForm() {
                       {academicHistory.map((entry, index) => (
                         <div
                           key={index}
-                          className="rounded border border-slate-200 bg-slate-50 p-4"
+                          className="rounded border border-slate-200 bg-slate-50 p-6"
                         >
                           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
                             <div className="min-w-0">
@@ -847,6 +847,7 @@ export function ResumeForm() {
                       ))}
                       {academicHistory.length < MAX_ACADEMIC ? (
                         <Button
+                          className="mt-4"
                           variant="secondary"
                           onClick={() =>
                             setAcademicHistory((list) => [
@@ -899,7 +900,7 @@ export function ResumeForm() {
                   )}
                   {block.index === 3 && (
                     <div className="flex flex-col gap-3">
-                      <div className="flex flex-wrap items-end gap-2">
+                      <div className="flex flex-wrap items-start gap-2">
                         <div className="min-w-52 flex-1">
                           <Input
                             label="Nova competência"
@@ -908,7 +909,11 @@ export function ResumeForm() {
                             hint={`${skills.length}/${MAX_SKILLS} — pressione Adicionar`}
                           />
                         </div>
-                        <Button variant="secondary" onClick={addSkillDraft}>
+                        <Button
+                          variant="secondary"
+                          className="mt-6 h-10 shrink-0"
+                          onClick={addSkillDraft}
+                        >
                           <Plus className="h-4 w-4" aria-hidden="true" />
                           Adicionar competência
                         </Button>
@@ -943,7 +948,7 @@ export function ResumeForm() {
                       {languages.map((language, index) => (
                         <div
                           key={index}
-                          className="flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-slate-50 p-4"
+                          className="flex flex-wrap items-start gap-3 rounded border border-slate-200 bg-slate-50 p-6"
                         >
                           <div className="min-w-0 flex-1">
                             <Input
@@ -969,7 +974,7 @@ export function ResumeForm() {
                               onChange={(e) =>
                                 updateLanguage(index, "level", e.target.value)
                               }
-                              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                              className="mt-1 w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                             >
                               {LANGUAGE_LEVELS.map((level) => (
                                 <option key={level} value={level}>
@@ -980,6 +985,7 @@ export function ResumeForm() {
                           </div>
                           <div className="flex justify-end">
                             <Button
+                              className="mt-6 h-10 shrink-0"
                               variant="secondary"
                               onClick={() =>
                                 setLanguages((list) =>
@@ -994,7 +1000,11 @@ export function ResumeForm() {
                         </div>
                       ))}
                       {languages.length < MAX_LANGUAGES ? (
-                        <Button variant="secondary" onClick={addLanguage}>
+                        <Button
+                          variant="secondary"
+                          className="mt-4"
+                          onClick={addLanguage}
+                        >
                           <Plus className="h-4 w-4" aria-hidden="true" />
                           Adicionar idioma
                         </Button>
@@ -1083,6 +1093,7 @@ export function ResumeForm() {
                         ))}
                         {experiences.length < MAX_EXPERIENCES ? (
                           <Button
+                            className="mt-4"
                             variant="secondary"
                             onClick={() =>
                               setExperiences((list) => [
@@ -1091,7 +1102,8 @@ export function ResumeForm() {
                               ])
                             }
                           >
-                            + Adicionar experiência
+                            <Plus className="h-4 w-4" aria-hidden="true" />+
+                            Adicionar experiência
                           </Button>
                         ) : null}
                       </fieldset>
@@ -1151,12 +1163,14 @@ export function ResumeForm() {
                               )
                             }
                           >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
                             Remover
                           </Button>
                         </div>
                       ))}
                       {certifications.length < MAX_CERTIFICATIONS ? (
                         <Button
+                          className="mt-4"
                           variant="secondary"
                           onClick={() =>
                             setCertifications((list) => [...list, ""])

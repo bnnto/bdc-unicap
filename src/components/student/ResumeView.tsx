@@ -239,7 +239,7 @@ export function ResumeView({ data }: { data: ResumeBlockData }) {
         <section
           key={block.index}
           id={`bloco-${BLOCO_IDS[block.index]}`}
-          className="space-y-4 rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
+          className="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
         >
           <div className="space-y-4">
             <div>

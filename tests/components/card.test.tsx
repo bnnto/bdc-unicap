@@ -25,16 +25,6 @@ describe("Card (componente ui/ próprio e leve)", () => {
     expect(card.className).toContain("border-l-primary");
   });
 
-  it("aplica acento dourado (secondary) via borda esquerda", () => {
-    render(
-      <Card title="Título" accent="secondary">
-        x
-      </Card>,
-    );
-    const card = screen.getByTestId("card");
-    expect(card.className).toContain("border-l-secondary");
-  });
-
   it("usa sombra de nível 1 do DESIGN.md por padrão", () => {
     render(<Card title="Título">x</Card>);
     expect(screen.getByTestId("card").className).toContain("shadow-level1");

@@ -19,7 +19,7 @@ import {
   type TimelineStep,
 } from "../../lib/application";
 import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
-import { Activity, Inbox, Target, TrendingUp } from "lucide-react";
+import { Activity, Handshake, Inbox, Target, TrendingUp } from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
 
 const MATCH_CHIP: Record<
@@ -97,21 +97,21 @@ export function MyApplicationsPage() {
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="group rounded-xl border border-slate-200 bg-white p-4 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
+        <div className="group rounded-xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
           <span className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
             <Inbox className="h-5 w-5" aria-hidden="true" />
           </span>
           <p className="text-3xl font-bold text-primary">{kpis.total}</p>
           <p className="text-xs text-slate-500">Candidaturas</p>
         </div>
-        <div className="group rounded-xl border border-slate-200 bg-white p-4 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
+        <div className="group rounded-xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
           <span className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
             <Activity className="h-5 w-5" aria-hidden="true" />
           </span>
           <p className="text-3xl font-bold text-primary">{kpis.active}</p>
           <p className="text-xs text-slate-500">Em andamento</p>
         </div>
-        <div className="group rounded-xl border border-slate-200 bg-white p-4 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
+        <div className="group rounded-xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
           <span className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/15 text-a11y-secondary ring-1 ring-secondary/25">
             <Target className="h-5 w-5" aria-hidden="true" />
           </span>
@@ -127,7 +127,7 @@ export function MyApplicationsPage() {
           (dados calculados no backend via applications.myStats). */}
       <section
         aria-label="Estatísticas do meu perfil"
-        className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-level1"
+        className="mb-5 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
       >
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="flex items-center gap-2 font-serif text-base font-bold text-primary">
@@ -187,7 +187,7 @@ export function MyApplicationsPage() {
         ) : null}
       </section>
 
-      <Card title="Todas as candidaturas" accent="secondary">
+      <Card title="Todas as candidaturas" accent="primary">
         {myApplications === undefined ? (
           <p
             className="text-sm text-slate-500"
@@ -222,7 +222,7 @@ export function MyApplicationsPage() {
               return (
                 <li
                   key={application.applicationId}
-                  className="rounded-lg border border-slate-200 bg-white p-4 shadow-level1"
+                  className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
@@ -325,6 +325,7 @@ export function MyApplicationsPage() {
                             }));
                       }}
                     >
+                      <Handshake className="h-4 w-4" aria-hidden="true" />
                       {application.processAccepted
                         ? "Revogar contato"
                         : "Liberar contato"}

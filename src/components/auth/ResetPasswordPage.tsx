@@ -108,7 +108,7 @@ export function ResetPasswordPage() {
               </p>
 
               {sent ? (
-                <div className="mt-4 rounded border border-slate-200 bg-canvas p-4">
+                <div className="mt-4 rounded border border-slate-200 bg-canvas p-6">
                   <p className="text-sm text-slate-700">
                     Se existir uma conta com este e-mail, o link de recuperação
                     já está a caminho. Não encontrou? Confira a caixa de spam.

@@ -1,5 +1,19 @@
 import { useState } from "react";
-import { Briefcase, Timer, TrendingUp, Users } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  ClipboardList,
+  Download,
+  Filter,
+  GraduationCap,
+  LayoutDashboard,
+  Radar,
+  RefreshCw,
+  Thermometer,
+  Timer,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "../ui/button";
@@ -216,7 +230,8 @@ export function ManagerDashboard() {
           <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
             Gestão
           </p>
-          <h2 className="font-serif text-3xl font-bold text-primary">
+          <h2 className="font-serif text-3xl font-bold text-primary flex items-center gap-2">
+            <LayoutDashboard className="h-6 w-6" aria-hidden="true" />
             Painel Estratégico de Carreiras &amp; Empregabilidade
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
@@ -235,6 +250,7 @@ export function ManagerDashboard() {
             onClick={exportCsv}
             title="Planilha CSV com os indicadores filtrados"
           >
+            <Download className="h-4 w-4" aria-hidden="true" />
             Exportar Planilha (CSV)
           </Button>
           <Button
@@ -242,6 +258,7 @@ export function ManagerDashboard() {
             onClick={exportXlsx}
             title="Pasta de trabalho Excel (.xlsx) com os indicadores filtrados"
           >
+            <Download className="h-4 w-4" aria-hidden="true" />
             Exportar Excel
           </Button>
           <Button
@@ -249,6 +266,7 @@ export function ManagerDashboard() {
             onClick={exportPdf}
             title="Relatório em PDF com o template institucional UNICAP"
           >
+            <Download className="h-4 w-4" aria-hidden="true" />
             Exportar Relatório PDF
           </Button>
         </div>
@@ -256,7 +274,7 @@ export function ManagerDashboard() {
 
       {/* 2 — Barra de filtros. */}
       <div
-        className="mb-6 flex flex-wrap items-end gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
+        className="mb-6 flex flex-wrap items-start gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
         role="group"
         aria-label="Filtros do painel estratégico"
       >
@@ -268,7 +286,7 @@ export function ManagerDashboard() {
             aria-label="Curso"
             value={draftCourse}
             onChange={(e) => setDraftCourse(e.target.value)}
-            className="w-56 h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            className="w-56 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             <option value="">Todos os Cursos</option>
             {COURSE_OPTIONS.map((course) => (
@@ -286,7 +304,7 @@ export function ManagerDashboard() {
             aria-label="Semestre"
             value={draftSemester}
             onChange={(e) => setDraftSemester(e.target.value)}
-            className="w-48 h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            className="w-48 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
           >
             <option value="">Todos os semestres</option>
             {SEMESTER_OPTIONS.map((semester) => (
@@ -297,11 +315,13 @@ export function ManagerDashboard() {
           </select>
         </label>
         <Button
+          className="mt-6 h-10 shrink-0"
           variant="primary"
           onClick={() =>
             setApplied({ course: draftCourse, semester: draftSemester })
           }
         >
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
           Atualizar
         </Button>
         {applied.semester !== "" ? (
@@ -350,11 +370,12 @@ export function ManagerDashboard() {
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
         <section
           data-testid="manager-funnel"
-          className="rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
+          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
           aria-label="Funil de conversão"
         >
           <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-serif text-lg font-bold text-primary">
+            <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
+              <Filter className="h-4 w-4" aria-hidden="true" />
               Funil de Conversão
             </h3>
             <span className="text-xs text-slate-500">
@@ -399,11 +420,12 @@ export function ManagerDashboard() {
 
         <section
           data-testid="manager-course-employability"
-          className="rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
+          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
           aria-label="Empregabilidade por curso"
         >
           <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-serif text-lg font-bold text-primary">
+            <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
+              <GraduationCap className="h-4 w-4" aria-hidden="true" />
               Empregabilidade por Curso
             </h3>
           </div>
@@ -445,11 +467,12 @@ export function ManagerDashboard() {
 
       {/* 5 — Tabela de empresas parceiras (dados reais). */}
       <section
-        className="mt-6 rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
+        className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
         aria-label="Empresas parceiras"
       >
         <div className="mb-4 flex items-center justify-between gap-2">
-          <h3 className="font-serif text-lg font-bold text-primary">
+          <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
+            <Building2 className="h-4 w-4" aria-hidden="true" />
             Empresas Parceiras
           </h3>
         </div>
@@ -515,11 +538,12 @@ export function ManagerDashboard() {
       <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
         <section
           data-testid="manager-insight-rejections"
-          className="rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
+          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
           aria-label="Motivos de reprovação"
         >
           <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-serif text-lg font-bold text-primary">
+            <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" aria-hidden="true" />
               Motivos de Reprovação
             </h3>
           </div>
@@ -560,11 +584,12 @@ export function ManagerDashboard() {
 
         <section
           data-testid="manager-insight-skillgaps"
-          className="rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
+          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
           aria-label="Radar de competências"
         >
           <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-serif text-lg font-bold text-primary">
+            <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
+              <Radar className="h-4 w-4" aria-hidden="true" />
               Radar de Competências
             </h3>
           </div>
@@ -623,11 +648,12 @@ export function ManagerDashboard() {
 
         <section
           data-testid="manager-insight-engagement"
-          className="rounded-lg border border-slate-200 bg-white p-5 shadow-level1"
+          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
           aria-label="Termômetro de engajamento"
         >
           <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-serif text-lg font-bold text-primary">
+            <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
+              <Thermometer className="h-4 w-4" aria-hidden="true" />
               Termômetro de Engajamento
             </h3>
           </div>
@@ -635,7 +661,7 @@ export function ManagerDashboard() {
             Alunos que precisam de um empurrão para completar o perfil.
           </p>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-slate-200 bg-[#FDF2F4] p-4 text-center">
+            <div className="rounded-lg border border-slate-200 bg-[#FDF2F4] p-6 text-center">
               <p className="font-serif text-3xl font-bold text-primary">
                 {engagement.incompleteProfiles}
               </p>
@@ -643,7 +669,7 @@ export function ManagerDashboard() {
                 Perfil incompleto
               </p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
               <p className="font-serif text-3xl font-bold text-primary">
                 {engagement.noResume}
               </p>

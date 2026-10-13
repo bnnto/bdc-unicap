@@ -66,11 +66,11 @@ function ConsentRequiredScreen() {
         </header>
 
         <div
-          className="rounded-lg border border-slate-200 bg-white shadow-level2"
+          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level2"
           role="region"
           aria-label="Texto do termo de consentimento"
         >
-          <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap px-6 py-4 font-sans text-sm leading-relaxed text-slate-700">
+          <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">
             {CONSENT_TERM}
           </pre>
         </div>

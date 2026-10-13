@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { BadgeCheck, Briefcase, Layers, Lock } from "lucide-react";
+import {
+  BadgeCheck,
+  Briefcase,
+  Download,
+  Gauge,
+  Layers,
+  Lock,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Card } from "../ui/card";
@@ -141,7 +149,8 @@ function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
       className="mb-4 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="font-serif text-sm font-bold uppercase tracking-wide text-primary">
+        <h3 className="font-serif text-sm font-bold uppercase tracking-wide text-primary flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
           Filtros
         </h3>
         {active ? (
@@ -246,7 +255,7 @@ function TimeToHireSection({ stats }: { stats: TimeToHireStats | undefined }) {
       className="min-w-0"
       aria-label="Time to hire"
     >
-      <Card title="Time-to-Hire médio" accent="primary">
+      <Card title="Time-to-Hire médio">
         {stats === undefined ? (
           <LoadingSection label="Carregando time-to-hire" />
         ) : (
@@ -380,7 +389,7 @@ function RankingSection({
       className="mt-3 grid gap-3 md:grid-cols-2"
       aria-label="Empresas e vagas mais ativas"
     >
-      <Card title="Empresas mais ativas" accent="primary">
+      <Card title="Empresas mais ativas">
         {rankings === undefined ? (
           <LoadingSection label="Carregando ranking" />
         ) : rankings.topCompanies.length === 0 ? (
@@ -417,7 +426,7 @@ function RankingSection({
         )}
       </Card>
 
-      <Card title="Vagas mais procuradas" accent="primary">
+      <Card title="Vagas mais procuradas">
         {rankings === undefined ? (
           <LoadingSection label="Carregando ranking" />
         ) : rankings.topJobs.length === 0 ? (
@@ -546,7 +555,8 @@ export function OperationalPanel() {
       {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-serif text-2xl font-bold text-primary">
+          <h2 className="font-serif text-2xl font-bold text-primary flex items-center gap-2">
+            <Gauge className="h-5 w-5" aria-hidden="true" />
             Painel Operacional
           </h2>
           <p className="mt-1 text-sm text-slate-600">
@@ -564,6 +574,7 @@ export function OperationalPanel() {
             onClick={() => exportReport("csv")}
             title="Planilha CSV (Excel/LibreOffice) com os indicadores filtrados"
           >
+            <Download className="h-4 w-4" aria-hidden="true" />
             Baixar CSV
           </Button>
           <Button
@@ -571,6 +582,7 @@ export function OperationalPanel() {
             onClick={() => exportReport("xlsx")}
             title="Pasta de trabalho Excel (.xlsx) com os indicadores filtrados"
           >
+            <Download className="h-4 w-4" aria-hidden="true" />
             Baixar Excel
           </Button>
           <Button
@@ -578,6 +590,7 @@ export function OperationalPanel() {
             onClick={printPdf}
             title="Relatório em PDF com o template institucional UNICAP (usa a impressão do navegador)"
           >
+            <Download className="h-4 w-4" aria-hidden="true" />
             Baixar PDF
           </Button>
         </div>
@@ -618,7 +631,7 @@ export function OperationalPanel() {
       {/* [REFACTOR_UI] Painel executivo: cards e gráficos distribuídos em
           CSS Grid (sem empilhamento vertical de documento). */}
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <Card title="Taxa de Empregabilidade" accent="primary">
+        <Card title="Taxa de Empregabilidade">
           <p className="font-serif text-3xl font-bold text-primary">
             {formatEmployabilityRate(summary.employability.rate)}
           </p>
@@ -626,7 +639,7 @@ export function OperationalPanel() {
             Aprovados sobre finalizados
           </p>
         </Card>
-        <Card title="Candidaturas em andamento" accent="primary">
+        <Card title="Candidaturas em andamento">
           <p className="font-serif text-3xl font-bold text-primary">
             {summary.applications.inProgress}
           </p>
@@ -634,7 +647,7 @@ export function OperationalPanel() {
             Inscrito, triagem e entrevista
           </p>
         </Card>
-        <Card title="Resultados finais" accent="primary">
+        <Card title="Resultados finais">
           <p className="font-serif text-3xl font-bold text-primary">
             {summary.applications.finalized}
           </p>

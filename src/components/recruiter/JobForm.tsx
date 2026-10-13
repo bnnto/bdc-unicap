@@ -276,9 +276,9 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         {prerequisites.map((prereq, index) => (
           <div
             key={index}
-            className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 transition-colors hover:border-primary/30"
+            className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-6 transition-colors hover:border-primary/30"
           >
-            <div className="flex items-starts gap-2">
+            <div className="flex items-start gap-2">
               <div className="flex-1">
                 <Input
                   label={`Pré-requisito ${index + 1}`}
@@ -346,7 +346,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             <select
               value={contractType}
               onChange={(e) => setContractType(e.target.value as ContractType)}
-              className="rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 pr-9 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             >
               {CONTRACT_TYPES.map((type) => (
                 <option key={type} value={type}>
