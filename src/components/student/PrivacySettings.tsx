@@ -59,11 +59,7 @@ export function PrivacySettings() {
   }
 
   return (
-    <Card
-      title="Privacidade e visibilidade"
-      accent="secondary"
-      headingLevel={2}
-    >
+    <Card title="Privacidade e visibilidade" headingLevel={2}>
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-semibold text-slate-700">
           Onde seu perfil aparece

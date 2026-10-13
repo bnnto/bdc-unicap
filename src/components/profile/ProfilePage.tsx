@@ -20,6 +20,17 @@ import {
   savePreferences,
   type ThemePreferences,
 } from "../../lib/preferences";
+import {
+  AArrowDown,
+  AArrowUp,
+  AlertTriangle,
+  Bell,
+  Download,
+  LogOut,
+  MonitorSmartphone,
+  Trash2,
+  X,
+} from "lucide-react";
 
 /**
  * [PERFIL_E_LGPD] Rota `/perfil` — central de configurações e
@@ -280,7 +291,7 @@ export function ProfilePage() {
         </p>
 
         {/* Etapa 1 — Identidade e conta. */}
-        <Card title="Identidade e conta" accent="primary">
+        <Card title="Identidade e conta">
           <div className="flex flex-wrap items-center gap-4">
             {user?.image ? (
               <img
@@ -323,6 +334,7 @@ export function ProfilePage() {
                   variant="secondary"
                   onClick={() => void handleRemoveImage()}
                 >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                   Remover foto
                 </Button>
               </div>
@@ -332,7 +344,7 @@ export function ProfilePage() {
 
         {/* Etapa 1 — Aparência e acessibilidade. */}
         <div className="mt-6">
-          <Card title="Aparência e acessibilidade" accent="secondary">
+          <Card title="Aparência e acessibilidade">
             <div className="flex flex-col gap-3">
               <PreferenceSwitch
                 label="Modo escuro"
@@ -362,6 +374,7 @@ export function ProfilePage() {
                     disabled={prefs.fontScale === 0}
                     onClick={() => changeFontSize(-1)}
                   >
+                    <AArrowDown className="h-4 w-4" aria-hidden="true" />
                     A−
                   </Button>
                   <output
@@ -376,6 +389,7 @@ export function ProfilePage() {
                     disabled={prefs.fontScale === FONT_SCALE_STEPS.length - 1}
                     onClick={() => changeFontSize(1)}
                   >
+                    <AArrowUp className="h-4 w-4" aria-hidden="true" />
                     A+
                   </Button>
                 </div>
@@ -386,8 +400,9 @@ export function ProfilePage() {
 
         {/* Etapa 2 — Segurança e preferências. */}
         <div className="mt-6">
-          <Card title="Segurança e preferências" accent="primary">
-            <h3 className="text-sm font-semibold text-slate-700">
+          <Card title="Segurança e preferências">
+            <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <MonitorSmartphone className="h-4 w-4" aria-hidden="true" />
               Sessões recentes
             </h3>
             {sessions === undefined ? (
@@ -439,11 +454,13 @@ export function ProfilePage() {
                 variant="secondary"
                 onClick={() => void handleRevokeSessions()}
               >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
                 Encerrar sessão em todos os outros dispositivos
               </Button>
             </div>
 
-            <h3 className="mt-6 text-sm font-semibold text-slate-700">
+            <h3 className="mt-6 text-sm font-semibold text-slate-700 flex items-center gap-2">
+              <Bell className="h-4 w-4" aria-hidden="true" />
               Notificações
             </h3>
             <div className="mt-2 flex flex-col gap-2">
@@ -469,7 +486,7 @@ export function ProfilePage() {
 
         {/* Etapa 3 — Privacidade e LGPD. */}
         <div className="mt-6">
-          <Card title="Privacidade e LGPD" accent="secondary">
+          <Card title="Privacidade e LGPD">
             <p className="text-sm text-slate-600">
               Portabilidade de dados (art. 18, V) e direito ao esquecimento
               (art. 18, VI) da Lei Geral de Proteção de Dados.
@@ -480,12 +497,14 @@ export function ProfilePage() {
                 disabled={exportData === undefined || exportData === null}
                 onClick={handleExport}
               >
+                <Download className="h-4 w-4" aria-hidden="true" />
                 Exportar meus dados (JSON)
               </Button>
             </div>
 
-            <div className="mt-6 rounded border border-danger bg-white p-4">
-              <h3 className="font-serif text-sm font-bold text-danger">
+            <div className="mt-6 rounded border border-danger bg-white p-6">
+              <h3 className="font-serif text-sm font-bold text-danger flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                 Zona de perigo
               </h3>
               <p className="mt-1 text-xs text-slate-600">
@@ -502,6 +521,7 @@ export function ProfilePage() {
                     setDeleteError(null);
                   }}
                 >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                   Excluir conta
                 </Button>
               </div>
@@ -524,11 +544,12 @@ export function ProfilePage() {
               }
             }}
           >
-            <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-level2">
+            <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-level2">
               <h2
                 id="delete-modal-title"
-                className="font-serif text-lg font-bold text-danger"
+                className="font-serif text-lg font-bold text-danger flex items-center gap-2"
               >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
                 Excluir conta permanentemente
               </h2>
               <p
@@ -563,6 +584,7 @@ export function ProfilePage() {
                     setConfirmWord("");
                   }}
                 >
+                  <X className="h-4 w-4" aria-hidden="true" />
                   Cancelar
                 </Button>
                 <Button
@@ -571,6 +593,7 @@ export function ProfilePage() {
                   disabled={!confirmed || deleting}
                   onClick={() => void handleDeleteAccount()}
                 >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
                   {deleting ? "Excluindo…" : "Sim, excluir minha conta"}
                 </Button>
               </div>

@@ -22,6 +22,7 @@ import {
   ChevronRight,
   Clock,
   Eye,
+  FilterX,
   GraduationCap,
   Languages,
   MapPin,
@@ -208,7 +209,8 @@ export function TalentSearchPage() {
     <div role="region" aria-label="Busca de talentos" className="px-6 py-8">
       {/* 1 — Barra de busca superior larga. */}
       <div className="mb-6">
-        <h2 className="font-serif text-2xl font-bold text-primary">
+        <h2 className="font-serif text-2xl font-bold text-primary flex items-center gap-2">
+          <Users className="h-5 w-5" aria-hidden="true" />
           Banco de Talentos
         </h2>
       </div>
@@ -257,6 +259,7 @@ export function TalentSearchPage() {
               onClick={clearAll}
               disabled={!hasAnyFilter}
             >
+              <X className="h-4 w-4" aria-hidden="true" />
               Limpar
             </Button>
           </div>
@@ -568,6 +571,7 @@ export function TalentSearchPage() {
                 disponibilidade.
               </p>
               <Button variant="secondary" className="mt-3" onClick={clearAll}>
+                <FilterX className="h-4 w-4" aria-hidden="true" />
                 Limpar filtros
               </Button>
             </div>

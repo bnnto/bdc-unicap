@@ -12,6 +12,7 @@ import {
   renderResumeIntoPrintContainer,
 } from "../../lib/resumePrint";
 import { Button } from "../ui/button";
+import { Download, Eye } from "lucide-react";
 
 /**
  * Download do Currículo Vitae em PDF (issue [S2-2]) — sem libs pesadas:
@@ -99,6 +100,7 @@ export function ResumeDownload() {
           onClick={handleDownload}
           aria-label={`Baixar currículo em PDF (${formatResumeFileName(doc.student.fullName, doc.student.course, doc.student.graduationYear)})`}
         >
+          <Download className="h-4 w-4" aria-hidden="true" />
           Baixar currículo (PDF)
         </Button>
         <Button
@@ -106,6 +108,7 @@ export function ResumeDownload() {
           aria-expanded={showPreview}
           onClick={() => setShowPreview((value) => !value)}
         >
+          <Eye className="h-4 w-4" aria-hidden="true" />
           {showPreview ? "Ocultar prévia" : "Visualizar antes de baixar"}
         </Button>
       </div>

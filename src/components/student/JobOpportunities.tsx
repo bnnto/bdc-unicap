@@ -22,7 +22,7 @@ import {
   type OpenJobFilters,
 } from "../../lib/jobSearch";
 import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
-import { Banknote, MapPin, Search, Send } from "lucide-react";
+import { Banknote, FilterX, MapPin, Search, Send } from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
 
 /** Vaga do mural — `matchScore` chega calculado no servidor (R8). */
@@ -152,7 +152,7 @@ export function JobOpportunities() {
       </div>
 
       {/* Barra de busca + filtros (estilo LinkedIn). */}
-      <div className="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-level1">
+      <div className="mb-5 rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
           <div className="flex-1">
             <label
@@ -192,7 +192,7 @@ export function JobOpportunities() {
               onChange={(e) =>
                 update("contract", e.target.value as ContractType | "todos")
               }
-              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-44"
+              className="mt-1 w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-44"
             >
               <option value="todos">Todos</option>
               {(Object.keys(CONTRACT_LABELS) as ContractType[]).map((type) => (
@@ -214,7 +214,7 @@ export function JobOpportunities() {
               aria-label="Localidade"
               value={filters.location}
               onChange={(e) => update("location", e.target.value)}
-              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-48"
+              className="mt-1 w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-48"
             >
               <option value="">Todas</option>
               {locationOptions.map((location) => (
@@ -245,7 +245,7 @@ export function JobOpportunities() {
                     : Number.parseInt(e.target.value, 10),
                 )
               }
-              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-44"
+              className="mt-1 w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-44"
             >
               <option value="">Qualquer</option>
               {SALARY_STEPS.map((step) => (
@@ -267,7 +267,7 @@ export function JobOpportunities() {
               aria-label="Ordenar por"
               value={order}
               onChange={(e) => setOrder(e.target.value as JobSortOrder)}
-              className="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-48"
+              className="mt-1 w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-48"
             >
               <option value="compatibilidade">Compatibilidade</option>
               <option value="recentes">Mais recentes</option>
@@ -286,6 +286,7 @@ export function JobOpportunities() {
               variant="secondary"
               onClick={() => setFilters(DEFAULT_JOB_FILTERS)}
             >
+              <FilterX className="h-4 w-4" aria-hidden="true" />
               Limpar filtros
             </Button>
           ) : null}
@@ -332,7 +333,7 @@ export function JobOpportunities() {
             return (
               <li
                 key={job._id}
-                className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-1 hover:scale-[1.02] hover:border-primary/40 hover:shadow-level2"
+                className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-6 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-1 hover:scale-[1.02] hover:border-primary/40 hover:shadow-level2"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>

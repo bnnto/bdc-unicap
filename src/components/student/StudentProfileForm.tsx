@@ -25,6 +25,7 @@ import {
   type LanguageEntry,
   type LanguageLevel,
 } from "../../lib/skills";
+import { Plus, Save } from "lucide-react";
 
 const STATUS_LABELS: Record<EnrollmentStatus, string> = {
   ativo: "Aluno ativo",
@@ -357,12 +358,14 @@ export function StudentProfileForm() {
             aria-label="Nova competência"
           />
           <Button
+            className="mt-4"
             variant="secondary"
             onClick={() => {
               setSkills((s) => addSkill(s, skillDraft));
               setSkillDraft("");
             }}
           >
+            <Plus className="h-4 w-4" aria-hidden="true" />
             Adicionar
           </Button>
         </div>
@@ -401,7 +404,7 @@ export function StudentProfileForm() {
             ({languages.length}/{MAX_LANGUAGES})
           </span>
         </legend>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col items-start gap-2 sm:flex-row">
           <input
             type="text"
             value={languageName}
@@ -413,7 +416,7 @@ export function StudentProfileForm() {
           <select
             value={languageLevel}
             onChange={(e) => setLanguageLevel(e.target.value as LanguageLevel)}
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            className="w-full sm:w-auto appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             aria-label="Nível do idioma"
           >
             {LANGUAGE_LEVELS.map((level) => (
@@ -423,6 +426,7 @@ export function StudentProfileForm() {
             ))}
           </select>
           <Button
+            className="h-10 shrink-0"
             variant="secondary"
             onClick={() => {
               setLanguages((ls) =>
@@ -431,6 +435,7 @@ export function StudentProfileForm() {
               setLanguageName("");
             }}
           >
+            <Plus className="h-4 w-4" aria-hidden="true" />
             Adicionar
           </Button>
         </div>
@@ -461,6 +466,7 @@ export function StudentProfileForm() {
 
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" disabled={pending}>
+          <Save className="h-4 w-4" aria-hidden="true" />
           {pending ? "Salvando…" : "Salvar perfil"}
         </Button>
         <p className="text-xs text-slate-500">

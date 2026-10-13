@@ -20,7 +20,19 @@ import {
 import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
 import { formatDay } from "../../lib/formatters";
 import { candidateProfilePath, navigateTo } from "../../lib/router";
-import { ArrowLeft, ArrowRight, Briefcase, Inbox, Target } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Briefcase,
+  CalendarCheck,
+  CalendarPlus,
+  Eye,
+  Inbox,
+  Target,
+  UserCheck,
+  UserX,
+  X,
+} from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
 
 /** [UI_OVERHAUL] Iniciais do candidato para o avatar circular do card. */
@@ -399,7 +411,7 @@ export function JobKanban({
             <section
               key={stage}
               aria-label={`${STAGE_LABELS[stage]} — ${grouped[stage].length} candidatura(s)`}
-              className={`flex max-h-[68vh] min-h-40 flex-col gap-4 rounded-xl border p-5 transition-colors ${
+              className={`flex max-h-[68vh] min-h-40 flex-col gap-4 rounded-xl border p-6 transition-colors ${
                 dropTarget === stage
                   ? "border-secondary bg-[#FDF2F4]"
                   : "border-slate-200 bg-slate-50"
@@ -481,7 +493,7 @@ export function JobKanban({
                           void handleMove(application.applicationId, nextStage);
                         }
                       }}
-                      className="cursor-grab rounded-lg border border-slate-200 bg-white p-5 shadow-level1 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-level2 focus-visible:ring-2 focus-visible:ring-secondary active:cursor-grabbing"
+                      className="cursor-grab rounded-lg border border-slate-200 bg-white p-6 shadow-level1 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-level2 focus-visible:ring-2 focus-visible:ring-secondary active:cursor-grabbing"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
@@ -621,6 +633,7 @@ export function JobKanban({
                               setReasonDraft("");
                             }}
                           >
+                            <UserX className="h-4 w-4" aria-hidden="true" />
                             Reprovar
                           </Button>
                         ) : null}
@@ -634,6 +647,7 @@ export function JobKanban({
                             )
                           }
                         >
+                          <Eye className="h-4 w-4" aria-hidden="true" />
                           Ver Perfil
                         </Button>
                       </div>
@@ -661,11 +675,12 @@ export function JobKanban({
             }
           }}
         >
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-level1">
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
             <h3
               id="reject-modal-title"
-              className="font-serif text-lg font-bold text-primary"
+              className="font-serif text-lg font-bold text-primary flex items-center gap-2"
             >
+              <UserX className="h-4 w-4" aria-hidden="true" />
               Reprovar candidatura
             </h3>
             <p
@@ -689,7 +704,7 @@ export function JobKanban({
                 onChange={(e) =>
                   setReasonDraft(e.target.value as RejectionReason | "")
                 }
-                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
               >
                 <option value="">Selecione…</option>
                 {REJECTION_REASONS.map((reason) => (
@@ -715,6 +730,7 @@ export function JobKanban({
                   setReasonDraft("");
                 }}
               >
+                <X className="h-4 w-4" aria-hidden="true" />
                 Cancelar
               </Button>
               <Button
@@ -728,6 +744,7 @@ export function JobKanban({
                   )
                 }
               >
+                <UserX className="h-4 w-4" aria-hidden="true" />
                 Confirmar reprovação
               </Button>
             </div>
@@ -752,11 +769,12 @@ export function JobKanban({
             }
           }}
         >
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-level1">
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
             <h3
               id="interview-modal-title"
-              className="font-serif text-lg font-bold text-primary"
+              className="font-serif text-lg font-bold text-primary flex items-center gap-2"
             >
+              <CalendarPlus className="h-4 w-4" aria-hidden="true" />
               Agendar entrevista
             </h3>
             <p
@@ -817,6 +835,7 @@ export function JobKanban({
             ) : null}
             <div className="mt-4 flex items-center justify-end gap-2">
               <Button variant="secondary" onClick={closePendingMove}>
+                <X className="h-4 w-4" aria-hidden="true" />
                 Cancelar
               </Button>
               <Button
@@ -831,6 +850,7 @@ export function JobKanban({
                   void handleInterviewSave(pendingApplication.applicationId)
                 }
               >
+                <CalendarCheck className="h-4 w-4" aria-hidden="true" />
                 Salvar entrevista
               </Button>
             </div>
@@ -854,11 +874,12 @@ export function JobKanban({
             }
           }}
         >
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-level1">
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
             <h3
               id="hire-modal-title"
-              className="font-serif text-lg font-bold text-primary"
+              className="font-serif text-lg font-bold text-primary flex items-center gap-2"
             >
+              <UserCheck className="h-4 w-4" aria-hidden="true" />
               Confirmar contratação
             </h3>
             <p
@@ -888,6 +909,7 @@ export function JobKanban({
             ) : null}
             <div className="mt-4 flex items-center justify-end gap-2">
               <Button variant="secondary" onClick={closePendingMove}>
+                <X className="h-4 w-4" aria-hidden="true" />
                 Cancelar
               </Button>
               <Button
@@ -898,6 +920,7 @@ export function JobKanban({
                   void handleHireSave(pendingApplication.applicationId)
                 }
               >
+                <UserCheck className="h-4 w-4" aria-hidden="true" />
                 Confirmar contratação
               </Button>
             </div>
