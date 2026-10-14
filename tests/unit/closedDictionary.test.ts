@@ -224,4 +224,16 @@ describe("pontos de entrada sem texto livre", () => {
     expect(server.match(/validateSkills\(/g)?.length).toBeGreaterThanOrEqual(2);
     expect(server).toContain("validateLanguages(");
   });
+
+  it("filtro de competências do Banco de Talentos é select do dicionário", () => {
+    const src = read("src/components/talent/TalentSearchPage.tsx");
+    expect(src).toContain("SKILLS_GROUPS");
+    // O filtro é um <select> com aria-label, nunca campo de texto livre.
+    // (lazy e limitado: os atributos do <select> contêm "=>", por isso não [^>]).
+    expect(src).toMatch(/<select[\s\S]{0,300}?aria-label="Nova competência"/);
+    expect(src).not.toMatch(
+      /<(input|Input)\b[^>]*aria-label="Nova competência"/,
+    );
+    expect(src).not.toContain('placeholder="Ex.: SQL"');
+  });
 });

@@ -35,6 +35,7 @@ import { useMutation, useQuery } from "convex/react";
 import { KNOWN_LANGUAGES, SKILLS_DICTIONARY } from "../../src/lib/skills";
 import { ResumeForm } from "../../src/components/student/ResumeForm";
 import { StudentProfileForm } from "../../src/components/student/StudentProfileForm";
+import { TalentSearchPage } from "../../src/components/talent/TalentSearchPage";
 
 const mockedUseQuery = vi.mocked(useQuery);
 const mockedUseMutation = vi.mocked(useMutation);
@@ -220,5 +221,50 @@ describe("ResumeForm — dicionário fechado nos blocos 4 e 5", () => {
     const nextRowOptions = optionsOf(rows[1]!);
     expect(nextRowOptions).not.toContain("Inglês");
     expect(nextRowOptions).toContain("Japonês");
+  });
+});
+
+describe("Banco de Talentos — filtro de competências fechado", () => {
+  it("filtro é select do dicionário (sem caixa de texto livre)", () => {
+    render(<TalentSearchPage />);
+
+    const select = screen.getByRole("combobox", { name: "Nova competência" });
+    expect(select.tagName).toBe("SELECT");
+    expect(
+      screen.queryByRole("textbox", { name: /nova competência/i }),
+    ).toBeNull();
+
+    const offered = optionsOf(select);
+    expect(offered.length).toBeGreaterThan(0);
+    for (const skill of offered) {
+      expect(SKILLS_DICTIONARY).toContain(skill);
+    }
+    expect(offered).toContain("Unity");
+    expect(offered).toContain("Figma");
+  });
+
+  it("adiciona chip só com termo oficial e o remove das opções", async () => {
+    render(<TalentSearchPage />);
+
+    const skillsGroup = screen.getByRole("group", { name: "Competências" });
+    await userEvent.selectOptions(
+      within(skillsGroup).getByRole("combobox", { name: "Nova competência" }),
+      "Unity",
+    );
+    await userEvent.click(
+      within(skillsGroup).getByRole("button", { name: /adicionar/i }),
+    );
+
+    expect(
+      within(skillsGroup).getByRole("button", {
+        name: /remover competência unity/i,
+      }),
+    ).toBeInTheDocument();
+    // Já escolhida sai das opções; o resto do dicionário continua.
+    const after = optionsOf(
+      within(skillsGroup).getByRole("combobox", { name: "Nova competência" }),
+    );
+    expect(after).not.toContain("Unity");
+    expect(after).toContain("Blender");
   });
 });
