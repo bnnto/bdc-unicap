@@ -3,6 +3,7 @@ import {
   LANGUAGE_LEVELS,
   MAX_SKILLS,
   MAX_LANGUAGES,
+  SKILLS_DICTIONARY,
   addSkill,
   removeSkill,
   addLanguage,
@@ -17,9 +18,14 @@ describe("competências (S1-5)", () => {
     expect(skills).toEqual(["React", "TypeScript"]);
   });
 
-  it("normaliza para formato título (primeira letra maiúscula)", () => {
+  it("adota a forma oficial do dicionário (typescript → TypeScript)", () => {
     const skills = addSkill([], "typescript");
-    expect(skills).toEqual(["Typescript"]);
+    expect(skills).toEqual(["TypeScript"]);
+  });
+
+  it("rejeita termo fora do dicionário (dicionário fechado)", () => {
+    expect(addSkill([], "coxinha")).toEqual([]);
+    expect(addSkill(["React"], "coxinha")).toEqual(["React"]);
   });
 
   it("ignora string vazia/só espaços", () => {
@@ -36,7 +42,7 @@ describe("competências (S1-5)", () => {
   it("respeita limite máximo de competências", () => {
     let skills: string[] = [];
     for (let i = 0; i < MAX_SKILLS + 5; i += 1) {
-      skills = addSkill(skills, `skill${i}`);
+      skills = addSkill(skills, SKILLS_DICTIONARY[i] ?? "");
     }
     expect(skills.length).toBe(MAX_SKILLS);
   });

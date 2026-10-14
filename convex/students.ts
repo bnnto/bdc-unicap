@@ -14,6 +14,7 @@ import {
 } from "../src/lib/studentProfile";
 import {
   validateLanguages,
+  validateSkills,
   addSkill,
   type LanguageEntry,
 } from "../src/lib/skills";
@@ -157,10 +158,16 @@ export const upsertProfile = mutation({
     }
     const profile = validation.normalized;
 
-    // [S1-5] — competências normalizadas via addSkill (dedupe/limite)
-    // e idiomas validados (níveis, duplicatas, limite).
+    // [S1-5] + [DICIONARIO_FECHADO] — só competências do dicionário
+    // oficial entram; termo livre é REJEITADO com erro de validação e a
+    // forma gravada é a canônica (dedupe/limite via addSkill).
+    const skillsArgs = args.skills ?? [];
+    const skillsCheck = validateSkills(skillsArgs);
+    if (!skillsCheck.ok) {
+      throw new Error(skillsCheck.errors.join(" "));
+    }
     let skills: string[] = [];
-    for (const raw of args.skills ?? []) {
+    for (const raw of skillsArgs) {
       skills = addSkill(skills, raw);
     }
     const languagesCheck = validateLanguages(args.languages ?? []);
@@ -439,6 +446,12 @@ export const saveSkillsAndLanguages = mutation({
 
     const patch: Partial<Doc<"students">> = {};
     if (args.skills !== undefined) {
+      // [DICIONARIO_FECHADO] mesma regra pura do cadastro: rejeita
+      // qualquer competência fora da whitelist oficial.
+      const skillsCheck = validateSkills(args.skills);
+      if (!skillsCheck.ok) {
+        throw new Error(skillsCheck.errors.join(" "));
+      }
       let skills: string[] = [];
       for (const raw of args.skills) {
         skills = addSkill(skills, raw);

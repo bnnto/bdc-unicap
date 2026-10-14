@@ -25,9 +25,11 @@ import {
   type EnrollmentStatus,
 } from "../../lib/studentProfile";
 import {
+  KNOWN_LANGUAGES,
   LANGUAGE_LEVELS,
   MAX_LANGUAGES,
   MAX_SKILLS,
+  SKILLS_GROUPS,
   addSkill,
   removeSkill,
   validateLanguages,
@@ -76,6 +78,13 @@ const BLOCK_ICONS: LucideIcon[] = [
   Briefcase, // 5 · Experiências
   Award, // 6 · Certificações
 ];
+
+/**
+ * [DICIONARIO_FECHADO] Dropdown padronizado (Regra de Ouro 1) dos
+ * campos de dicionário: competências e idiomas só por seleção.
+ */
+const DICT_SELECT_CLASS =
+  "w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
 
 const STATUS_LABELS: Record<EnrollmentStatus, string> = {
   ativo: "Aluno ativo",
@@ -595,7 +604,8 @@ export function ResumeForm() {
                       {block.index + 1}. {block.heading}
                     </h2>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      {BLOCK_DESCRIPTIONS[block.index]} — clique no lápis para editar neste local.
+                      {BLOCK_DESCRIPTIONS[block.index]} — clique no lápis para
+                      editar neste local.
                     </p>
                   </div>
                 </div>
@@ -777,8 +787,8 @@ export function ResumeForm() {
                           className="text-xs text-slate-500"
                           aria-live="polite"
                         >
-                          {summary.trim().length}/{SUMMARY_MAX} caracteres (
-                          mínimo {SUMMARY_MIN})
+                          {summary.trim().length}/{SUMMARY_MAX} caracteres
+                          (mínimo {SUMMARY_MIN})
                         </p>
                       </div>
                     </>
@@ -888,13 +898,53 @@ export function ResumeForm() {
                   {block.index === 3 && (
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-wrap items-start gap-2">
-                        <div className="min-w-52 flex-1">
-                          <Input
-                            label="Nova competência"
+                        <div className="flex min-w-52 flex-1 flex-col gap-1">
+                          <label
+                            htmlFor="resume-skill-select"
+                            className="text-sm font-semibold text-slate-700"
+                          >
+                            Nova competência
+                          </label>
+                          {/* [DICIONARIO_FECHADO] sem texto livre: só se
+                              seleciona um termo do dicionário oficial. */}
+                          <select
+                            id="resume-skill-select"
+                            aria-describedby="resume-skill-hint"
                             value={skillDraft}
                             onChange={(e) => setSkillDraft(e.target.value)}
-                            hint={`${skills.length}/${MAX_SKILLS} — pressione Adicionar`}
-                          />
+                            className={DICT_SELECT_CLASS}
+                          >
+                            <option value="">
+                              Selecione no dicionário oficial…
+                            </option>
+                            {SKILLS_GROUPS.map((group) => {
+                              const available = group.items.filter(
+                                (item) =>
+                                  !skills.some(
+                                    (skill) =>
+                                      skill.toLowerCase() ===
+                                      item.toLowerCase(),
+                                  ),
+                              );
+                              if (available.length === 0) return null;
+                              return (
+                                <optgroup key={group.label} label={group.label}>
+                                  {available.map((item) => (
+                                    <option key={item} value={item}>
+                                      {item}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              );
+                            })}
+                          </select>
+                          <p
+                            id="resume-skill-hint"
+                            className="text-xs text-slate-500"
+                          >
+                            {skills.length}/{MAX_SKILLS} — só termos do
+                            dicionário oficial
+                          </p>
                         </div>
                         <Button
                           variant="secondary"
@@ -937,16 +987,45 @@ export function ResumeForm() {
                           key={index}
                           className="flex flex-wrap items-start gap-3 rounded border border-slate-200 bg-slate-50 p-6"
                         >
-                          <div className="min-w-0 flex-1">
-                            <Input
-                              label="Idioma"
+                          <div className="flex min-w-0 flex-1 flex-col gap-1">
+                            <label
+                              htmlFor={`resume-language-name-${index}`}
+                              className="text-sm font-semibold text-slate-700"
+                            >
+                              Idioma
+                              <span
+                                className="ml-0.5 text-danger"
+                                aria-hidden="true"
+                              >
+                                *
+                              </span>
+                            </label>
+                            {/* [DICIONARIO_FECHADO] whitelist de idiomas:
+                                escolha entre os idiomas oficiais. */}
+                            <select
+                              id={`resume-language-name-${index}`}
                               required
-                              list="known-languages"
                               value={language.name}
                               onChange={(e) =>
                                 updateLanguage(index, "name", e.target.value)
                               }
-                            />
+                              className={DICT_SELECT_CLASS}
+                            >
+                              <option value="">Selecione o idioma…</option>
+                              {KNOWN_LANGUAGES.filter(
+                                (known) =>
+                                  !languages.some(
+                                    (other, i) =>
+                                      i !== index &&
+                                      other.name.toLowerCase() ===
+                                        known.toLowerCase(),
+                                  ),
+                              ).map((known) => (
+                                <option key={known} value={known}>
+                                  {known}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                           <div className="w-44 shrink-0">
                             <label
