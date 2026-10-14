@@ -83,15 +83,12 @@ export function MyApplicationsPage() {
     >
       {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
       <div className="mb-5 border-b border-slate-200 pb-4">
-        <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
-          Acompanhamento
-        </p>
         <h1 className="font-serif text-3xl font-bold text-primary">
           Minhas candidaturas
         </h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-600">
           A etapa de cada candidatura e o % de compatibilidade, atualizados em
-          tempo pelo painel do recrutador — com feedback claro do que aconteceu
+          tempo real com o painel do recrutador, com feedback claro do que aconteceu
           em cada processo.
         </p>
       </div>
@@ -102,14 +99,14 @@ export function MyApplicationsPage() {
             <Inbox className="h-5 w-5" aria-hidden="true" />
           </span>
           <p className="text-3xl font-bold text-primary">{kpis.total}</p>
-          <p className="text-xs text-slate-500">Candidaturas</p>
+          <p className="text-sm text-slate-500">Candidaturas</p>
         </div>
         <div className="group rounded-xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
           <span className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
             <Activity className="h-5 w-5" aria-hidden="true" />
           </span>
           <p className="text-3xl font-bold text-primary">{kpis.active}</p>
-          <p className="text-xs text-slate-500">Em andamento</p>
+          <p className="text-sm text-slate-500">Em andamento</p>
         </div>
         <div className="group rounded-xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
           <span className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/15 text-a11y-secondary ring-1 ring-secondary/25">
@@ -118,7 +115,7 @@ export function MyApplicationsPage() {
           <p className="text-3xl font-bold text-primary">
             {kpis.bestMatch !== null ? `${kpis.bestMatch}%` : "—"}
           </p>
-          <p className="text-xs text-slate-500">Melhor match</p>
+          <p className="text-sm text-slate-500">Melhor match</p>
         </div>
       </div>
 
@@ -205,7 +202,7 @@ export function MyApplicationsPage() {
         ) : (
           <ul
             aria-label="Todas as candidaturas"
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-4 pt-2"
           >
             {sorted.map((application) => {
               const rejected = application.stage === "reprovado";

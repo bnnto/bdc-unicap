@@ -283,16 +283,16 @@ export function ProfilePage() {
           ← Voltar ao painel
         </a>
         <h1 className="mt-4 font-serif text-3xl font-bold text-primary">
-          Meu Perfil &amp; Configurações
+          Configurações
         </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Identidade, acessibilidade, segurança e privacidade — tudo num lugar
+        <p className="mt-1 text-sm text-slate-600 pb-5">
+          Identidade, acessibilidade, segurança e privacidade, tudo num lugar
           só.
         </p>
 
         {/* Etapa 1 — Identidade e conta. */}
         <Card title="Identidade e conta">
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4 pt-1">
             {user?.image ? (
               <img
                 src={user.image}
@@ -345,10 +345,10 @@ export function ProfilePage() {
         {/* Etapa 1 — Aparência e acessibilidade. */}
         <div className="mt-6">
           <Card title="Aparência e acessibilidade">
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 pt-1">
               <PreferenceSwitch
                 label="Modo escuro"
-                description="Tema escuro em todo o portal (persistido neste dispositivo)."
+                description="Tema escuro em todo o portal."
                 checked={prefs.theme === "dark"}
                 onChange={toggleTheme}
               />
@@ -374,7 +374,6 @@ export function ProfilePage() {
                     disabled={prefs.fontScale === 0}
                     onClick={() => changeFontSize(-1)}
                   >
-                    <AArrowDown className="h-4 w-4" aria-hidden="true" />
                     A−
                   </Button>
                   <output
@@ -389,7 +388,6 @@ export function ProfilePage() {
                     disabled={prefs.fontScale === FONT_SCALE_STEPS.length - 1}
                     onClick={() => changeFontSize(1)}
                   >
-                    <AArrowUp className="h-4 w-4" aria-hidden="true" />
                     A+
                   </Button>
                 </div>
@@ -401,7 +399,7 @@ export function ProfilePage() {
         {/* Etapa 2 — Segurança e preferências. */}
         <div className="mt-6">
           <Card title="Segurança e preferências">
-            <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2 pt-1">
               <MonitorSmartphone className="h-4 w-4" aria-hidden="true" />
               Sessões recentes
             </h3>
@@ -486,12 +484,8 @@ export function ProfilePage() {
 
         {/* Etapa 3 — Privacidade e LGPD. */}
         <div className="mt-6">
-          <Card title="Privacidade e LGPD">
-            <p className="text-sm text-slate-600">
-              Portabilidade de dados (art. 18, V) e direito ao esquecimento
-              (art. 18, VI) da Lei Geral de Proteção de Dados.
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Card title="Privacidade">
+            <div className="mt-3 flex flex-wrap items-center gap-3 pt-1">
               <Button
                 variant="primary"
                 disabled={exportData === undefined || exportData === null}
@@ -507,12 +501,12 @@ export function ProfilePage() {
                 <AlertTriangle className="h-4 w-4" aria-hidden="true" />
                 Zona de perigo
               </h3>
-              <p className="mt-1 text-xs text-slate-600">
+              <p className="mt-1 text-xs text-slate-600 pt-2">
                 A exclusão é imediata e irreversível: apaga seu perfil,
                 candidaturas, vagas (para recrutadores), sessões e
-                consentimentos — sem como desfazer.
+                consentimentos, sem possibilidade de desfazer.
               </p>
-              <div className="mt-3">
+              <div className="mt-3 pt-1">
                 <Button
                   variant="danger"
                   onClick={() => {
@@ -566,7 +560,7 @@ export function ProfilePage() {
                   value={confirmWord}
                   autoComplete="off"
                   onChange={(event) => setConfirmWord(event.target.value)}
-                />
+                />  
               </div>
               {deleteError !== null ? (
                 <p

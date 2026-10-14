@@ -14,7 +14,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { ResumeForm } from "./ResumeForm";
 import { ResumeDownload } from "./ResumeDownload";
-import { FileText } from "lucide-react";
+import { FileDown } from "lucide-react";
 
 /** Âncoras dos 7 blocos do formulário (navegação rápida da sidebar). */
 const SECTION_LINKS: Array<{ href: string; label: string }> = [
@@ -59,15 +59,12 @@ export function ResumeBuilderPage() {
     <div className="mx-auto w-full max-w-[1440px] px-6 py-6">
       {/* Cabeçalho da página (h1 único da tela). */}
       <div className="mb-6 border-b border-slate-200 pb-4">
-        <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
-          Portal Discente
-        </p>
         <h1 className="font-serif text-3xl font-bold text-primary">
-          Meu Currículo Vitae
+          Meu Currículo
         </h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-600">
           Mantenha seus dados acadêmicos, técnicos e projetos atualizados. O PDF
-          gerado é o espelho exato desta tela — cores, colunas e identidade
+          gerado é o espelho exato desta tela, cores, colunas e identidade
           UNICAP preservadas na impressão.
         </p>
       </div>
@@ -194,18 +191,29 @@ export function ResumeBuilderPage() {
           <ResumeForm />
           <section
             id="bloco-exportar"
-            className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
+            className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8 shadow-level1 transition-all duration-300 ease-in-out hover:shadow-level2"
           >
-            <h2 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
-              <FileText className="h-4 w-4" aria-hidden="true" />
-              Visualizador e Exportação PDF
-            </h2>
-            <p className="mt-1 text-sm text-slate-600">
-              Confira a prévia final e baixe em PDF — a impressão usa as regras{" "}
-              <code className="font-mono">@media print</code> com{" "}
-              <code className="font-mono">print-color-adjust: exact</code>.
-            </p>
-            <div className="mt-3">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"
+                  >
+                    <FileDown className="h-5 w-5" strokeWidth={2} />
+                  </span>
+                  <div className="min-w-0">
+                    <h2 className="font-serif text-lg font-bold text-primary">
+                      Visualizador e Exportação PDF
+                    </h2>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Confira a prévia final e baixe em PDF.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6">
               <ResumeDownload />
             </div>
           </section>

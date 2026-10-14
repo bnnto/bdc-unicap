@@ -7,9 +7,8 @@ import {
   formatResumeFileName,
 } from "../../lib/resumeDocument";
 import {
-  clearResumePrintContainer,
   printResumeDocument,
-  renderResumeIntoPrintContainer,
+  injectResumePrintStyle,
 } from "../../lib/resumePrint";
 import { Button } from "../ui/button";
 import { Download, Eye } from "lucide-react";
@@ -53,13 +52,11 @@ export function ResumeDownload() {
   const markup = useMemo(
     () => (doc !== null && doc.ok ? buildResumeMarkup(doc) : null),
     [doc],
-  );
+  ); 
 
-  // Prévia ao vivo: o mesmo template usado no PDF fica na tela.
   useEffect(() => {
     if (showPreview && markup !== null) {
-      renderResumeIntoPrintContainer(document, markup);
-      return () => clearResumePrintContainer(document);
+      injectResumePrintStyle(document);
     }
   }, [showPreview, markup]);
 
@@ -83,18 +80,28 @@ export function ResumeDownload() {
   }
 
   function handleDownload(): void {
-    if (markup === null) return;
-    printResumeDocument(markup);
+    // Adicionamos o !doc.ok aqui para o TypeScript ter 100% de certeza que temos os dados
+    if (markup === null || doc === null || !doc.ok) return;
+    
+    // Agora o TypeScript já sabe que doc.student existe!
+    const fileName = formatResumeFileName(
+      doc.student.fullName,
+      doc.student.course,
+      doc.student.graduationYear
+    );
+    
+    printResumeDocument(markup, fileName);
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm text-slate-600">
-        Gere o PDF a partir dos dados salvos no formulário, no template
-        institucional UNICAP. Na janela de impressão, escolha “Salvar como PDF”
-        — o arquivo sai com o seu nome e curso.
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-5">
+      {/* Bloco de instrução amigável e destacado */}
+      <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 text-sm text-slate-300">
+        O seu currículo já está formatado no <strong>padrão oficial da UNICAP</strong>. 
+        Ao clicar no botão de download, escolha a opção <strong className="text-white">"Salvar como PDF"</strong> na janela de impressão do seu navegador.
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
         <Button
           variant="primary"
           onClick={handleDownload}
@@ -112,9 +119,10 @@ export function ResumeDownload() {
           {showPreview ? "Ocultar prévia" : "Visualizar antes de baixar"}
         </Button>
       </div>
-      <p className="text-xs text-slate-500">
-        Arquivo sugerido:{" "}
-        <code className="rounded bg-slate-100 px-1 py-0.5 font-mono">
+
+      <p className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        Nome sugerido para o arquivo:
+        <code className="rounded-md border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-slate-600">
           {formatResumeFileName(
             doc.student.fullName,
             doc.student.course,
@@ -122,11 +130,11 @@ export function ResumeDownload() {
           )}
         </code>
       </p>
+
       {showPreview ? (
-        // O markup já traz o wrapper .unicap-resume-doc — este container
-        // é só a moldura da prévia na página (mesmo estilo do PDF).
         <div
-          className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3"
+          className="mt-4 overflow-x-auto rounded-xl border border-slate-200 shadow-inner lg:p-8"
+          style={{ backgroundColor: 'white', color: 'black' }}
           data-testid="resume-preview"
           dangerouslySetInnerHTML={{ __html: markup ?? "" }}
         />

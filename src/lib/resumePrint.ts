@@ -23,10 +23,13 @@
  *    recebe o MESMO markup da prévia (.unicap-resume-doc).
  */
 export const RESUME_PRINT_CSS = `
+#unicap-resume-print-root {
+    display: none;
+  }
 @media print {
   @page {
     size: A4;
-    margin: 14mm 12mm;
+    margin: 0;
   }
   /* 1. Força as cores de fundo no PDF (Etapa 2.3). */
   *,
@@ -55,7 +58,7 @@ export const RESUME_PRINT_CSS = `
     max-width: none !important;
     width: 100% !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 16mm 14mm !important;
     font-size: 12px !important;
   }
   .unicap-resume-header {
@@ -104,10 +107,10 @@ export const RESUME_PRINT_CSS = `
   }
 }
 .unicap-resume-doc {
-  background: #ffffff;
+  background: #ffffff !important;
   border: 1px solid #e2e8f0;
   box-sizing: border-box;
-  color: #1e293b;
+  color: #1e293b !important; 
   font-family: "Plus Jakarta Sans", system-ui, sans-serif;
   font-size: 12.5px;
   line-height: 1.55;
@@ -149,7 +152,7 @@ export const RESUME_PRINT_CSS = `
 }
 .unicap-resume-doc .unicap-resume-identity {
   border-bottom: 2.5px solid #6b1426;
-  padding: 12px 0 8px;
+  padding: 28px 0 12px;
 }
 .unicap-resume-doc .unicap-resume-name {
   color: #6b1426;
@@ -312,8 +315,19 @@ export function clearResumePrintContainer(doc: Document): void {
  */
 export function printResumeDocument(
   markup: string,
+  fileName: string, // Novo parâmetro adicionado aqui
   win: ResumePrintWindow = window,
 ): void {
+  // 1. Guarda o título original do site
+  const originalTitle = win.document.title;
+  
+  // 2. Muda o título temporariamente (tira o .pdf porque o navegador já adiciona)
+  win.document.title = fileName.replace('.pdf', '');
+
   renderResumeIntoPrintContainer(win.document, markup);
   win.print();
+
+  // 3. Devolve o título original ao site imediatamente a seguir
+  win.document.title = originalTitle;
+  setTimeout(() => clearResumePrintContainer(document), 500);
 }

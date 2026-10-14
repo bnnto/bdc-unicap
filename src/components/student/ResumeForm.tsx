@@ -56,6 +56,16 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+const BLOCK_DESCRIPTIONS = [
+  "Seus dados pessoais e sua apresentação profissional",
+  "Dados acadêmicos do cadastro e seu histórico",
+  "Todos os links são editados aqui: LinkedIn, portfólio, GitHub e Lattes",
+  "As mesmas competências usadas no matching com vagas",
+  "Contam para o bônus de idioma do matching quando a vaga exige",
+  "Experiências em cards e projetos de extensão em um único campo",
+  "Cursos, certificados e atividades que reforçam seu perfil",
+];
+
 /** [UI_OVERHAUL] Ícone contextual de cada bloco do currículo. */
 const BLOCK_ICONS: LucideIcon[] = [
   User, // 0 · Dados Pessoais
@@ -565,10 +575,10 @@ export function ResumeForm() {
           <section
             key={block.index}
             id={`bloco-${BLOCO_IDS[block.index]}`}
-            className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-level1 transition-all duration-300 ease-in-out hover:shadow-level2"
+            className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8 shadow-level1 transition-all duration-300 ease-in-out hover:shadow-level2"
           >
             {/* Cabeçalho do bloco: título + ícone de lápis. */}
-            <div className="space-y-4">
+            <div className="space-y-8">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 items-start gap-3">
                   <span
@@ -584,31 +594,8 @@ export function ResumeForm() {
                     <h2 className="font-serif text-lg font-bold text-primary">
                       {block.index + 1}. {block.heading}
                     </h2>
-                    {block.index === 0 ? (
-                      <p
-                        id="resume-summary-count"
-                        className="text-xs text-slate-500"
-                        aria-live="polite"
-                      >
-                        {summary.trim().length}/{SUMMARY_MAX} caracteres (mínimo{" "}
-                        {SUMMARY_MIN})
-                      </p>
-                    ) : null}
                     <p className="mt-0.5 text-xs text-slate-500">
-                      {block.index === 0
-                        ? "Seus dados pessoais (salvos aqui mesmo — criam ou atualizam o perfil) e sua apresentação profissional"
-                        : block.index === 1
-                          ? "Dados acadêmicos do cadastro e seu histórico"
-                          : block.index === 2
-                            ? "Todos os links são editados aqui: LinkedIn, portfólio, GitHub e Lattes"
-                            : block.index === 3
-                              ? "As mesmas competências usadas no matching com vagas"
-                              : block.index === 4
-                                ? "Contam para o bônus de idioma do matching quando a vaga exige"
-                                : block.index === 5
-                                  ? "Experiências em cards e projetos de extensão em um único campo"
-                                  : "Cursos, certificados e atividades que reforçam seu perfil"}{" "}
-                      — clique no lápis para editar neste local.
+                      {BLOCK_DESCRIPTIONS[block.index]} — clique no lápis para editar neste local.
                     </p>
                   </div>
                 </div>
@@ -798,7 +785,7 @@ export function ResumeForm() {
                   )}
                   {block.index === 1 && (
                     <fieldset className="flex flex-col gap-3">
-                      <legend className="text-sm font-semibold text-slate-700">
+                      <legend className="text-sm font-semibold text-slate-700 pb-3">
                         Histórico acadêmico
                       </legend>
                       {academicHistory.map((entry, index) => (

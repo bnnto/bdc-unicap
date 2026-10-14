@@ -138,14 +138,11 @@ export function JobOpportunities() {
       className="mx-auto w-full max-w-[1440px] px-6 py-6"
     >
       <div className="mb-5 border-b border-slate-200 pb-4">
-        <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
-          Mural de Vagas
-        </p>
         <h1 className="font-serif text-3xl font-bold text-primary">
           Oportunidades
         </h1>
         <p className="mt-1 max-w-3xl text-sm text-slate-600">
-          Vagas abertas das empresas conveniadas à UNICAP — filtre por contrato,
+          Vagas abertas de empresas, filtre por contrato,
           localidade e salário; o percentual de compatibilidade é calculado a
           partir do seu currículo.
         </p>
@@ -153,15 +150,14 @@ export function JobOpportunities() {
 
       {/* Barra de busca + filtros (estilo LinkedIn). */}
       <div className="mb-5 rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-          <div className="flex-1">
-            <label
-              htmlFor="mural-busca"
-              className="text-sm font-semibold text-slate-700"
-            >
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-3">
+          
+          {/* 1. BUSCAR VAGAS */}
+          <div className="flex flex-col gap-1.5 flex-1">
+            <label htmlFor="mural-busca" className="text-sm font-semibold text-slate-700">
               Buscar vagas
             </label>
-            <div className="relative mt-1">
+            <div className="relative">
               <Search
                 aria-hidden="true"
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -174,25 +170,22 @@ export function JobOpportunities() {
                 value={filters.query}
                 onChange={(e) => update("query", e.target.value)}
                 placeholder="Cargo, skill ou palavra-chave…"
-                className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1"
+                className="w-full h-10 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1"
               />
             </div>
           </div>
-          <div>
-            <label
-              htmlFor="mural-contrato"
-              className="text-sm font-semibold text-slate-700"
-            >
+
+          {/* 2. TIPO DE CONTRATO */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="mural-contrato" className="text-sm font-semibold text-slate-700">
               Tipo de contrato
             </label>
             <select
               id="mural-contrato"
               aria-label="Tipo de contrato"
               value={filters.contract}
-              onChange={(e) =>
-                update("contract", e.target.value as ContractType | "todos")
-              }
-              className="mt-1 w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-44"
+              onChange={(e) => update("contract", e.target.value as ContractType | "todos")}
+              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-44"
             >
               <option value="todos">Todos</option>
               {(Object.keys(CONTRACT_LABELS) as ContractType[]).map((type) => (
@@ -202,11 +195,10 @@ export function JobOpportunities() {
               ))}
             </select>
           </div>
-          <div>
-            <label
-              htmlFor="mural-localidade"
-              className="text-sm font-semibold text-slate-700"
-            >
+
+          {/* 3. LOCALIDADE */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="mural-localidade" className="text-sm font-semibold text-slate-700">
               Localidade
             </label>
             <select
@@ -214,7 +206,7 @@ export function JobOpportunities() {
               aria-label="Localidade"
               value={filters.location}
               onChange={(e) => update("location", e.target.value)}
-              className="mt-1 w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-48"
+              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-40"
             >
               <option value="">Todas</option>
               {locationOptions.map((location) => (
@@ -224,28 +216,23 @@ export function JobOpportunities() {
               ))}
             </select>
           </div>
-          <div>
-            <label
-              htmlFor="mural-salario"
-              className="text-sm font-semibold text-slate-700"
-            >
+
+          {/* 4. SALÁRIO */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="mural-salario" className="text-sm font-semibold text-slate-700">
               Salário mínimo
             </label>
             <select
               id="mural-salario"
               aria-label="Salário mínimo"
-              value={
-                filters.minSalary === null ? "" : String(filters.minSalary)
-              }
+              value={filters.minSalary === null ? "" : String(filters.minSalary)}
               onChange={(e) =>
                 update(
                   "minSalary",
-                  e.target.value.length === 0
-                    ? null
-                    : Number.parseInt(e.target.value, 10),
+                  e.target.value.length === 0 ? null : Number.parseInt(e.target.value, 10),
                 )
               }
-              className="mt-1 w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-44"
+              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-40"
             >
               <option value="">Qualquer</option>
               {SALARY_STEPS.map((step) => (
@@ -255,11 +242,10 @@ export function JobOpportunities() {
               ))}
             </select>
           </div>
-          <div>
-            <label
-              htmlFor="mural-ordem"
-              className="text-sm font-semibold text-slate-700"
-            >
+
+          {/* 5. ORDENAR POR */}
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="mural-ordem" className="text-sm font-semibold text-slate-700">
               Ordenar por
             </label>
             <select
@@ -267,14 +253,16 @@ export function JobOpportunities() {
               aria-label="Ordenar por"
               value={order}
               onChange={(e) => setOrder(e.target.value as JobSortOrder)}
-              className="mt-1 w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-48"
+              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-44"
             >
               <option value="compatibilidade">Compatibilidade</option>
               <option value="recentes">Mais recentes</option>
             </select>
           </div>
+
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-slate-600" aria-live="polite">
             {visibleJobs.length === 1
               ? "1 vaga encontrada"
@@ -282,10 +270,7 @@ export function JobOpportunities() {
             {hasActiveFilters ? " com os filtros aplicados" : ""}.
           </p>
           {hasActiveFilters ? (
-            <Button
-              variant="secondary"
-              onClick={() => setFilters(DEFAULT_JOB_FILTERS)}
-            >
+            <Button variant="secondary" onClick={() => setFilters(DEFAULT_JOB_FILTERS)}>
               <FilterX className="h-4 w-4" aria-hidden="true" />
               Limpar filtros
             </Button>
