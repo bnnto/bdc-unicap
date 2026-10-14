@@ -7,6 +7,7 @@ import { AVAILABILITY, type Availability } from "../../lib/studentProfile";
 import {
   KNOWN_LANGUAGES,
   LANGUAGE_LEVELS,
+  SKILLS_GROUPS,
   type LanguageLevel,
 } from "../../lib/skills";
 import {
@@ -467,20 +468,35 @@ export function TalentSearchPage() {
               Competências
             </legend>
             <div className="flex gap-2">
-              <input
-                type="text"
+              {/* [DICIONARIO_FECHADO] sem texto livre (nada de "coxinha"):
+                  só se seleciona um termo do dicionário oficial — mesma
+                  whitelist dos formulários de perfil e currículo. */}
+              <select
                 value={skillDraft}
                 onChange={(e) => setSkillDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addSkillChip();
-                  }
-                }}
-                placeholder="Ex.: SQL"
                 aria-label="Nova competência"
-                className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-              />
+                className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              >
+                <option value="">Selecione no dicionário oficial…</option>
+                {SKILLS_GROUPS.map((group) => {
+                  const available = group.items.filter(
+                    (item) =>
+                      !skills.some(
+                        (skill) => skill.toLowerCase() === item.toLowerCase(),
+                      ),
+                  );
+                  if (available.length === 0) return null;
+                  return (
+                    <optgroup key={group.label} label={group.label}>
+                      {available.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
               <Button variant="secondary" onClick={addSkillChip}>
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 Adicionar

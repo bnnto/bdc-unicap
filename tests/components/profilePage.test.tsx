@@ -152,7 +152,7 @@ describe("ProfilePage — presença das seções (Etapa 1/2/3)", () => {
   it("renderiza as quatro seções centrais com h1 único", () => {
     renderPerfil();
     expect(
-      screen.getByRole("heading", { level: 1, name: /meu perfil/i }),
+      screen.getByRole("heading", { level: 1, name: /configurações/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /identidade e conta/i }),
@@ -163,7 +163,10 @@ describe("ProfilePage — presença das seções (Etapa 1/2/3)", () => {
     expect(
       screen.getByRole("heading", { name: /segurança/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /lgpd/i })).toBeInTheDocument();
+    // [00a0f51] secção renomeada de "LGPD" para "Privacidade".
+    expect(
+      screen.getByRole("heading", { name: /privacidade/i }),
+    ).toBeInTheDocument();
     // Botão de sair (Etapa 1.1).
     expect(screen.getByRole("button", { name: /^sair$/i })).toBeInTheDocument();
   });

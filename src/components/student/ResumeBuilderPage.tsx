@@ -14,7 +14,7 @@ import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { ResumeForm } from "./ResumeForm";
 import { ResumeDownload } from "./ResumeDownload";
-import { FileDown } from "lucide-react";
+import { Eye, FileDown } from "lucide-react";
 
 /** Âncoras dos 7 blocos do formulário (navegação rápida da sidebar). */
 const SECTION_LINKS: Array<{ href: string; label: string }> = [
@@ -203,7 +203,8 @@ export function ResumeBuilderPage() {
                     <FileDown className="h-5 w-5" strokeWidth={2} />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="font-serif text-lg font-bold text-primary">
+                    <h2 className="flex items-center gap-2 font-serif text-lg font-bold text-primary">
+                      <Eye className="h-4 w-4" aria-hidden="true" />
                       Visualizador e Exportação PDF
                     </h2>
                     <p className="mt-0.5 text-xs text-slate-500">

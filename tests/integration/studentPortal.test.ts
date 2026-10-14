@@ -202,3 +202,67 @@ describe("Etapa 2.2 — saveSkillsAndLanguages do construtor", () => {
     ).rejects.toThrow(/consentimento/i);
   });
 });
+
+describe("Dicionário fechado — validação estrita no servidor", () => {
+  it("skill fora da whitelist é rejeitada (nada é gravado)", async () => {
+    const t = convexTest({ schema, modules });
+    const { studentUserId, studentId } = await seedWorld(t);
+    await expect(
+      asStudent(t, studentUserId).mutation(
+        api.students.saveSkillsAndLanguages,
+        { skills: ["React", "coxinha"] },
+      ),
+    ).rejects.toThrow(/dicionário oficial/i);
+
+    const stored = await t.run(async (ctx) => ctx.db.get(studentId));
+    expect(stored?.skills).toEqual(["React"]);
+  });
+
+  it("idioma fora da whitelist é rejeitado", async () => {
+    const t = convexTest({ schema, modules });
+    const { studentUserId, studentId } = await seedWorld(t);
+    await expect(
+      asStudent(t, studentUserId).mutation(
+        api.students.saveSkillsAndLanguages,
+        { languages: [{ name: "Klingon", level: "fluente" }] },
+      ),
+    ).rejects.toThrow(/dicionário oficial/i);
+
+    const stored = await t.run(async (ctx) => ctx.db.get(studentId));
+    expect(stored?.languages).toEqual([
+      { name: "Inglês", level: "intermediario" },
+    ]);
+  });
+
+  it("upsertProfile também rejeita competência fora do dicionário", async () => {
+    const t = convexTest({ schema, modules });
+    const { studentUserId, studentId } = await seedWorld(t);
+    await expect(
+      asStudent(t, studentUserId).mutation(api.students.upsertProfile, {
+        fullName: "Maria da Silva",
+        enrollment: "1234567",
+        status: "ativo",
+        course: "Sistemas para Internet",
+        graduationYear: 2026,
+        availability: "estagio",
+        skills: ["coxinha"],
+        languages: [],
+      }),
+    ).rejects.toThrow(/dicionário oficial/i);
+
+    const stored = await t.run(async (ctx) => ctx.db.get(studentId));
+    expect(stored?.course).toBe("Ciência da Computação");
+    expect(stored?.skills).toEqual(["React"]);
+  });
+
+  it("aceita a forma oficial de qualquer caixa/acentos (canônico)", async () => {
+    const t = convexTest({ schema, modules });
+    const { studentUserId, studentId } = await seedWorld(t);
+    await asStudent(t, studentUserId).mutation(
+      api.students.saveSkillsAndLanguages,
+      { skills: [" next js ", "GESTAO DE PROJETOS", "c#"] },
+    );
+    const stored = await t.run(async (ctx) => ctx.db.get(studentId));
+    expect(stored?.skills).toEqual(["Next.js", "Gestão de Projetos", "C#"]);
+  });
+});

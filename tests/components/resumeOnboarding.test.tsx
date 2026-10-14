@@ -107,7 +107,7 @@ describe("onboarding — conta nova não pode ficar bloqueada", () => {
     expect(screen.queryByText(/complete o cadastro do perfil/i)).toBeNull();
     // Os 7 blocos continuam na tela (a página inteira renderiza).
     expect(
-      screen.getByRole("heading", { level: 1, name: /currículo vitae/i }),
+      screen.getByRole("heading", { level: 1, name: /meu currículo/i }),
     ).toBeInTheDocument();
     // Até a exportação do PDF guia para o Bloco 1 (nenhum beco sem saída).
     expect(

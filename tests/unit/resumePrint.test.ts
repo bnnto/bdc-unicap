@@ -70,7 +70,7 @@ describe("helpers de impressão do currículo (S2-2)", () => {
 
   it("printResumeDocument renderiza e chama window.print()", () => {
     const win = makeWindow();
-    printResumeDocument(MARKUP, win);
+    printResumeDocument(MARKUP, "curriculo-unicap.pdf", win);
     expect(win.printed).toBe(true);
     expect(
       document.querySelector("#unicap-resume-print-root .unicap-resume-doc"),
