@@ -145,7 +145,7 @@ describe("ResumeBuilderPage — main com os 7 blocos (Etapa 2.2)", () => {
   it("título da página (h1) e bloco de exportação presentes", () => {
     const { container } = render(<ResumeBuilderPage />);
     expect(
-      screen.getByRole("heading", { level: 1, name: /currículo vitae/i }),
+      screen.getByRole("heading", { level: 1, name: /meu currículo/i }),
     ).toBeInTheDocument();
     expect(container.querySelector("#bloco-exportar")).not.toBeNull();
     expect(

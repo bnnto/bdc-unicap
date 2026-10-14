@@ -255,7 +255,7 @@ function TimeToHireSection({ stats }: { stats: TimeToHireStats | undefined }) {
       className="min-w-0"
       aria-label="Time to hire"
     >
-      <Card title="Time-to-Hire médio" accent="primary">
+      <Card title="Time-to-Hire médio">
         {stats === undefined ? (
           <LoadingSection label="Carregando time-to-hire" />
         ) : (
@@ -389,7 +389,8 @@ function RankingSection({
       className="mt-3 grid gap-3 md:grid-cols-2"
       aria-label="Empresas e vagas mais ativas"
     >
-      <Card title="Empresas mais ativas" accent="primary">
+      {" "}
+      <Card title="Empresas mais ativas">
         {rankings === undefined ? (
           <LoadingSection label="Carregando ranking" />
         ) : rankings.topCompanies.length === 0 ? (
@@ -424,9 +425,8 @@ function RankingSection({
             ))}
           </ol>
         )}
-      </Card>
-
-      <Card title="Vagas mais procuradas" accent="primary">
+      </Card>{" "}
+      <Card title="Vagas mais procuradas">
         {rankings === undefined ? (
           <LoadingSection label="Carregando ranking" />
         ) : rankings.topJobs.length === 0 ? (
@@ -631,7 +631,7 @@ export function OperationalPanel() {
       {/* [REFACTOR_UI] Painel executivo: cards e gráficos distribuídos em
           CSS Grid (sem empilhamento vertical de documento). */}
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <Card title="Taxa de Empregabilidade" accent="primary">
+        <Card title="Taxa de Empregabilidade">
           <p className="font-serif text-3xl font-bold text-primary">
             {formatEmployabilityRate(summary.employability.rate)}
           </p>
@@ -639,7 +639,7 @@ export function OperationalPanel() {
             Aprovados sobre finalizados
           </p>
         </Card>
-        <Card title="Candidaturas em andamento" accent="primary">
+        <Card title="Candidaturas em andamento">
           <p className="font-serif text-3xl font-bold text-primary">
             {summary.applications.inProgress}
           </p>
@@ -647,7 +647,7 @@ export function OperationalPanel() {
             Inscrito, triagem e entrevista
           </p>
         </Card>
-        <Card title="Resultados finais" accent="primary">
+        <Card title="Resultados finais">
           <p className="font-serif text-3xl font-bold text-primary">
             {summary.applications.finalized}
           </p>

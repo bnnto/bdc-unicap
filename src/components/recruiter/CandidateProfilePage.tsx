@@ -27,6 +27,7 @@ import { navigateTo } from "../../lib/router";
 import {
   buildResumeDocument,
   buildResumeMarkup,
+  formatResumeFileName,
 } from "../../lib/resumeDocument";
 import { printResumeDocument } from "../../lib/resumePrint";
 import type { Availability } from "../../lib/studentProfile";
@@ -169,8 +170,18 @@ export function CandidateProfilePage({ studentId }: { studentId: string }) {
   const printMarkup = doc !== null && doc.ok ? buildResumeMarkup(doc) : null;
 
   function baixarCurriculoPdf(): void {
-    if (printMarkup === null) return;
-    printResumeDocument(printMarkup);
+    if (printMarkup === null || profile === null || profile === undefined) {
+      return;
+    }
+    // Mesmo padrão de nome do portal do aluno (nome-curso-ano.pdf).
+    printResumeDocument(
+      printMarkup,
+      formatResumeFileName(
+        profile.fullName,
+        profile.course,
+        profile.graduationYear,
+      ),
+    );
   }
 
   /** [QUICK_WIN_RECRUITER] Copia em 1 clique e avisa via Toast. */

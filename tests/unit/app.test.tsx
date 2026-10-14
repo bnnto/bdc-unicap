@@ -89,7 +89,7 @@ describe("App — rota pública e autenticação (UX_UPGRADE)", () => {
       </AuthStateContext.Provider>,
     );
     expect(
-      screen.getByRole("heading", { level: 1, name: /meu perfil/i }),
+      screen.getByRole("heading", { level: 1, name: /configurações/i }),
     ).toBeInTheDocument();
   });
 

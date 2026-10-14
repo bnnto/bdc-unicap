@@ -176,7 +176,7 @@ describe("StudentShell — logo, container full-width e avatar (Etapa 1)", () =>
     );
     expect(window.location.pathname).toBe("/perfil");
     expect(
-      screen.getByRole("heading", { level: 1, name: /meu perfil/i }),
+      screen.getByRole("heading", { level: 1, name: /configurações/i }),
     ).toBeInTheDocument();
     // Dentro de /perfil o utilizador encerra sessão pelo botão Sair.
     expect(screen.getByRole("button", { name: /^sair$/i })).toBeInTheDocument();

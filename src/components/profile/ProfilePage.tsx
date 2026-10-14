@@ -374,6 +374,7 @@ export function ProfilePage() {
                     disabled={prefs.fontScale === 0}
                     onClick={() => changeFontSize(-1)}
                   >
+                    <AArrowDown className="h-4 w-4" aria-hidden="true" />
                     A−
                   </Button>
                   <output
@@ -388,6 +389,7 @@ export function ProfilePage() {
                     disabled={prefs.fontScale === FONT_SCALE_STEPS.length - 1}
                     onClick={() => changeFontSize(1)}
                   >
+                    <AArrowUp className="h-4 w-4" aria-hidden="true" />
                     A+
                   </Button>
                 </div>
@@ -560,7 +562,7 @@ export function ProfilePage() {
                   value={confirmWord}
                   autoComplete="off"
                   onChange={(event) => setConfirmWord(event.target.value)}
-                />  
+                />
               </div>
               {deleteError !== null ? (
                 <p
