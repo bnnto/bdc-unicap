@@ -86,10 +86,10 @@ export function AuthPage() {
           Universidade Católica de Pernambuco
         </p>
         <h1 className="mt-2 font-serif text-3xl font-bold text-primary">
-          Portal de Carreiras
+          Banco de Currículos
         </h1>
         <p className="mt-2 text-sm text-slate-600">
-          Acesso ao Portal de Carreiras e ao Setor de Extensão
+          Acesso ao Banco de Currículos e ao Setor de Extensão
         </p>
       </header>
 

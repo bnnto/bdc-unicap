@@ -41,7 +41,7 @@ createRoot(rootElement).render(
     {/* [S8-4] CA 1 — erro de renderização não derruba o portal: limite
         externo com fallback acessível e registro para a monitoração. */}
     <ErrorBoundary
-      label="Portal de Carreiras"
+      label="Banco de Currículos"
       onError={(error) => {
         // CA 2 — gancho de observação (console em dev; telemetry hook).
         console.error("[monitoracao] erro de render capturado", error);

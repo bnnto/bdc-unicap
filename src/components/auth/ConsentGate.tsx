@@ -60,7 +60,7 @@ function ConsentRequiredScreen() {
             Termo de Consentimento LGPD
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            Para usar o Portal de Carreiras e o Setor de Extensão é necessário
+            Para usar o Banco de Currículos e o Setor de Extensão é necessário
             aceitar a versão vigente do termo ({CONSENT_TERM_VERSION}).
           </p>
         </header>

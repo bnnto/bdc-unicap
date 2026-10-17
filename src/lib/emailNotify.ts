@@ -62,9 +62,9 @@ export function buildStageNotificationEmail(input: {
     `Parabéns, você avançou no processo seletivo da vaga "${input.jobTitle}".`,
     `Etapa atual: ${stageLabel}.`,
     "",
-    "Acesse o Portal de Carreiras UNICAP para acompanhar os próximos passos.",
+    "Acesse o Banco de Currículos UNICAP para acompanhar os próximos passos.",
     "",
-    "— Portal de Carreiras UNICAP",
+    "— Banco de Currículos UNICAP",
   ].join("\n");
   const html = renderBrandedEmail({
     preheader: `Você avançou para ${stageLabel} no processo seletivo.`,
@@ -72,7 +72,7 @@ export function buildStageNotificationEmail(input: {
     bodyHtml: [
       `<p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:24px;">Olá, <strong>${escapeHtml(input.studentName)}</strong>!</p>`,
       `<p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:24px;">Você avançou no processo seletivo da vaga <strong>${escapeHtml(input.jobTitle)}</strong>. Etapa atual: <strong>${escapeHtml(stageLabel)}</strong>.</p>`,
-      `<p style="margin:0;color:#64748B;font-size:14px;line-height:22px;">Acesse o Portal de Carreiras UNICAP para acompanhar os próximos passos.</p>`,
+      `<p style="margin:0;color:#64748B;font-size:14px;line-height:22px;">Acesse o Banco de Currículos UNICAP para acompanhar os próximos passos.</p>`,
     ].join(""),
     footerNote: "Este é um aviso automático do processo seletivo da UNICAP.",
   });

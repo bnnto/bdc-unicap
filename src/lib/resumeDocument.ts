@@ -49,7 +49,7 @@ export type ResumeDocument =
 
 export const RESUME_UNIVERSITY = "Universidade Católica de Pernambuco";
 export const RESUME_ACRONYM = "UNICAP";
-export const RESUME_DOC_TITLE = "Currículo Vitae — Portal de Carreiras UNICAP";
+export const RESUME_DOC_TITLE = "Currículo Vitae — Banco de Currículos UNICAP";
 
 const STATUS_LABELS: Record<ResumeDocStudent["status"], string> = {
   ativo: "Aluno ativo",
@@ -331,7 +331,7 @@ export function buildResumeMarkup(
 
   parts.push(`</div>`, `</div>`); // col-main, grid
   parts.push(
-    `<p class="unicap-resume-footer">Documento gerado pelo Portal de Carreiras — ${escapeHtml(doc.acronym)} em ${formatDateBR(generatedAt)}.</p>`,
+    `<p class="unicap-resume-footer">Documento gerado pelo Banco de Currículos — ${escapeHtml(doc.acronym)} em ${formatDateBR(generatedAt)}.</p>`,
     `</div>`, // wrapper .unicap-resume-doc
   );
 

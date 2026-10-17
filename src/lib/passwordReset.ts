@@ -28,11 +28,11 @@ export function buildPasswordResetEmail(args: { link: string }): {
   text: string;
   html: string;
 } {
-  const subject = "Recuperação de senha — Portal de Carreiras UNICAP";
+  const subject = "Recuperação de senha — Banco de Currículos UNICAP";
   const text = [
     "Olá!",
     "",
-    "Recebemos um pedido para redefinir a sua senha no Portal de Carreiras UNICAP.",
+    "Recebemos um pedido para redefinir a sua senha no Banco de Currículos UNICAP.",
     "",
     `Para escolher uma nova senha, abra este link (válido por 30 minutos): ${args.link}`,
     "",
@@ -40,11 +40,11 @@ export function buildPasswordResetEmail(args: { link: string }): {
   ].join("\n");
   const escapedLink = args.link;
   const html = renderBrandedEmail({
-    preheader: "Redefina a sua senha no Portal de Carreiras UNICAP.",
+    preheader: "Redefina a sua senha no Banco de Currículos UNICAP.",
     heading: "Redefina a sua senha",
     bodyHtml: [
       '<p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:24px;">Olá!</p>',
-      '<p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:24px;">Recebemos um pedido para redefinir a sua senha no <strong>Portal de Carreiras UNICAP</strong>. O botão abaixo é válido por <strong>30 minutos</strong>.</p>',
+      '<p style="margin:0 0 16px;color:#334155;font-size:15px;line-height:24px;">Recebemos um pedido para redefinir a sua senha no <strong>Banco de Currículos UNICAP</strong>. O botão abaixo é válido por <strong>30 minutos</strong>.</p>',
       `<p style="margin:16px 0 0;color:#64748B;font-size:13px;line-height:20px;">Se o botão não funcionar, copie e cole este link no navegador:<br /><span style="word-break:break-all;color:#6B1426;">${escapedLink}</span></p>`,
     ].join(""),
     cta: { label: "Escolher nova senha", url: args.link },

@@ -208,7 +208,7 @@ export function CandidateProfilePage({ studentId }: { studentId: string }) {
             </span>
             <div>
               <p className="font-serif text-lg font-bold leading-tight text-primary">
-                Portal de Carreiras — UNICAP
+                Banco de Currículos — UNICAP
               </p>
               <p className="text-xs text-slate-500">Perfil do candidato</p>
             </div>

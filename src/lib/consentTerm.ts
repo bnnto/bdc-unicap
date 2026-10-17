@@ -5,11 +5,11 @@
  * Alterar o termo exige nova versão (vX.Y) — nunca editar o texto in-place.
  */
 
-export const CONSENT_TERM_VERSION = "v1.0";
+export const CONSENT_TERM_VERSION = "v1.1";
 
-export const CONSENT_TERM = `TERMO DE CONSENTIMENTO LGPD — PORTAL DE CARREIRAS E SETOR DE EXTENSÃO DA UNICAP (${CONSENT_TERM_VERSION})
+export const CONSENT_TERM = `TERMO DE CONSENTIMENTO LGPD — BANCO DE CURRÍCULOS E SETOR DE EXTENSÃO DA UNICAP (${CONSENT_TERM_VERSION})
 
-A Universidade Católica de Pernambuco (UNICAP), na condição de controladora, trata dados pessoais de estudantes, egressos, recrutadores e empresas parceiras por meio do Portal de Carreiras e do Setor de Extensão, em conformidade com a Lei nº 13.709/2018 (Lei Geral de Proteção de Dados Pessoais — LGPD).
+A Universidade Católica de Pernambuco (UNICAP), na condição de controladora, trata dados pessoais de estudantes, egressos, recrutadores e empresas parceiras por meio do Banco de Currículos e do Setor de Extensão, em conformidade com a Lei nº 13.709/2018 (Lei Geral de Proteção de Dados Pessoais — LGPD).
 
 1. Dados tratados e finalidades
 (a) Dados de identificação (nome, e-mail, matrícula, curso, semestre/ano de formação) — para validar vínculo com a UNICAP, permitir cadastro e candidaturas a vagas.
@@ -26,7 +26,7 @@ Seus dados de contato só ficam visíveis a recrutadores quando você autoriza e
 Os dados são conservados durante o vínculo com a UNICAP e pelo prazo necessário às finalidades descritas, com exclusão ou anonimização após solicitação. Adotamos medidas técnicas (criptografia em trânsito — HTTPS — e em repouso, controle de acesso por papéis e trilha de auditoria de consentimentos) conforme art. 46 da LGPD.
 
 5. Direitos do titular
-A qualquer momento, sem custo, você pode solicitar: confirmação de tratamento; acesso aos dados; correção de dados incompletos, inexatos ou desatualizados; portabilidade; anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em desconformidade; informação sobre compartilhamentos; e revogação do consentimento. Canais: Coordenação do Portal de Carreiras e Encarregado (DPO) da UNICAP — dpo@unicap.br.
+A qualquer momento, sem custo, você pode solicitar: confirmação de tratamento; acesso aos dados; correção de dados incompletos, inexatos ou desatualizados; portabilidade; anonimização, bloqueio ou eliminação de dados desnecessários ou tratados em desconformidade; informação sobre compartilhamentos; e revogação do consentimento. Canais: Coordenação do Banco de Currículos e Encarregado (DPO) da UNICAP — dpo@unicap.br.
 
 6. Revogação
 Este consentimento pode ser revogado a qualquer tempo, mediante solicitação ao Encarregado. A revogação implica o desaparecimento do seu perfil das buscas de recrutadores e a impossibilidade de novas candidaturas, sem prejuízo dos tratamentos já realizados.
@@ -40,6 +40,12 @@ export const CONSENT_TERM_CHANGELOG: ReadonlyArray<{
   publishedAt: string;
   summary: string;
 }> = [
+  {
+    version: "v1.1",
+    publishedAt: "2026-10-17",
+    summary:
+      "Renomeação institucional: o sistema passa a chamar-se Banco de Currículos (mesmas finalidades e bases legais).",
+  },
   {
     version: "v1.0",
     publishedAt: "2026-09-25",

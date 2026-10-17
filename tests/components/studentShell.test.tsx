@@ -146,7 +146,7 @@ describe("StudentShell — navbar com abas (Etapa 1)", () => {
 describe("StudentShell — logo, container full-width e avatar (Etapa 1)", () => {
   it("logo UNICAP à esquerda com identidade do portal", () => {
     renderAluno();
-    expect(screen.getByText(/portal de carreiras/i)).toBeInTheDocument();
+    expect(screen.getByText(/banco de currículos/i)).toBeInTheDocument();
     expect(screen.getByText("UC")).toBeInTheDocument();
   });
 
