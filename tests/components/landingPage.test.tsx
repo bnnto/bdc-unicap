@@ -7,7 +7,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { LandingPage } from "../../src/components/landing/LandingPage";
 
-describe("LandingPage — vitrine pública do Portal de Carreiras", () => {
+describe("LandingPage — vitrine pública do Banco de Currículos", () => {
   it("hero com o título de impacto e a linha de conexão com o mercado", () => {
     render(<LandingPage onNavigate={vi.fn()} />);
 

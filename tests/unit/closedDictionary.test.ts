@@ -77,6 +77,55 @@ const REQUIRED_LANGUAGES = [
   "Russo",
 ];
 
+/** Novas áreas da EXPANSÃO (TAREFA 1 — dicionário "super"). */
+const REQUIRED_ENG = [
+  "AutoCAD",
+  "Revit",
+  "SolidWorks",
+  "SAP2000",
+  "Eletrônica Analógica",
+  "CLP",
+  "MATLAB",
+];
+const REQUIRED_DIR = [
+  "Direito Civil",
+  "Direito Penal",
+  "Processo Trabalhista",
+  "Compliance",
+  "LGPD",
+];
+const REQUIRED_COM = [
+  "SEO",
+  "Copywriting",
+  "Google Ads",
+  "Jornalismo de Dados",
+  "Assessoria de Imprensa",
+];
+const REQUIRED_SAUDE = [
+  "Psicologia Clínica",
+  "Avaliação Psicológica",
+  "Primeiros Socorros",
+  "Anatomia",
+];
+const REQUIRED_TECH_EXTRA = [
+  "Vue.js",
+  "Angular",
+  "Kubernetes",
+  "GCP",
+  "Azure",
+  "Figma Avançado",
+];
+
+/** Idiomas pedidos na EXPANSÃO (TAREFA 2 — 40+ idiomas). */
+const REQUIRED_LANGUAGES_EXTRA = [
+  "Árabe",
+  "Sueco",
+  "Holandês",
+  "Polonês",
+  "Hebraico",
+  "Hindi",
+];
+
 describe("dicionário fechado de competências", () => {
   it("inclui obrigatoriamente Tech, Game Dev, Design e Gestão/Engenharias", () => {
     for (const term of [
@@ -86,6 +135,31 @@ describe("dicionário fechado de competências", () => {
       ...REQUIRED_GESTAO,
     ]) {
       expect(SKILLS_DICTIONARY, `falta "${term}"`).toContain(term);
+    }
+  });
+
+  it("expansão TAREFA 1: centenas de termos cobrindo todos os cursos", () => {
+    // "Centenas de competências" — cobre Engenharias, Direito,
+    // Comunicação/Marketing, Saúde/Psicologia além de Tech/Design.
+    expect(SKILLS_DICTIONARY.length).toBeGreaterThanOrEqual(200);
+    for (const term of [
+      ...REQUIRED_ENG,
+      ...REQUIRED_DIR,
+      ...REQUIRED_COM,
+      ...REQUIRED_SAUDE,
+      ...REQUIRED_TECH_EXTRA,
+    ]) {
+      expect(SKILLS_DICTIONARY, `falta "${term}"`).toContain(term);
+    }
+    // Cada área vira um grupo (a UI agrupa por curso).
+    const labels = SKILLS_GROUPS.map((group) => group.label);
+    for (const label of [
+      "Engenharias (Civil, Elétrica, Mecânica)",
+      "Direito",
+      "Comunicação / Marketing",
+      "Saúde / Psicologia",
+    ]) {
+      expect(labels, `falta o grupo "${label}"`).toContain(label);
     }
   });
 
@@ -150,6 +224,13 @@ describe("whitelist de idiomas", () => {
     expect(new Set(KNOWN_LANGUAGES).size).toBe(KNOWN_LANGUAGES.length);
   });
 
+  it("expansão TAREFA 2: 40+ idiomas relevantes (Árabe, Sueco…)", () => {
+    expect(KNOWN_LANGUAGES.length).toBeGreaterThanOrEqual(40);
+    for (const language of REQUIRED_LANGUAGES_EXTRA) {
+      expect(KNOWN_LANGUAGES, `falta "${language}"`).toContain(language);
+    }
+  });
+
   it("canonicalLanguage devolve a forma oficial ou null", () => {
     expect(canonicalLanguage(" inglês ")).toBe("Inglês");
     expect(canonicalLanguage("PORTUGUÊS")).toBe("Português");
@@ -192,20 +273,28 @@ describe("pontos de entrada sem texto livre", () => {
   const root = process.cwd();
   const read = (path: string) => readFileSync(join(root, path), "utf8");
 
-  it("formulários de edição leem o dicionário (select, não input livre)", () => {
+  it("formulários de edição leem o dicionário (Combobox, sem input livre)", () => {
     for (const file of [
       "src/components/student/ResumeForm.tsx",
       "src/components/student/StudentProfileForm.tsx",
     ]) {
       const src = read(file);
-      // O <select> de competências é montado a partir do dicionário
-      // (lista plana ou agrupada por área em <optgroup>).
+      // Os campos de dicionário são montados a partir da whitelist
+      // (lista plana ou agrupada por área), via Combobox pesquisável.
       expect(src, `${file} sem o dicionário de competências`).toMatch(
         /SKILLS_(DICTIONARY|GROUPS)/,
       );
       expect(src, `${file} sem KNOWN_LANGUAGES`).toContain("KNOWN_LANGUAGES");
+      // O campo de competência é o Combobox do dicionário…
+      expect(src, `${file} sem Combobox de competência`).toMatch(
+        /<Combobox[\s\S]{0,300}?ariaLabel="Nova competência"/,
+      );
+      // …e o de idioma, o Combobox da whitelist.
+      expect(src, `${file} sem Combobox de idioma`).toMatch(
+        /<Combobox[\s\S]{0,300}?ariaLabel="(Novo idioma|Idioma)"/,
+      );
       // Nada de campo de texto (nem o <Input> do Design System) para
-      // competência: o caminho é sempre o <select> do dicionário.
+      // competência: o caminho é sempre o Combobox do dicionário.
       expect(src, `${file} com input livre de competência`).not.toMatch(
         /<(input|Input)\b[^>]*(aria-label="Nova competência"|label="Nova competência"|placeholder="Ex\.)/,
       );
@@ -213,7 +302,8 @@ describe("pontos de entrada sem texto livre", () => {
       expect(src, `${file} com input livre de idioma`).not.toMatch(
         /<(input|Input)\b[^>]*(aria-label="Novo idioma"|label="Idioma")/,
       );
-      expect(src, `${file} sem <select> de dicionário`).toMatch(/<select\b/);
+      // Os <select> remanescentes (níveis etc.) mantêm o sítio.
+      expect(src, `${file} sem <select>`).toMatch(/<select\b/);
     }
   });
 
@@ -225,15 +315,21 @@ describe("pontos de entrada sem texto livre", () => {
     expect(server).toContain("validateLanguages(");
   });
 
-  it("filtro de competências do Banco de Talentos é select do dicionário", () => {
+  it("filtro de competências do Banco de Talentos é Combobox do dicionário", () => {
     const src = read("src/components/talent/TalentSearchPage.tsx");
     expect(src).toContain("SKILLS_GROUPS");
-    // O filtro é um <select> com aria-label, nunca campo de texto livre.
-    // (lazy e limitado: os atributos do <select> contêm "=>", por isso não [^>]).
-    expect(src).toMatch(/<select[\s\S]{0,300}?aria-label="Nova competência"/);
+    // O filtro é o Combobox pesquisável (ariaLabel primeiro) — nunca
+    // campo de texto livre nem <select> nativo.
+    expect(src).toMatch(/<Combobox[\s\S]{0,300}?ariaLabel="Nova competência"/);
     expect(src).not.toMatch(
       /<(input|Input)\b[^>]*aria-label="Nova competência"/,
     );
+    expect(src).not.toMatch(
+      /<select[\s\S]{0,300}?aria-label="Nova competência"/,
+    );
     expect(src).not.toContain('placeholder="Ex.: SQL"');
+    // Idioma também é Combobox da whitelist (datalist removido).
+    expect(src).toMatch(/<Combobox[\s\S]{0,300}?ariaLabel="Idioma"/);
+    expect(src).not.toContain('list="talent-language-options"');
   });
 });

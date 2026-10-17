@@ -1,8 +1,8 @@
 # 🧠 CEREBRO.md — Arquitetura do Projeto
 
-**Projeto:** Portal de Carreiras e Setor de Extensão — UNICAP
+**Projeto:** Banco de Currículos e Setor de Extensão — UNICAP
 **Stack imutável:** React + Vite · Tailwind CSS · Convex (DB/Backend) · Vitest · Bun
-**Identidade visual:** UNICAP — Dourado e Bordô (ver `stitch_portal_de_carreiras_unicap/academic_prestige_modern/DESIGN.md`)
+**Identidade visual:** UNICAP — Dourado e Bordô (ver `stitch_banco_de_curriculos_unicap/academic_prestige_modern/DESIGN.md`)
 
 ---
 
@@ -11,7 +11,7 @@
 O sistema é um portal acadêmico que integra dois domínios de negócio:
 
 1. **Setor de Extensão** — banco de projetos de extensão com cadastro, acompanhamento (ativos/não ativos), divulgação pública e painel gestor com métricas e filtros.
-2. **Portal de Carreiras** — perfis/currículos de alunos, banco de talentos com filtros avançados, publicação de vagas, matching currículo↔vaga, pipeline de candidaturas (Kanban) e dashboard operacional com exportação.
+2. **Banco de Currículos** — perfis/currículos de alunos, banco de talentos com filtros avançados, publicação de vagas, matching currículo↔vaga, pipeline de candidaturas (Kanban) e dashboard operacional com exportação.
 
 Arquitetura **serverless**: o Convex concentra schema, funções reativas (query/mutation/action) e regras de negócio; o React consome as queries de forma reativa (`useQuery`), sem estado duplicado de servidor no cliente. **Nenhum backend próprio adicional.**
 
@@ -248,7 +248,7 @@ Calculado no cliente para preview e **recalculado e persistido** na mutation `ap
 
 ## 5. Design System — UNICAP (Dourado e Bordô)
 
-Tokens derivados de `stitch_portal_de_carreiras_unicap/academic_prestige_modern/DESIGN.md`, definidos em `tailwind.config.ts` + variáveis CSS em `src/index.css`:
+Tokens derivados de `stitch_banco_de_curriculos_unicap/academic_prestige_modern/DESIGN.md`, definidos em `tailwind.config.ts` + variáveis CSS em `src/index.css`:
 
 | Papel | Token | Hex |
 |---|---|---|

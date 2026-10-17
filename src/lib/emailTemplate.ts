@@ -71,7 +71,7 @@ export function renderBrandedEmail(args: BrandedEmailArgs): string {
     // Cabeçalho de marca
     `<tr><td style="background-color:${BRAND.primary};padding:24px 32px;">`,
     `<div style="font-size:22px;font-weight:700;color:#FFFFFF;letter-spacing:0.2px;">UNICAP</div>`,
-    `<div style="margin-top:2px;font-size:13px;color:${BRAND.secondary};font-weight:600;">Portal de Carreiras</div>`,
+    `<div style="margin-top:2px;font-size:13px;color:${BRAND.secondary};font-weight:600;">Banco de Currículos</div>`,
     "</td></tr>",
     // Barra dourada
     `<tr><td style="height:4px;background:linear-gradient(90deg,${BRAND.secondary},${BRAND.primaryHover});font-size:0;line-height:0;">&nbsp;</td></tr>`,
@@ -84,7 +84,7 @@ export function renderBrandedEmail(args: BrandedEmailArgs): string {
     // Rodapé
     `<tr><td style="padding:20px 32px;background-color:${BRAND.surface};border-top:1px solid ${BRAND.border};">`,
     footerNote,
-    `<p style="margin:0;color:${BRAND.muted};font-size:12px;line-height:18px;">© ${new Date().getFullYear()} Universidade Católica do Paraná (UNICAP) — Portal de Carreiras.</p>`,
+    `<p style="margin:0;color:${BRAND.muted};font-size:12px;line-height:18px;">© ${new Date().getFullYear()} Universidade Católica do Paraná (UNICAP) — Banco de Currículos.</p>`,
     "</td></tr>",
     "</table>",
     "</td></tr>",

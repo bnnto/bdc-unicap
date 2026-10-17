@@ -1,6 +1,6 @@
 # 🗓️ SPRINTS.md — Cronograma Iterativo
 
-**Projeto:** Portal de Carreiras e Setor de Extensão — UNICAP
+**Projeto:** Banco de Currículos e Setor de Extensão — UNICAP
 **Base:** CEREBRO.md · Stack: React+Vite · Tailwind · Convex · Vitest · Bun
 **Gestão:** GitHub Projects #1 (Kanban Backlog/To Do/In Progress/Done) — Issues `[Sn-m]`
 

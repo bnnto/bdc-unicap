@@ -6,6 +6,7 @@ import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Combobox } from "../ui/Combobox";
 import {
   AVAILABILITY,
   ENROLLMENT_STATUS,
@@ -76,12 +77,9 @@ const LEVEL_LABELS: Record<LanguageLevel, string> = {
   nativo: "Nativo",
 };
 
-/**
- * [DICIONARIO_FECHADO] Dropdown padronizado (Regra de Ouro 1) dos
- * campos de dicionário: competências e idiomas só por seleção.
- */
-const DICT_SELECT_CLASS =
-  "w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
+// [UX COMBOBOX] Os campos de dicionário (competências/idiomas) agora são
+// o Combobox pesquisável de `../ui/Combobox` — o select nativo não
+// escala com centenas de opções. Só o nível do idioma continua select.
 
 /**
  * Cadastro/perfil do aluno (issue [S1-3]): dados pessoais, curso,
@@ -105,6 +103,15 @@ export function StudentProfileForm() {
   const [skillDraft, setSkillDraft] = useState("");
   const [languageName, setLanguageName] = useState("");
   const [languageLevel, setLanguageLevel] = useState<LanguageLevel>("basico");
+
+  // Opções do combobox de competências — já escolhidas saem da lista.
+  const availableSkillGroups = SKILLS_GROUPS.map((group) => ({
+    label: group.label,
+    items: group.items.filter(
+      (item) =>
+        !skills.some((skill) => skill.toLowerCase() === item.toLowerCase()),
+    ),
+  })).filter((group) => group.items.length > 0);
 
   // Pré-preenche com o perfil existente (upsert idempotente).
   useEffect(() => {
@@ -351,37 +358,21 @@ export function StudentProfileForm() {
           </span>
         </legend>
         <div className="flex gap-2">
-          {/* [DICIONARIO_FECHADO] sem texto livre: só se seleciona um
-              termo do dicionário oficial (nada de "coxinha"). */}
-          <select
+          {/* [DICIONARIO_FECHADO] combobox pesquisável: sem texto livre —
+              só se CONFIRMA um termo do dicionário oficial (digitação sem
+              resultado mostra "Nenhum resultado" e o Adicionar fica
+              desabilitado). */}
+          <Combobox
+            ariaLabel="Nova competência"
+            groups={availableSkillGroups}
             value={skillDraft}
-            onChange={(e) => setSkillDraft(e.target.value)}
-            aria-label="Nova competência"
-            className={DICT_SELECT_CLASS}
-          >
-            <option value="">Selecione no dicionário oficial…</option>
-            {SKILLS_GROUPS.map((group) => {
-              const available = group.items.filter(
-                (item) =>
-                  !skills.some(
-                    (skill) => skill.toLowerCase() === item.toLowerCase(),
-                  ),
-              );
-              if (available.length === 0) return null;
-              return (
-                <optgroup key={group.label} label={group.label}>
-                  {available.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </optgroup>
-              );
-            })}
-          </select>
+            onSelect={setSkillDraft}
+            placeholder="Selecione no dicionário oficial…"
+          />
           <Button
             className="mt-4 h-10 shrink-0"
             variant="secondary"
+            disabled={skillDraft.trim().length === 0}
             onClick={() => {
               setSkills((s) => addSkill(s, skillDraft));
               setSkillDraft("");
@@ -428,25 +419,26 @@ export function StudentProfileForm() {
         </legend>
         <div className="flex flex-col items-start gap-2 sm:flex-row">
           <div className="flex w-full flex-col gap-1 sm:max-w-48">
-            {/* [DICIONARIO_FECHADO] só idiomas da whitelist oficial. */}
-            <select
-              value={languageName}
-              onChange={(e) => setLanguageName(e.target.value)}
-              aria-label="Novo idioma"
-              className={DICT_SELECT_CLASS}
-            >
-              <option value="">Selecione o idioma…</option>
-              {KNOWN_LANGUAGES.filter(
-                (known) =>
-                  !languages.some(
-                    (lang) => lang.name.toLowerCase() === known.toLowerCase(),
+            {/* [DICIONARIO_FECHADO] combobox pesquisável: só idiomas da
+                whitelist oficial, filtráveis digitando (50+ idiomas). */}
+            <Combobox
+              ariaLabel="Novo idioma"
+              groups={[
+                {
+                  label: "Idiomas",
+                  items: KNOWN_LANGUAGES.filter(
+                    (known) =>
+                      !languages.some(
+                        (lang) =>
+                          lang.name.toLowerCase() === known.toLowerCase(),
+                      ),
                   ),
-              ).map((known) => (
-                <option key={known} value={known}>
-                  {known}
-                </option>
-              ))}
-            </select>
+                },
+              ]}
+              value={languageName}
+              onSelect={setLanguageName}
+              placeholder="Selecione o idioma…"
+            />
           </div>
           <select
             value={languageLevel}
@@ -463,6 +455,7 @@ export function StudentProfileForm() {
           <Button
             className="h-10 shrink-0"
             variant="secondary"
+            disabled={languageName.trim().length === 0}
             onClick={() => {
               setLanguages((ls) =>
                 addLanguage(ls, { name: languageName, level: languageLevel }),

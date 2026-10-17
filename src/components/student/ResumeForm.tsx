@@ -6,6 +6,7 @@ import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Combobox, type ComboboxGroup } from "../ui/Combobox";
 import {
   MAX_ACADEMIC,
   MAX_CERTIFICATIONS,
@@ -79,12 +80,9 @@ const BLOCK_ICONS: LucideIcon[] = [
   Award, // 6 · Certificações
 ];
 
-/**
- * [DICIONARIO_FECHADO] Dropdown padronizado (Regra de Ouro 1) dos
- * campos de dicionário: competências e idiomas só por seleção.
- */
-const DICT_SELECT_CLASS =
-  "w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
+// [UX COMBOBOX] Competências e idiomas agora usam o Combobox pesquisável
+// de `../ui/Combobox` — dicionário com centenas de termos não cabe num
+// select nativo. Os selects restantes (níveis etc.) mantêm o dropdown SVG.
 
 const STATUS_LABELS: Record<EnrollmentStatus, string> = {
   ativo: "Aluno ativo",
@@ -273,6 +271,33 @@ export function ResumeForm() {
     if (skillDraft.trim().length === 0) return;
     setSkills((list) => addSkill(list, skillDraft));
     setSkillDraft("");
+  }
+
+  /** Grupos do combobox de competências (já escolhidas saem da lista). */
+  function skillGroupsForCombobox(): ComboboxGroup[] {
+    return SKILLS_GROUPS.map((group) => ({
+      label: group.label,
+      items: group.items.filter(
+        (item) =>
+          !skills.some((skill) => skill.toLowerCase() === item.toLowerCase()),
+      ),
+    })).filter((group) => group.items.length > 0);
+  }
+
+  /** Opções de idioma da linha — sem os idiomas de outras linhas. */
+  function languageGroupsForCombobox(index: number): ComboboxGroup[] {
+    return [
+      {
+        label: "Idiomas",
+        items: KNOWN_LANGUAGES.filter(
+          (known) =>
+            !languages.some(
+              (other, i) =>
+                i !== index && other.name.toLowerCase() === known.toLowerCase(),
+            ),
+        ),
+      },
+    ];
   }
 
   function addLanguage() {
@@ -905,39 +930,18 @@ export function ResumeForm() {
                           >
                             Nova competência
                           </label>
-                          {/* [DICIONARIO_FECHADO] sem texto livre: só se
-                              seleciona um termo do dicionário oficial. */}
-                          <select
+                          {/* [DICIONARIO_FECHADO] combobox pesquisável: sem
+                              texto livre — só se confirma um termo do
+                              dicionário oficial. */}
+                          <Combobox
+                            ariaLabel="Nova competência"
                             id="resume-skill-select"
-                            aria-describedby="resume-skill-hint"
+                            describedBy="resume-skill-hint"
+                            groups={skillGroupsForCombobox()}
                             value={skillDraft}
-                            onChange={(e) => setSkillDraft(e.target.value)}
-                            className={DICT_SELECT_CLASS}
-                          >
-                            <option value="">
-                              Selecione no dicionário oficial…
-                            </option>
-                            {SKILLS_GROUPS.map((group) => {
-                              const available = group.items.filter(
-                                (item) =>
-                                  !skills.some(
-                                    (skill) =>
-                                      skill.toLowerCase() ===
-                                      item.toLowerCase(),
-                                  ),
-                              );
-                              if (available.length === 0) return null;
-                              return (
-                                <optgroup key={group.label} label={group.label}>
-                                  {available.map((item) => (
-                                    <option key={item} value={item}>
-                                      {item}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              );
-                            })}
-                          </select>
+                            onSelect={setSkillDraft}
+                            placeholder="Selecione no dicionário oficial…"
+                          />
                           <p
                             id="resume-skill-hint"
                             className="text-xs text-slate-500"
@@ -949,6 +953,7 @@ export function ResumeForm() {
                         <Button
                           variant="secondary"
                           className="mt-6 h-10 shrink-0"
+                          disabled={skillDraft.trim().length === 0}
                           onClick={addSkillDraft}
                         >
                           <Plus className="h-4 w-4" aria-hidden="true" />
@@ -1000,32 +1005,19 @@ export function ResumeForm() {
                                 *
                               </span>
                             </label>
-                            {/* [DICIONARIO_FECHADO] whitelist de idiomas:
-                                escolha entre os idiomas oficiais. */}
-                            <select
+                            {/* [DICIONARIO_FECHADO] combobox pesquisável da
+                                whitelist de idiomas (sem texto livre). */}
+                            <Combobox
+                              ariaLabel="Idioma"
                               id={`resume-language-name-${index}`}
                               required
+                              groups={languageGroupsForCombobox(index)}
                               value={language.name}
-                              onChange={(e) =>
-                                updateLanguage(index, "name", e.target.value)
+                              onSelect={(term) =>
+                                updateLanguage(index, "name", term)
                               }
-                              className={DICT_SELECT_CLASS}
-                            >
-                              <option value="">Selecione o idioma…</option>
-                              {KNOWN_LANGUAGES.filter(
-                                (known) =>
-                                  !languages.some(
-                                    (other, i) =>
-                                      i !== index &&
-                                      other.name.toLowerCase() ===
-                                        known.toLowerCase(),
-                                  ),
-                              ).map((known) => (
-                                <option key={known} value={known}>
-                                  {known}
-                                </option>
-                              ))}
-                            </select>
+                              placeholder="Selecione o idioma…"
+                            />
                           </div>
                           <div className="w-44 shrink-0">
                             <label

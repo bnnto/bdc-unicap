@@ -7,7 +7,7 @@ e este projeto adere a [Versionamento Semântico](https://semver.org/lang/pt-BR/
 
 ## [1.0.0] — 2026-09-28
 
-Primeira release estável do Portal de Carreiras + Setor de Extensão UNICAP:
+Primeira release estável do Banco de Currículos + Setor de Extensão UNICAP:
 autenticação com consentimento LGPD versionado, banco de talentos, pipeline
 de vagas com matching no servidor, painel operacional, módulo de extensão
 com divulgação pública e requisitos não-funcionais (LGPD, acessibilidade

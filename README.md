@@ -1,4 +1,4 @@
-# Portal de Carreiras + Setor de Extensão — UNICAP
+# Banco de Currículos + Setor de Extensão — UNICAP
 
 Plataforma que conecta estudantes e egressos da Universidade Católica de
 Pernambuco a oportunidades de estágio e emprego, com banco de talentos,

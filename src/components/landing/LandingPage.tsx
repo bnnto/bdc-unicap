@@ -1,6 +1,6 @@
 /**
  * [UX_UPGRADE] Etapa 1/4 — Landing Page pública em "/" (a vitrine do
- * Portal de Carreiras). Visita autenticada não é obrigatória para ver a
+ * Banco de Currículos). Visita autenticada não é obrigatória para ver a
  * página: os CTAs levam a "/login" (rota da AuthPage) sem reload, via
  * `onNavigate` do AuthGate.
  *
@@ -74,7 +74,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
             </span>
             <div>
               <p className="font-serif text-lg font-bold leading-tight text-primary">
-                Portal de Carreiras — UNICAP
+                Banco de Currículos — UNICAP
               </p>
               <p className="text-xs text-slate-500">
                 Universidade Católica de Pernambuco
@@ -114,7 +114,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
       <main
         id="conteudo"
         tabIndex={-1}
-        aria-label="Portal de Carreiras — apresentação"
+        aria-label="Banco de Currículos — apresentação"
         className="outline-none"
       >
         {/* Hero institucional em bordô com destaque dourado. */}
@@ -138,7 +138,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
               Conectando os talentos da UNICAP ao mercado.
             </p>
             <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-200 sm:text-lg">
-              O Portal de Carreiras reúne alunos e empresas em um processo
+              O Banco de Currículos reúne alunos e empresas em um processo
               seletivo transparente: currículo em PDF, match inteligente e
               acompanhamento de cada etapa — da inscrição à contratação.
             </p>
@@ -171,7 +171,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
             id="beneficios-title"
             className="font-serif text-3xl font-bold text-primary"
           >
-            Por que o Portal de Carreiras?
+            Por que o Banco de Currículos?
           </h2>
           <p className="mt-2 max-w-2xl text-slate-600">
             Tudo o que aluno e empresa precisam para se encontrar, em um só
@@ -273,7 +273,7 @@ export function LandingPage({ onNavigate }: LandingPageProps) {
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="font-serif text-lg font-bold text-primary">
-              Portal de Carreiras — UNICAP
+              Banco de Currículos — UNICAP
             </p>
             <p className="mt-1 text-sm text-slate-600">
               Universidade Católica de Pernambuco — talentos conectados ao

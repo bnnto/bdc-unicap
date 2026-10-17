@@ -186,12 +186,12 @@ export function buildReportPrintMarkup(
 <div class="unicap-report-doc">
   <header class="unicap-report-header">
     <p class="unicap-report-brand">UNICAP</p>
-    <p class="unicap-report-doc-title">Portal de Carreiras</p>
+    <p class="unicap-report-doc-title">Banco de Currículos</p>
   </header>
   <h1 class="unicap-report-title">${escapeHtml(report.reportName)}</h1>
   <p class="unicap-report-generated">Gerado em ${formatDay(now)}</p>${sections}
   <footer class="unicap-report-footer">
-    Universidade Católica de Pernambuco — Portal de Carreiras · Relatório
+    Universidade Católica de Pernambuco — Banco de Currículos · Relatório
     gerado com os filtros vigentes do Painel Operacional.
   </footer>
 </div>`;

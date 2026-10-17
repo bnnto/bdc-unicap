@@ -1,8 +1,10 @@
 /**
  * [DICIONARIO_FECHADO] Formulários de perfil e currículo não aceitam
- * texto livre para competências/idiomas: os campos são <select> com as
- * opções oficiais (SKILLS_DICTIONARY / KNOWN_LANGUAGES) — o utilizador
- * só consegue SELECIONAR um termo da whitelist.
+ * texto livre para competências/idiomas: os campos são o Combobox
+ * pesquisável com as opções oficiais (SKILLS_DICTIONARY /
+ * KNOWN_LANGUAGES) — o utilizador só consegue SELECIONAR um termo da
+ * whitelist na lista filtrada. Texto inexistente mostra "Nenhum
+ * resultado" e o botão de adicionar fica desabilitado.
  */
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -83,25 +85,36 @@ beforeEach(() => {
   }) as never);
 });
 
-/** Opções de um <select> (ignora o placeholder de valor vazio). */
-function optionsOf(select: HTMLElement): string[] {
-  return Array.from(select.querySelectorAll("option"))
-    .map((option) => option.getAttribute("value") ?? "")
-    .filter((value) => value.length > 0);
+/** Abre o combobox e devolve as opções visíveis da lista suspensa. */
+async function openComboOptions(combo: HTMLElement): Promise<string[]> {
+  await userEvent.click(combo);
+  return within(screen.getByRole("listbox"))
+    .getAllByRole("option")
+    .map((option) => option.textContent ?? "");
+}
+
+/** Escolhe um termo: digita (filtra) e clica na opção da lista. */
+async function pickComboTerm(combo: HTMLElement, term: string) {
+  await userEvent.click(combo);
+  await userEvent.clear(combo);
+  await userEvent.type(combo, term);
+  await userEvent.click(
+    within(screen.getByRole("listbox")).getByRole("option", { name: term }),
+  );
 }
 
 describe("StudentProfileForm — dicionário fechado", () => {
-  it("campo de competência é select do dicionário (sem texto livre)", () => {
+  it("campo de competência é combobox do dicionário (sem texto livre)", async () => {
     render(<StudentProfileForm />);
 
-    const select = screen.getByRole("combobox", { name: "Nova competência" });
-    expect(select.tagName).toBe("SELECT");
+    const combo = screen.getByRole("combobox", { name: "Nova competência" });
+    expect(combo.tagName).toBe("INPUT");
     // Nenhuma caixa de texto permite digitar competência livre.
     expect(
       screen.queryByRole("textbox", { name: /nova competência/i }),
     ).toBeNull();
 
-    const offered = optionsOf(select);
+    const offered = await openComboOptions(combo);
     expect(offered.length).toBeGreaterThan(0);
     for (const skill of offered) {
       expect(SKILLS_DICTIONARY).toContain(skill);
@@ -110,14 +123,14 @@ describe("StudentProfileForm — dicionário fechado", () => {
     expect(offered).toContain("Figma");
   });
 
-  it("campo de idioma é select da whitelist (sem texto livre)", () => {
+  it("campo de idioma é combobox da whitelist (sem texto livre)", async () => {
     render(<StudentProfileForm />);
 
-    const select = screen.getByRole("combobox", { name: "Novo idioma" });
-    expect(select.tagName).toBe("SELECT");
+    const combo = screen.getByRole("combobox", { name: "Novo idioma" });
+    expect(combo.tagName).toBe("INPUT");
     expect(screen.queryByRole("textbox", { name: /novo idioma/i })).toBeNull();
 
-    const offered = optionsOf(select);
+    const offered = await openComboOptions(combo);
     for (const language of offered) {
       expect(KNOWN_LANGUAGES).toContain(language);
     }
@@ -125,11 +138,33 @@ describe("StudentProfileForm — dicionário fechado", () => {
     expect(offered).toContain("Russo");
   });
 
+  it("texto fora do dicionário mostra 'Nenhum resultado' e desabilita Adicionar", async () => {
+    render(<StudentProfileForm />);
+
+    const skillsGroup = screen.getByRole("group", { name: /^competências/i });
+    const combo = within(skillsGroup).getByRole("combobox", {
+      name: "Nova competência",
+    });
+    await userEvent.click(combo);
+    await userEvent.clear(combo);
+    await userEvent.type(combo, "coxinha");
+
+    expect(screen.getByText(/nenhum resultado/i)).toBeInTheDocument();
+    expect(
+      within(skillsGroup).getByRole("button", { name: /adicionar/i }),
+    ).toBeDisabled();
+
+    // Nada foi adicionado — nenhum chip "coxinha" na lista de chips.
+    expect(
+      within(skillsGroup).queryByLabelText(/remover competência coxinha/i),
+    ).toBeNull();
+  });
+
   it("só termos oficiais entram no envio (seleção + validação)", async () => {
     render(<StudentProfileForm />);
 
     const skillsGroup = screen.getByRole("group", { name: /^competências/i });
-    await userEvent.selectOptions(
+    await pickComboTerm(
       within(skillsGroup).getByRole("combobox", {
         name: "Nova competência",
       }),
@@ -143,7 +178,7 @@ describe("StudentProfileForm — dicionário fechado", () => {
     ).toBeInTheDocument();
 
     const languagesGroup = screen.getByRole("group", { name: /^idiomas/i });
-    await userEvent.selectOptions(
+    await pickComboTerm(
       within(languagesGroup).getByRole("combobox", { name: "Novo idioma" }),
       "Coreano",
     );
@@ -172,19 +207,19 @@ describe("StudentProfileForm — dicionário fechado", () => {
 });
 
 describe("ResumeForm — dicionário fechado nos blocos 4 e 5", () => {
-  it("bloco de competências abre como select do dicionário", async () => {
+  it("bloco de competências abre como combobox do dicionário", async () => {
     render(<ResumeForm />);
     await userEvent.click(
       screen.getByRole("button", { name: "Editar Competências" }),
     );
 
-    const select = screen.getByLabelText("Nova competência");
-    expect(select.tagName).toBe("SELECT");
+    const combo = screen.getByRole("combobox", { name: "Nova competência" });
+    expect(combo.tagName).toBe("INPUT");
     expect(
       screen.queryByRole("textbox", { name: /nova competência/i }),
     ).toBeNull();
 
-    const offered = optionsOf(select);
+    const offered = await openComboOptions(combo);
     for (const skill of offered) {
       expect(SKILLS_DICTIONARY).toContain(skill);
     }
@@ -193,48 +228,42 @@ describe("ResumeForm — dicionário fechado nos blocos 4 e 5", () => {
     expect(offered).toContain("Docker");
   });
 
-  it("campo Idioma do bloco de idiomas é select da whitelist", async () => {
+  it("campo Idioma do bloco de idiomas é combobox da whitelist", async () => {
     render(<ResumeForm />);
     await userEvent.click(
       screen.getByRole("button", { name: "Editar Idiomas" }),
     );
 
     const first = screen.getAllByRole("combobox", { name: /^Idioma/ })[0]!;
-    expect(first.tagName).toBe("SELECT");
+    expect(first.tagName).toBe("INPUT");
     expect(screen.queryByRole("textbox", { name: /^idioma/i })).toBeNull();
 
-    const offered = optionsOf(first);
-    expect(offered.length).toBeGreaterThan(0);
-    for (const language of offered) {
-      expect(KNOWN_LANGUAGES).toContain(language);
-    }
-    // A própria linha em edição mantém o valor já escolhido.
-    expect(offered).toContain("Inglês");
-    expect(offered).toContain("Japonês");
+    // Abre já com o valor da própria linha (busca = "Inglês").
+    expect(await openComboOptions(first)).toContain("Inglês");
 
-    // Idioma já usado numa linha não é oferecido na seguinte.
+    // A linha seguinte oferece a whitelist SEM os idiomas já usados.
     await userEvent.click(
       screen.getByRole("button", { name: /adicionar idioma/i }),
     );
     const rows = screen.getAllByRole("combobox", { name: /^Idioma/ });
     expect(rows).toHaveLength(2);
-    const nextRowOptions = optionsOf(rows[1]!);
+    const nextRowOptions = await openComboOptions(rows[1]!);
     expect(nextRowOptions).not.toContain("Inglês");
     expect(nextRowOptions).toContain("Japonês");
   });
 });
 
 describe("Banco de Talentos — filtro de competências fechado", () => {
-  it("filtro é select do dicionário (sem caixa de texto livre)", () => {
+  it("filtro é combobox do dicionário (sem caixa de texto livre)", async () => {
     render(<TalentSearchPage />);
 
-    const select = screen.getByRole("combobox", { name: "Nova competência" });
-    expect(select.tagName).toBe("SELECT");
+    const combo = screen.getByRole("combobox", { name: "Nova competência" });
+    expect(combo.tagName).toBe("INPUT");
     expect(
       screen.queryByRole("textbox", { name: /nova competência/i }),
     ).toBeNull();
 
-    const offered = optionsOf(select);
+    const offered = await openComboOptions(combo);
     expect(offered.length).toBeGreaterThan(0);
     for (const skill of offered) {
       expect(SKILLS_DICTIONARY).toContain(skill);
@@ -247,10 +276,10 @@ describe("Banco de Talentos — filtro de competências fechado", () => {
     render(<TalentSearchPage />);
 
     const skillsGroup = screen.getByRole("group", { name: "Competências" });
-    await userEvent.selectOptions(
-      within(skillsGroup).getByRole("combobox", { name: "Nova competência" }),
-      "Unity",
-    );
+    const combo = within(skillsGroup).getByRole("combobox", {
+      name: "Nova competência",
+    });
+    await pickComboTerm(combo, "Unity");
     await userEvent.click(
       within(skillsGroup).getByRole("button", { name: /adicionar/i }),
     );
@@ -261,7 +290,7 @@ describe("Banco de Talentos — filtro de competências fechado", () => {
       }),
     ).toBeInTheDocument();
     // Já escolhida sai das opções; o resto do dicionário continua.
-    const after = optionsOf(
+    const after = await openComboOptions(
       within(skillsGroup).getByRole("combobox", { name: "Nova competência" }),
     );
     expect(after).not.toContain("Unity");

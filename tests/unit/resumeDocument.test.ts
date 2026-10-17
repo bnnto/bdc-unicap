@@ -50,7 +50,7 @@ describe("documento do Currículo Vitae (S2-2)", () => {
     expect(doc.resume).toEqual(resume);
     expect(doc.university).toBe("Universidade Católica de Pernambuco");
     expect(doc.acronym).toBe("UNICAP");
-    expect(doc.docTitle).toBe("Currículo Vitae — Portal de Carreiras UNICAP");
+    expect(doc.docTitle).toBe("Currículo Vitae — Banco de Currículos UNICAP");
   });
 
   it("exige perfil do aluno e currículo salvo (sem placeholders)", () => {
