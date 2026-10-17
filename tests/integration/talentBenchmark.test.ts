@@ -135,7 +135,7 @@ describe("S8-3 — benchmark do Banco de Talentos com 10k+ currículos", () => {
       expect(result.items.length).toBeGreaterThan(0);
       // Filtro respeitado em escala (após os índices e filtros combináveis).
       for (const item of result.items) {
-        expect(item.availability).toBe("estagio");
+        expect(item.availability).toContain("estagio");
       }
 
       const report = validateTalentBenchmark({
@@ -189,7 +189,7 @@ describe("S8-3 — benchmark do Banco de Talentos com 10k+ currículos", () => {
           status: "inativo",
           course: "Direito",
           graduationYear: 2024,
-          availability: "integral",
+          availability: ["integral"],
           visibility: "publico",
         });
         await ctx.db.insert("consents", {

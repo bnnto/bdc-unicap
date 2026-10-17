@@ -89,7 +89,7 @@ async function seedWorld(
       graduationYear: 2026,
       semester: 6,
       location: "Recife, PE",
-      availability: "estagio",
+      availability: ["estagio"],
       visibility,
       showContactToRecruiters: showContact,
       linkedinUrl: "https://www.linkedin.com/in/maria",
@@ -378,7 +378,7 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
         status: "inativo",
         course: "Nada",
         graduationYear: 2030,
-        availability: "estagio",
+        availability: ["estagio"],
         visibility: "somente_candidaturas",
       }),
     );

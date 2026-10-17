@@ -6,7 +6,7 @@ import { friendlyErrorMessage } from "../../lib/toastMessages";
 import { navigateTo } from "../../lib/router";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Mail, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Mail, ShieldCheck } from "lucide-react";
 
 /**
  * [ONBOARDING_RECOVERY] Etapa 3 — página pública `/recuperar-senha`.
@@ -35,6 +35,31 @@ export function ResetPasswordPage() {
   const [confirm, setConfirm] = useState("");
   const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);
+  /** [UX_QUICK_WIN] — olhinho alterna password/texto por campo. */
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  function passwordTrailing(
+    visible: boolean,
+    onToggle: (next: boolean) => void,
+  ) {
+    return (
+      <button
+        type="button"
+        onClick={() => onToggle(!visible)}
+        className="rounded p-1 text-slate-400 transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        <span className="sr-only">
+          {visible ? "Ocultar senha" : "Mostrar senha"}
+        </span>
+        {visible ? (
+          <EyeOff className="h-4 w-4" aria-hidden="true" />
+        ) : (
+          <Eye className="h-4 w-4" aria-hidden="true" />
+        )}
+      </button>
+    );
+  }
 
   async function handleRequest(
     event: FormEvent<HTMLFormElement>,
@@ -155,22 +180,28 @@ export function ResetPasswordPage() {
               >
                 <Input
                   label="Nova senha"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   minLength={8}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="new-password"
                   hint="Mínimo de 8 caracteres"
+                  trailing={passwordTrailing(showPassword, (next) =>
+                    setShowPassword(next),
+                  )}
                 />
                 <Input
                   label="Confirmar nova senha"
-                  type="password"
+                  type={showConfirm ? "text" : "password"}
                   required
                   minLength={8}
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
+                  trailing={passwordTrailing(showConfirm, (next) =>
+                    setShowConfirm(next),
+                  )}
                 />
                 <Button type="submit" variant="primary" disabled={pending}>
                   <ShieldCheck className="h-4 w-4" aria-hidden="true" />

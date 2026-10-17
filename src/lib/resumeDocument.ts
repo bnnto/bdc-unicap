@@ -17,7 +17,8 @@ export type ResumeDocStudent = {
   location: string | null;
   linkedinUrl: string | null;
   portfolioUrl: string | null;
-  availability: "estagio" | "integral" | "meio_periodo" | "freelancer";
+  /** [QUICK_WIN_MULTI] multi-seleção (PDF junta com " · "). */
+  availability: Array<"estagio" | "integral" | "meio_periodo" | "freelancer">;
   /** [REFACTOR_ALUNO Etapa 2] — competências e idiomas do perfil. */
   skills?: string[];
   languages?: Array<{ name: string; level: string }>;
@@ -57,7 +58,10 @@ const STATUS_LABELS: Record<ResumeDocStudent["status"], string> = {
   inativo: "Inativo",
 };
 
-const AVAILABILITY_LABELS: Record<ResumeDocStudent["availability"], string> = {
+const AVAILABILITY_LABELS: Record<
+  "estagio" | "integral" | "meio_periodo" | "freelancer",
+  string
+> = {
   estagio: "Estágio",
   integral: "Período integral",
   meio_periodo: "Meio período",
@@ -121,7 +125,9 @@ export function buildResumeDocument(
     academicHistory: resume.academicHistory,
     academicEntries,
     statusLabel: STATUS_LABELS[student.status],
-    availabilityLabel: AVAILABILITY_LABELS[student.availability],
+    availabilityLabel: student.availability
+      .map((entry) => AVAILABILITY_LABELS[entry])
+      .join(" · "),
   };
 }
 

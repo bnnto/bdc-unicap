@@ -86,7 +86,7 @@ describe("S8-3 — população semeada mantém R1/R2 em escala (CA 2)", () => {
   it("cursos e disponibilidades variam (base realista, não uniforme)", () => {
     const rows = simulatePopulation();
     expect(new Set(rows.map((r) => r.course)).size).toBeGreaterThanOrEqual(5);
-    expect(new Set(rows.map((r) => r.availability)).size).toBe(4);
+    expect(new Set(rows.map((r) => r.availability.join(" · "))).size).toBe(4);
     expect(new Set(rows.map((r) => r.location)).size).toBeGreaterThanOrEqual(4);
     // Competências e idiomas preenchidos (filtros combináveis exercitados).
     expect(rows.every((r) => r.skills.length >= 2)).toBe(true);

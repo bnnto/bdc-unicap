@@ -14,7 +14,7 @@ import {
 const candidate: MatchingCandidate = {
   skills: ["React", "SQL", "Testes automatizados"],
   languages: [{ name: "Inglês", level: "intermediario" }],
-  availability: "estagio",
+  availability: ["estagio"],
 };
 
 const job: MatchingJob = {
@@ -50,7 +50,7 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
     const max = computeMatchScore(candidate, job);
     expect(max).toBeLessThanOrEqual(100);
     const empty = computeMatchScore(
-      { skills: [], languages: [], availability: "freelancer" },
+      { skills: [], languages: [], availability: ["freelancer"] },
       {
         prerequisites: Array.from({ length: 8 }, (_, i) => ({
           item: `Req ${i}`,
@@ -74,16 +74,20 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
       {
         skills: ["React", "Inglês técnico"],
         languages: [],
-        availability: "freelancer",
+        availability: ["freelancer"],
       },
       mixedJob,
     );
     const onlyRequired = computeMatchScore(
-      { skills: ["React"], languages: [], availability: "freelancer" },
+      { skills: ["React"], languages: [], availability: ["freelancer"] },
       mixedJob,
     );
     const onlyOptional = computeMatchScore(
-      { skills: ["Inglês técnico"], languages: [], availability: "freelancer" },
+      {
+        skills: ["Inglês técnico"],
+        languages: [],
+        availability: ["freelancer"],
+      },
       mixedJob,
     );
     expect(both).toBe(90); // (1.2 + 1.0) / 2.2 × 90
@@ -96,7 +100,7 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
       {
         skills: ["React", "SQL", "Testes automatizados"],
         languages: [{ name: "Inglês", level: "avancado" }], // acima do exigido
-        availability: "freelancer",
+        availability: ["freelancer"],
       },
       job,
     );
@@ -104,7 +108,7 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
       {
         skills: ["React", "SQL", "Testes automatizados"],
         languages: [],
-        availability: "freelancer",
+        availability: ["freelancer"],
       },
       job,
     );
@@ -116,7 +120,7 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
       {
         skills: ["React", "SQL", "Testes automatizados"],
         languages: [{ name: "espanhol", level: "nativo" }],
-        availability: "freelancer",
+        availability: ["freelancer"],
       },
       job,
     );
@@ -124,7 +128,7 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
       {
         skills: ["React", "SQL", "Testes automatizados"],
         languages: [],
-        availability: "freelancer",
+        availability: ["freelancer"],
       },
       job,
     );
@@ -136,7 +140,7 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
       {
         skills: ["React", "SQL", "Testes automatizados"],
         languages: [],
-        availability: "estagio",
+        availability: ["estagio"],
       },
       job,
     );
@@ -144,7 +148,7 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
       {
         skills: ["React", "SQL", "Testes automatizados"],
         languages: [],
-        availability: "integral",
+        availability: ["integral"],
       },
       job,
     );
@@ -153,14 +157,14 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
 
   it("pré-requisito obrigatório não atendido reduz mais que opcional (R8 — transparência dos pesos)", () => {
     const missesRequired = computeMatchScore(
-      { skills: ["SQL"], languages: [], availability: "freelancer" },
+      { skills: ["SQL"], languages: [], availability: ["freelancer"] },
       job,
     );
     const missesOptional = computeMatchScore(
       {
         skills: ["React", "Testes automatizados"],
         languages: [],
-        availability: "freelancer",
+        availability: ["freelancer"],
       },
       job,
     );
@@ -173,7 +177,7 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
       {
         skills: ["react", "sql", "testes automatizados"],
         languages: [{ name: "inglês", level: "intermediario" }],
-        availability: "estagio",
+        availability: ["estagio"],
       },
       job,
     );
@@ -195,7 +199,7 @@ describe("matching currículo × vaga (S3-3, CA 2 — função pura)", () => {
         {
           skills: ["React"],
           languages: [{ name: "Inglês", level: "nativo" }],
-          availability: "estagio",
+          availability: ["estagio"],
         },
         plainJob,
       ),
@@ -223,7 +227,7 @@ describe("faixas de compatibilidade (S3-3, CA 3 — R8)", () => {
   it("score é inteiro (0–100) para exibição direta", () => {
     for (let i = 0; i <= 10; i += 1) {
       const score = computeMatchScore(
-        { skills: [], languages: [], availability: "estagio" },
+        { skills: [], languages: [], availability: ["estagio"] },
         {
           prerequisites: Array.from({ length: i }, (_, j) => ({
             item: `Req ${j}`,

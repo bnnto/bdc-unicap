@@ -6,7 +6,7 @@ import { navigateTo } from "../../lib/router";
 import { PASSWORD_RESET_PATH } from "../../lib/passwordReset";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { KeyRound, LogIn } from "lucide-react";
+import { Eye, EyeOff, KeyRound, LogIn } from "lucide-react";
 import { RoleSelect } from "./RoleSelect";
 import {
   PUBLIC_SIGNUP_ROLES,
@@ -38,6 +38,8 @@ export function AuthPage() {
   const [role, setRole] = useState<PublicSignupRole>("aluno");
   const [pending, setPending] = useState(false);
   const [consentAccepted, setConsentAccepted] = useState(false);
+  /** [UX_QUICK_WIN] — olhinho alterna password/texto no campo senha. */
+  const [showPassword, setShowPassword] = useState(false);
   const consentErrorId = useId();
 
   async function handleSubmit(
@@ -170,13 +172,29 @@ export function AuthPage() {
             />
             <Input
               label="Senha"
-              type="password"
+              type={showPassword ? "text" : "password"}
               required
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={
                 mode === "signUp" ? "new-password" : "current-password"
+              }
+              trailing={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  className="rounded p-1 text-slate-400 transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <span className="sr-only">
+                    {showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  </span>
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </button>
               }
             />
 

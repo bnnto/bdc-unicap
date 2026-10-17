@@ -275,12 +275,12 @@ describe("entrada do matching a partir do perfil (S3-4, R8)", () => {
     const input = buildMatchingCandidateInput({
       skills: ["React", "SQL"],
       languages: [{ name: "Inglês", level: "intermediario" }],
-      availability: "estagio",
+      availability: ["estagio"],
     });
     expect(input).toEqual({
       skills: ["React", "SQL"],
       languages: [{ name: "Inglês", level: "intermediario" }],
-      availability: "estagio",
+      availability: ["estagio"],
     });
   });
 
@@ -288,10 +288,10 @@ describe("entrada do matching a partir do perfil (S3-4, R8)", () => {
     const input = buildMatchingCandidateInput({
       skills: undefined,
       languages: undefined,
-      availability: "integral",
+      availability: ["integral"],
     });
     expect(input.skills).toEqual([]);
     expect(input.languages).toEqual([]);
-    expect(input.availability).toBe("integral");
+    expect(input.availability).toEqual(["integral"]);
   });
 });

@@ -394,7 +394,7 @@ export function contactProjectionForApplication(
 export type ProfileMatchingFields = {
   skills?: string[];
   languages?: Array<{ name: string; level: LanguageLevel }>;
-  availability: Availability;
+  availability: Availability[];
 };
 
 /**
@@ -405,7 +405,7 @@ export type ProfileMatchingFields = {
 export function buildMatchingCandidateInput(profile: ProfileMatchingFields): {
   skills: string[];
   languages: Array<{ name: string; level: LanguageLevel }>;
-  availability: Availability;
+  availability: Availability[];
 } {
   return {
     skills: profile.skills ?? [],

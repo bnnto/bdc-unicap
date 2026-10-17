@@ -19,7 +19,7 @@ function makeCandidate(
     graduationYear: 2026,
     semester: 8,
     location: "Recife/PE",
-    availability: "estagio",
+    availability: ["estagio"],
     skills: ["React", "SQL"],
     languages: [{ name: "Inglês", level: "intermediario" }],
     ...overrides,
@@ -40,8 +40,8 @@ describe("S2-5 — branches de filtro do Banco de Talentos", () => {
   it("filtro de disponibilidade exclui candidatos com outra disponibilidade", () => {
     const result = filterTalentCandidates(
       [
-        makeCandidate({ id: "a", availability: "estagio" }),
-        makeCandidate({ id: "b", availability: "integral" }),
+        makeCandidate({ id: "a", availability: ["estagio"] }),
+        makeCandidate({ id: "b", availability: ["integral"] }),
       ],
       { availability: "integral" },
     );
@@ -106,13 +106,13 @@ describe("S2-5 — branches de filtro do Banco de Talentos", () => {
       [
         makeCandidate({
           id: "match",
-          availability: "freelancer",
+          availability: ["freelancer"],
           skills: ["Node"],
           location: "Jaboatão/PE",
         }),
         makeCandidate({
           id: "outraDisponibilidade",
-          availability: "estagio",
+          availability: ["estagio"],
           skills: ["Node"],
         }),
       ],

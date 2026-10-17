@@ -36,7 +36,7 @@ const student: ResumeDocStudent = {
   location: "Recife/PE",
   linkedinUrl: "https://www.linkedin.com/in/maria-silva",
   portfolioUrl: null,
-  availability: "estagio",
+  availability: ["estagio"],
 };
 
 const input = { student, resume };
@@ -93,7 +93,7 @@ describe("documento do Currículo Vitae (S2-2)", () => {
       location: null,
       linkedinUrl: null,
       portfolioUrl: null,
-      availability: "freelancer",
+      availability: ["freelancer"],
     };
     const doc = buildResumeDocument({ student: minimal, resume });
     if (!doc.ok) throw new Error("documento deveria ser válido");
@@ -111,7 +111,7 @@ describe("documento do Currículo Vitae (S2-2)", () => {
 
   it("labels para egresso e outras disponibilidades", () => {
     const doc = buildResumeDocument({
-      student: { ...student, status: "egresso", availability: "integral" },
+      student: { ...student, status: "egresso", availability: ["integral"] },
       resume,
     });
     if (!doc.ok) throw new Error("documento deveria ser válido");

@@ -57,7 +57,7 @@ const PERFIL = {
   status: "ativo" as const,
   course: "Ciência da Computação",
   graduationYear: 2027,
-  availability: "estagio" as const,
+  availability: ["estagio"] as ["estagio"],
 };
 
 describe("Hotfix — fluxo de registro (signUp → perfil)", () => {

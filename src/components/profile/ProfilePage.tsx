@@ -464,14 +464,20 @@ export function ProfilePage() {
               Notificações
             </h3>
             <div className="mt-2 flex flex-col gap-2">
-              <PreferenceSwitch
-                label="Alertas de Vagas"
-                description="Novas vagas que combinam com o seu perfil."
-                checked={jobAlerts}
-                onChange={(next) =>
-                  void handleNotificationChange("jobAlerts", next)
-                }
-              />
+              {/* [QUICK_WIN_NOTIF] O recrutador CRIA as vagas — alertas
+                  de "novas vagas" não se aplicam a essa role: toggle
+                  removido da UI (a propriedade `notifyJobAlerts` do
+                  utilizador é mantida no schema/servidor). */}
+              {role !== "recrutador" ? (
+                <PreferenceSwitch
+                  label="Alertas de Vagas"
+                  description="Novas vagas que combinam com o seu perfil."
+                  checked={jobAlerts}
+                  onChange={(next) =>
+                    void handleNotificationChange("jobAlerts", next)
+                  }
+                />
+              ) : null}
               <PreferenceSwitch
                 label="Atualizações de Candidatura"
                 description="Mudanças de etapa nos processos em que você participa."

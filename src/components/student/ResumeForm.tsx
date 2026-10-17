@@ -181,7 +181,7 @@ export function ResumeForm() {
   const [graduationYear, setGraduationYear] = useState("");
   const [semester, setSemester] = useState("");
   const [location, setLocation] = useState("");
-  const [availability, setAvailability] = useState<Availability>("estagio");
+  const [availability, setAvailability] = useState<Availability[]>(["estagio"]);
 
   // Estados de controle do modo inline.
   const [errors, setErrors] = useState<string[]>([]);
@@ -553,7 +553,7 @@ export function ResumeForm() {
         : "",
     );
     setLocation(profile?.location ?? "");
-    setAvailability(profile?.availability ?? "estagio");
+    setAvailability(profile?.availability ?? ["estagio"]);
     setErrors([]);
   }
 
@@ -756,17 +756,25 @@ export function ResumeForm() {
                               <label
                                 key={entry}
                                 className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
-                                  availability === entry
+                                  availability.includes(entry)
                                     ? "border-primary bg-[#FDF2F4] font-semibold text-primary"
                                     : "border-slate-300 bg-white text-slate-700 hover:border-primary"
                                 }`}
                               >
                                 <input
-                                  type="radio"
+                                  type="checkbox"
                                   name="resume-availability"
                                   value={entry}
-                                  checked={availability === entry}
-                                  onChange={() => setAvailability(entry)}
+                                  checked={availability.includes(entry)}
+                                  onChange={() =>
+                                    setAvailability((current) =>
+                                      current.includes(entry)
+                                        ? current.filter(
+                                            (item) => item !== entry,
+                                          )
+                                        : [...current, entry],
+                                    )
+                                  }
                                   className="accent-primary"
                                 />
                                 {AVAILABILITY_LABELS[entry]}

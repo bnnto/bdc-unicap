@@ -70,7 +70,7 @@ async function seedWorld(
       status: "ativo",
       course: "Ciência da Computação",
       graduationYear: 2026,
-      availability: "estagio",
+      availability: ["estagio"],
       visibility: "somente_candidaturas",
       skills: ["React"],
     });

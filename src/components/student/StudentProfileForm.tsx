@@ -53,7 +53,8 @@ type FormState = {
   location: string;
   linkedinUrl: string;
   portfolioUrl: string;
-  availability: Availability;
+  /** [QUICK_WIN_MULTI] multi-seleção (checkboxes). */
+  availability: Availability[];
 };
 
 const EMPTY_FORM: FormState = {
@@ -66,7 +67,7 @@ const EMPTY_FORM: FormState = {
   location: "",
   linkedinUrl: "",
   portfolioUrl: "",
-  availability: "estagio",
+  availability: ["estagio"],
 };
 
 const LEVEL_LABELS: Record<LanguageLevel, string> = {
@@ -314,17 +315,26 @@ export function StudentProfileForm() {
             <label
               key={availability}
               className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
-                form.availability === availability
+                form.availability.includes(availability)
                   ? "border-primary bg-[#FDF2F4] font-semibold text-primary"
                   : "border-slate-300 bg-white text-slate-700 hover:border-primary"
               }`}
             >
               <input
-                type="radio"
+                type="checkbox"
                 name="availability"
                 value={availability}
-                checked={form.availability === availability}
-                onChange={() => set("availability", availability)}
+                checked={form.availability.includes(availability)}
+                onChange={() =>
+                  set(
+                    "availability",
+                    form.availability.includes(availability)
+                      ? form.availability.filter(
+                          (entry) => entry !== availability,
+                        )
+                      : [...form.availability, availability],
+                  )
+                }
                 className="accent-primary"
               />
               {AVAILABILITY_LABELS[availability]}
