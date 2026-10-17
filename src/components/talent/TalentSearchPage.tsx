@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
+import { Combobox } from "../ui/Combobox";
 import { AVAILABILITY, type Availability } from "../../lib/studentProfile";
 import {
   KNOWN_LANGUAGES,
@@ -194,6 +195,15 @@ export function TalentSearchPage() {
     setPage(0);
   }
 
+  // Filtro de competências: as já selecionadas (chips) saem das opções.
+  const availableSkillGroups = SKILLS_GROUPS.map((group) => ({
+    label: group.label,
+    items: group.items.filter(
+      (item) =>
+        !skills.some((skill) => skill.toLowerCase() === item.toLowerCase()),
+    ),
+  })).filter((group) => group.items.length > 0);
+
   function addSkillChip() {
     const value = skillDraft.trim();
     if (value.length === 0) return;
@@ -359,17 +369,15 @@ export function TalentSearchPage() {
             <label className="flex flex-col gap-1">
               <span className="text-xs font-medium text-slate-500">Idioma</span>
               <div className="flex gap-2">
-                <input
-                  type="text"
+                <Combobox
+                  ariaLabel="Idioma"
+                  groups={[{ label: "Idiomas", items: KNOWN_LANGUAGES }]}
                   value={language}
-                  onChange={(e) => {
-                    setLanguage(e.target.value);
+                  onSelect={(term) => {
+                    setLanguage(term);
                     setPage(0);
                   }}
                   placeholder="Ex.: Inglês"
-                  aria-label="Idioma"
-                  list="talent-language-options"
-                  className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                 />
                 <select
                   value={languageLevel}
@@ -387,11 +395,6 @@ export function TalentSearchPage() {
                   ))}
                 </select>
               </div>
-              <datalist id="talent-language-options">
-                {KNOWN_LANGUAGES.map((language) => (
-                  <option key={language} value={language} />
-                ))}
-              </datalist>
             </label>
           </fieldset>
 
@@ -468,36 +471,21 @@ export function TalentSearchPage() {
               Competências
             </legend>
             <div className="flex gap-2">
-              {/* [DICIONARIO_FECHADO] sem texto livre (nada de "coxinha"):
-                  só se seleciona um termo do dicionário oficial — mesma
-                  whitelist dos formulários de perfil e currículo. */}
-              <select
+              {/* [DICIONARIO_FECHADO] combobox pesquisável sem texto livre
+                  (nada de "coxinha"): o termo só entra ao ser escolhido na
+                  lista filtrada — mesma whitelist dos formulários. */}
+              <Combobox
+                ariaLabel="Nova competência"
+                groups={availableSkillGroups}
                 value={skillDraft}
-                onChange={(e) => setSkillDraft(e.target.value)}
-                aria-label="Nova competência"
-                className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                onSelect={setSkillDraft}
+                placeholder="Selecione no dicionário oficial…"
+              />
+              <Button
+                variant="secondary"
+                disabled={skillDraft.trim().length === 0}
+                onClick={addSkillChip}
               >
-                <option value="">Selecione no dicionário oficial…</option>
-                {SKILLS_GROUPS.map((group) => {
-                  const available = group.items.filter(
-                    (item) =>
-                      !skills.some(
-                        (skill) => skill.toLowerCase() === item.toLowerCase(),
-                      ),
-                  );
-                  if (available.length === 0) return null;
-                  return (
-                    <optgroup key={group.label} label={group.label}>
-                      {available.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
-              </select>
-              <Button variant="secondary" onClick={addSkillChip}>
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 Adicionar
               </Button>
