@@ -88,7 +88,7 @@ describe("integração com o matching (S3-5 × S3-3)", () => {
       {
         skills: ["React"],
         languages: [],
-        availability: "estagio",
+        availability: ["estagio"],
       },
       {
         prerequisites: job.prerequisites,

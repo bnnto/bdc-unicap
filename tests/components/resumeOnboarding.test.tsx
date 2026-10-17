@@ -62,7 +62,7 @@ const EXISTING_PROFILE = {
   course: "Ciência da Computação",
   graduationYear: 2026,
   semester: 6,
-  availability: "estagio",
+  availability: ["estagio"],
   visibility: "somente_candidaturas",
   skills: [],
   languages: [],
@@ -137,7 +137,7 @@ describe("onboarding — conta nova não pode ficar bloqueada", () => {
       course: "Sistemas para Internet",
       graduationYear: 2028,
       status: "ativo",
-      availability: "estagio",
+      availability: ["estagio"],
     });
     // Sem apresentação preenchida, o CV não é exigido (zero bloqueios).
     expect(saveResumeData).not.toHaveBeenCalled();

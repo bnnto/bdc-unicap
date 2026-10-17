@@ -24,7 +24,8 @@ export type StudentProfileInput = {
   location?: string;
   linkedinUrl?: string;
   portfolioUrl?: string;
-  availability: Availability;
+  /** [QUICK_WIN_MULTI] multi-seleção: uma ou mais opções oficiais. */
+  availability: Availability[];
 };
 
 /** Nome completo: ao menos dois termos com conteúdo. */
@@ -117,7 +118,14 @@ export function validateStudentProfile(
     errors.push("URL de GitHub/Portfólio deve usar https://.");
   }
 
-  if (!AVAILABILITY.includes(input.availability)) {
+  // [QUICK_WIN_MULTI] multi-seleção: exige ao menos uma opção, todas da
+  // whitelist e sem repetição (o normalizador preserva a ordem).
+  if (
+    !Array.isArray(input.availability) ||
+    input.availability.length === 0 ||
+    input.availability.some((entry) => !AVAILABILITY.includes(entry)) ||
+    new Set(input.availability).size !== input.availability.length
+  ) {
     errors.push("Disponibilidade inválida.");
   }
 

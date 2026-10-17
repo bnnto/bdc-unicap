@@ -116,7 +116,7 @@ export type BenchmarkSeedRow = {
   graduationYear: number;
   semester?: number;
   location: string;
-  availability: (typeof AVAILABILITIES)[number];
+  availability: Array<(typeof AVAILABILITIES)[number]>;
   /** R2 — 20% da população fica privada (fora do Banco de Talentos). */
   visibility: "publico" | "somente_candidaturas";
   skills: string[];
@@ -171,7 +171,7 @@ export function buildBenchmarkBatch(args: {
       graduationYear: 2024 + (g % 4),
       ...(g % 4 !== 3 ? { semester: (g % 9) + 1 } : {}),
       location: pick(LOCATIONS, g),
-      availability: pick(AVAILABILITIES, g),
+      availability: [pick(AVAILABILITIES, g)],
       visibility,
       skills: [pick(SKILLS, g * 3 + 1), pick(SKILLS, g * 5 + 4)],
       languages: [

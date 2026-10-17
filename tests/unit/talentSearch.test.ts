@@ -18,7 +18,7 @@ function makeCandidate(overrides: Partial<Candidate> = {}): Candidate {
     graduationYear: 2026,
     semester: 8,
     location: "Recife/PE",
-    availability: "estagio",
+    availability: ["estagio"],
     skills: ["React", "SQL"],
     languages: [{ name: "Inglês", level: "intermediario" }],
     ...overrides,

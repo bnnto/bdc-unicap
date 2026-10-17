@@ -44,7 +44,7 @@ const talentResult = {
       graduationYear: 2026,
       semester: 6,
       location: "Recife, PE",
-      availability: "estagio",
+      availability: ["estagio"],
       summary: "Ciência da Computação · Egresso? não — ativo",
       skills: ["React"],
       languages: [],

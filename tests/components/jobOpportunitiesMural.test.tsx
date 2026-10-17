@@ -77,7 +77,7 @@ const PROFILE = {
   _id: "s1",
   fullName: "Maria da Silva",
   skills: ["React"],
-  availability: "estagio",
+  availability: ["estagio"],
 };
 
 beforeEach(() => {

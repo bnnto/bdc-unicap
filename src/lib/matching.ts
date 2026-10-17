@@ -40,7 +40,7 @@ export type MatchingLanguageRequirement = {
 export type MatchingCandidate = {
   skills: readonly string[];
   languages: ReadonlyArray<{ name: string; level: LanguageLevel }>;
-  availability: Availability;
+  availability: Availability[];
 };
 
 export type MatchingJob = {
@@ -108,7 +108,7 @@ export function computeMatchScore(
 
   const availabilityEarned =
     job.availability !== undefined &&
-    candidate.availability === job.availability
+    candidate.availability.includes(job.availability)
       ? AVAILABILITY_BONUS
       : 0;
 

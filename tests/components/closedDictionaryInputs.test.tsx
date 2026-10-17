@@ -58,7 +58,7 @@ const PROFILE = {
   graduationYear: 2027,
   semester: 6,
   location: "Recife, PE",
-  availability: "estagio",
+  availability: ["estagio"],
   visibility: "publico",
   linkedinUrl: undefined,
   portfolioUrl: undefined,

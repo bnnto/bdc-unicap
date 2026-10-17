@@ -96,7 +96,7 @@ beforeEach(() => {
             graduationYear: 2026,
             semester: 8,
             location: "Recife/PE",
-            availability: "estagio" as const,
+            availability: ["estagio"] as ["estagio"],
             summary: "Resumo",
             skills: ["SQL"],
             languages: [],

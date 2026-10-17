@@ -81,7 +81,7 @@ const profileFixture = {
   enrollment: "1234567",
   course: "Ciência da Computação",
   status: "ativo",
-  availability: "estagio",
+  availability: ["estagio"],
   graduationYear: 2026,
   semester: 6,
   location: "Recife, PE",

@@ -131,7 +131,7 @@ async function seedWorld(
         status: seed.status,
         course: seed.course,
         graduationYear: 2026,
-        availability: "estagio",
+        availability: ["estagio"],
         visibility: "publico",
         ...(seed.skills !== undefined ? { skills: seed.skills } : {}),
         ...(seed.withResume === true

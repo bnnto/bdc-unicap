@@ -93,11 +93,14 @@ export default defineSchema({
     location: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
     portfolioUrl: v.optional(v.string()),
-    availability: v.union(
-      v.literal("estagio"),
-      v.literal("integral"),
-      v.literal("meio_periodo"),
-      v.literal("freelancer"),
+    /** [QUICK_WIN_MULTI] multi-seleção de disponibilidades. */
+    availability: v.array(
+      v.union(
+        v.literal("estagio"),
+        v.literal("integral"),
+        v.literal("meio_periodo"),
+        v.literal("freelancer"),
+      ),
     ),
     /** R2 — "publico" (banco de talentos) | "somente_candidaturas". */
     visibility: v.optional(

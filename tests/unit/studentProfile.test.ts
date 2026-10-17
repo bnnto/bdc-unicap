@@ -20,7 +20,7 @@ const validBase: StudentProfileInput = {
   location: "Recife, PE",
   linkedinUrl: "https://www.linkedin.com/in/maria-silva",
   portfolioUrl: "https://github.com/mariasilva",
-  availability: "estagio",
+  availability: ["estagio"],
 };
 
 describe("validação de perfil de aluno (S1-3, R1)", () => {

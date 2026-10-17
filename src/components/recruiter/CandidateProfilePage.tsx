@@ -304,7 +304,9 @@ export function CandidateProfilePage({ studentId }: { studentId: string }) {
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <MetaCard
                   label="Disponibilidade"
-                  value={AVAILABILITY_LABELS[profile.availability]}
+                  value={profile.availability
+                    .map((entry) => AVAILABILITY_LABELS[entry])
+                    .join(" · ")}
                 />
                 <MetaCard
                   label="Localização"

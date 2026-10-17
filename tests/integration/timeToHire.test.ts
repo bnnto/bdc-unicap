@@ -63,7 +63,7 @@ async function seedWorld(t: World) {
       status: "ativo",
       course: "Ciência da Computação",
       graduationYear: 2026,
-      availability: "estagio",
+      availability: ["estagio"],
       visibility: "somente_candidaturas",
       skills: ["React"],
     });
@@ -81,7 +81,7 @@ async function seedWorld(t: World) {
       status: "ativo",
       course: "Administração",
       graduationYear: 2025,
-      availability: "integral",
+      availability: ["integral"],
       visibility: "somente_candidaturas",
       skills: ["Excel"],
     });

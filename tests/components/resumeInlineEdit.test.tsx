@@ -52,7 +52,7 @@ const PROFILE = {
   graduationYear: 2026,
   semester: 6,
   location: "Recife, PE",
-  availability: "estagio",
+  availability: ["estagio"],
   visibility: "somente_candidaturas",
   skills: ["Python", "SQL"],
   languages: [{ name: "Inglês", level: "intermediario" }],

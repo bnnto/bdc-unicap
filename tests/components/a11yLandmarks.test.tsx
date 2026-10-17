@@ -301,7 +301,9 @@ describe("S8-2 CA 2 — landmarks corretos (WCAG 1.3.1)", () => {
   });
 
   it("StudentHomePage — nav de âncoras com nome acessível e títulos sem saltos", () => {
-    mockedUseQuery.mockReturnValue([] as never);
+    // myProfile ainda não criado (null) — formulario e privacidade renderizam
+    // sem crashar, mantendo os headings reais da pagina no teste de hierarquia.
+    mockedUseQuery.mockReturnValue(null);
     render(
       <AuthStateContext.Provider
         value={{

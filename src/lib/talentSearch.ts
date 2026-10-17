@@ -5,7 +5,11 @@
  * aplicados aqui e re-verificados no servidor — TDD, sem I/O.
  */
 import type { LanguageLevel } from "./skills";
-import type { Availability, EnrollmentStatus } from "./studentProfile";
+import {
+  AVAILABILITY,
+  type Availability,
+  type EnrollmentStatus,
+} from "./studentProfile";
 
 /** Tamanho da página da busca paginada (CA 2). */
 export const TALENT_PAGE_SIZE = 10;
@@ -16,6 +20,37 @@ export const TALENT_PAGE_SIZE = 10;
  * sobre as varreduras trincadas.
  */
 export const TALENT_SCAN_BATCH = 200;
+
+/**
+ * [QUICK_WIN_MULTI] Um índice Convex sobre campo ARRAY NÃO é multikey:
+ * ele ordena pelo array completo ("contém elemento" não existe no índice).
+ * A varredura por disponibilidade é feita em fatias contíguas, uma por
+ * PRIMEIRO elemento possível — todo array cativado por esse "grupo" — e o
+ * "contém a disponibilidade pedida" é confirmado em memória. O orçamento
+ * total permanece `TALENT_SCAN_BATCH` por status (4 fatias × 50).
+ */
+export const TALENT_SCAN_SLICE_BATCH = Math.floor(
+  TALENT_SCAN_BATCH / AVAILABILITY.length,
+);
+
+/**
+ * Bounds inclusivos da fatia de índice do "grupo" do primeiro elemento.
+ * Arrays são comparados elemento a elemento (mais curto primeiro), então
+ * todo array NÃO vazio começa em algum `[primeiro, ...]` — as 4 fatias
+ * (uma por valor oficial com primeiro = valor) particionam exatamente os
+ * arrays não vazios, sem sobreposição e sem vazamento.
+ */
+export function availabilitySliceBounds(group: Availability): {
+  lower: Availability[];
+  upper: Availability[];
+} {
+  // Maior array possível do grupo: primeiro = group + demais em ordem
+  // decrescente — cobre qualquer resto, pois a comparação é prefixo.
+  const othersDesc = AVAILABILITY.filter((value) => value !== group).sort(
+    (left, right) => (left < right ? 1 : -1),
+  );
+  return { lower: [group], upper: [group, ...othersDesc] };
+}
 
 /**
  * [S2-4] Plano de varredura do Banco de Talentos: escolha do índice de
@@ -88,7 +123,8 @@ export type TalentCandidate = {
   graduationYear: number;
   semester: number | null;
   location: string | null;
-  availability: Availability;
+  /** [QUICK_WIN_MULTI] multi-seleção custodada pelo aluno. */
+  availability: Availability[];
   skills: readonly string[];
   languages: ReadonlyArray<{ name: string; level: LanguageLevel }>;
 };
@@ -166,7 +202,7 @@ export function toTalentCandidate<
     graduationYear: number;
     semester?: number;
     location?: string;
-    availability: "estagio" | "integral" | "meio_periodo" | "freelancer";
+    availability: Array<"estagio" | "integral" | "meio_periodo" | "freelancer">;
     skills?: string[];
     languages?: Array<{ name: string; level: LanguageLevel }>;
   },
@@ -214,9 +250,11 @@ function matchesTextFilters(
   )
     return false;
 
+  // [QUICK_WIN_MULTI] o campo é um array: o filtro casa se o aluno
+  // marcou AQUela disponibilidade ("contém", não igualdade de array).
   if (
     filters.availability !== undefined &&
-    candidate.availability !== filters.availability
+    !candidate.availability.includes(filters.availability)
   )
     return false;
 

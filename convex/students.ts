@@ -8,6 +8,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { CURRENT_TERM_VERSION } from "./consentTerms";
 import {
+  AVAILABILITY,
   isValidUrl,
   validateStudentProfile,
   type StudentProfileInput,
@@ -21,11 +22,13 @@ import {
 import { validateResumeData } from "../src/lib/resume";
 import { contactProjectionForApplication } from "../src/lib/application";
 import {
+  availabilitySliceBounds,
   canAppearInTalentBank,
   chooseTalentScanPlan,
   filterTalentCandidates,
   formatTalentSummary,
   TALENT_SCAN_BATCH,
+  TALENT_SCAN_SLICE_BATCH,
   toTalentCandidate,
   type TalentCandidate,
   type TalentFilters,
@@ -53,7 +56,7 @@ function toProfileArgs(raw: {
   location?: string;
   linkedinUrl?: string;
   portfolioUrl?: string;
-  availability: "estagio" | "integral" | "meio_periodo" | "freelancer";
+  availability: Array<"estagio" | "integral" | "meio_periodo" | "freelancer">;
 }): StudentProfileInput {
   return {
     fullName: raw.fullName,
@@ -107,11 +110,14 @@ export const upsertProfile = mutation({
     location: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
     portfolioUrl: v.optional(v.string()),
-    availability: v.union(
-      v.literal("estagio"),
-      v.literal("integral"),
-      v.literal("meio_periodo"),
-      v.literal("freelancer"),
+    /** [QUICK_WIN_MULTI] multi-seleção (validada por validateStudentProfile). */
+    availability: v.array(
+      v.union(
+        v.literal("estagio"),
+        v.literal("integral"),
+        v.literal("meio_periodo"),
+        v.literal("freelancer"),
+      ),
     ),
     /** [S1-5] — competências e idiomas (opcionais; validados no handler). */
     skills: v.optional(v.array(v.string())),
@@ -709,16 +715,30 @@ export const searchTalent = query({
     for (const status of plan.statuses) {
       let batch: Doc<"students">[];
       if (plan.index === "by_status_availability") {
-        // Faixa por (status, availability): R1 no prefixo, filtro no índice.
-        batch = await ctx.db
-          .query("students")
-          .withIndex("by_status_availability", (q) =>
-            q
-              .eq("status", status)
-              .eq("availability", args.availability ?? "estagio"),
-          )
-          .order("desc")
-          .take(TALENT_SCAN_BATCH);
+        // [QUICK_WIN_MULTI] `availability` virou ARRAY. Índice Convex não
+        // é multikey (não tem “contém elemento”): varremos o índice em
+        // fatias contíguas por primeiro elemento (bounds inclusivos de
+        // `availabilitySliceBounds` — particionam todos os arrays não
+        // vazios) e o “contém a disponibilidade filtrada” é confirmado em
+        // memória por filterTalentCandidates. Orçamento preservado:
+        // 4 fatias × TALENT_SCAN_SLICE_BATCH = TALENT_SCAN_BATCH/status.
+        batch = [];
+        for (const group of AVAILABILITY) {
+          const { lower, upper } = availabilitySliceBounds(group);
+          const slice = await ctx.db
+            .query("students")
+            .withIndex("by_status_availability", (q) =>
+              q
+                .eq("status", status)
+                .gte("availability", lower)
+                .lte("availability", upper),
+            )
+            .order("desc")
+            .take(TALENT_SCAN_SLICE_BATCH);
+          for (const doc of slice) {
+            batch.push(doc);
+          }
+        }
       } else {
         // Entrada padrão: R1+R2 já no índice (visibility=publico × status).
         batch = await ctx.db

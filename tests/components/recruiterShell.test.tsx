@@ -169,7 +169,7 @@ const TALENT_FIXTURE = {
       graduationYear: 2026,
       semester: 8,
       location: "Recife/PE",
-      availability: "estagio",
+      availability: ["estagio"],
       summary:
         "Aluno ativo · Ciência da Computação · 8º semestre (conclusão 2026)",
       skills: ["React", "SQL"],

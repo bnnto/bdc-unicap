@@ -87,7 +87,8 @@ type SearchResult = {
     graduationYear: number;
     semester: number | null;
     location: string | null;
-    availability: Availability;
+    /** [QUICK_WIN_MULTI] multi-seleção custodada pelo aluno (cards em " · "). */
+    availability: Availability[];
     summary: string;
     skills: string[];
     languages: Array<{ name: string; level: LanguageLevel }>;
@@ -656,7 +657,9 @@ export function TalentSearchPage() {
                             className="h-3.5 w-3.5 text-primary"
                             aria-hidden="true"
                           />
-                          {AVAILABILITY_LABELS[talent.availability]}
+                          {talent.availability
+                            .map((entry) => AVAILABILITY_LABELS[entry])
+                            .join(" · ")}
                         </span>
                         {talent.location !== null ? (
                           <span className="inline-flex items-center gap-1">

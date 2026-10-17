@@ -51,7 +51,7 @@ const PROFILE = {
   location: "Recife, PE",
   linkedinUrl: "https://linkedin.com/in/gabriel",
   portfolioUrl: null,
-  availability: "estagio",
+  availability: ["estagio"],
   visibility: "somente_candidaturas",
   showContactToRecruiters: false,
   skills: ["Python", "SQL"],
