@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BadgeCheck,
   Briefcase,
   Download,
-  Gauge,
+  FileSpreadsheet,
+  FileText,
   Layers,
   Lock,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -24,6 +26,7 @@ import {
   normalizeDashboardFilters,
   type DashboardFilters,
 } from "../../lib/dashboardFilters";
+import { useStableQuery } from "../../lib/useStableQuery";
 
 /**
  * Painel Operacional (issues [S5-1] a [S5-5]).
@@ -38,6 +41,20 @@ import {
  */
 
 const DAY = 24 * 60 * 60 * 1000;
+
+/** Início do dia no fuso LOCAL do usuário (e não em UTC). */
+function startOfLocalDay(now: number): number {
+  const date = new Date(now);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
+/** Início do dia local, `days` dias atrás (seguro contra mudança de horário). */
+function localDaysAgo(todayStart: number, days: number): number {
+  const date = new Date(todayStart);
+  date.setDate(date.getDate() - days);
+  return date.getTime();
+}
 
 const PERIOD_OPTIONS = [
   { value: "", label: "Todo o período" },
@@ -93,7 +110,7 @@ function LoadingSection({ label }: { label: string }) {
 
 function KpiCard({ value, label, hint, icon }: KpiCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
       {icon !== undefined ? (
         <span
           aria-hidden="true"
@@ -103,7 +120,7 @@ function KpiCard({ value, label, hint, icon }: KpiCardProps) {
         </span>
       ) : null}
       <p className="font-serif text-3xl font-bold text-primary">{value}</p>
-      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-a11y-slate-500">
         {label}
       </p>
       {hint !== undefined ? (
@@ -127,20 +144,46 @@ const EMPTY_FILTERS: FilterState = {
   status: "",
 };
 
+type Facets = { courses: string[]; companies: string[] };
+
+/** Referência estável: evita recriar o objeto a cada render durante o carregamento. */
+const EMPTY_FACETS: Facets = { courses: [], companies: [] };
+
 type FilterBarProps = {
   state: FilterState;
   onChange: (next: FilterState) => void;
-  facets: { courses: string[]; companies: string[] };
+  facets: Facets;
   active: boolean;
 };
 
 /**
  * [S5-5] Barra de filtros combináveis: período + curso + empresa + status.
  * Qualquer combinação atualiza todas as métricas do painel (as queries
- * recebem os mesmos argumentos).
+ * recebem os mesmos argumentos). Os filtros ativos aparecem como chips
+ * removíveis logo abaixo dos selects.
  */
 function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
   const set = (patch: Partial<FilterState>) => onChange({ ...state, ...patch });
+
+  const chips: { key: keyof FilterState; label: string }[] = [];
+  if (state.period !== "") {
+    const label =
+      PERIOD_OPTIONS.find((option) => option.value === state.period)?.label ??
+      state.period;
+    chips.push({ key: "period", label: `Período: ${label}` });
+  }
+  if (state.course !== "") {
+    chips.push({ key: "course", label: `Curso: ${state.course}` });
+  }
+  if (state.company !== "") {
+    chips.push({ key: "company", label: `Empresa: ${state.company}` });
+  }
+  if (state.status !== "") {
+    const label =
+      STATUS_OPTIONS.find((option) => option.value === state.status)?.label ??
+      state.status;
+    chips.push({ key: "status", label: `Status: ${label}` });
+  }
 
   return (
     <section
@@ -149,7 +192,7 @@ function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
       className="mb-4 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="font-serif text-sm font-bold uppercase tracking-wide text-primary flex items-center gap-2">
+        <h3 className="flex items-center gap-2 font-serif text-sm font-bold uppercase tracking-wide text-primary">
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
           Filtros
         </h3>
@@ -170,7 +213,7 @@ function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-xs font-semibold uppercase tracking-wide text-a11y-slate-500">
             Período
           </span>
           <select
@@ -186,7 +229,7 @@ function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-xs font-semibold uppercase tracking-wide text-a11y-slate-500">
             Curso
           </span>
           <select
@@ -203,7 +246,7 @@ function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-xs font-semibold uppercase tracking-wide text-a11y-slate-500">
             Empresa
           </span>
           <select
@@ -220,7 +263,7 @@ function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-xs font-semibold uppercase tracking-wide text-a11y-slate-500">
             Status da vaga
           </span>
           <select
@@ -236,6 +279,28 @@ function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
           </select>
         </label>
       </div>
+
+      {chips.length > 0 ? (
+        <ul
+          data-testid="active-filter-chips"
+          aria-label="Filtros ativos"
+          className="mt-4 flex flex-wrap gap-2"
+        >
+          {chips.map((chip) => (
+            <li key={chip.key}>
+              <button
+                type="button"
+                onClick={() => set({ [chip.key]: "" } as Partial<FilterState>)}
+                aria-label={`Remover filtro ${chip.label}`}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-[#FDF2F4] px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+              >
+                <span className="truncate">{chip.label}</span>
+                <X className="h-3 w-3 shrink-0" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }
@@ -244,7 +309,7 @@ type TimeToHireStats = {
   averageDays: number | null;
   label: string;
   samplesCount: number;
-  facets: { courses: string[]; companies: string[] };
+  facets: Facets;
 };
 
 /** [S5-2] Time-to-Hire médio (métrica segue os filtros globais). */
@@ -255,7 +320,7 @@ function TimeToHireSection({ stats }: { stats: TimeToHireStats | undefined }) {
       className="min-w-0"
       aria-label="Time to hire"
     >
-      <Card title="Time-to-Hire médio">
+      <Card title="Time-to-Hire médio" accent="primary">
         {stats === undefined ? (
           <LoadingSection label="Carregando time-to-hire" />
         ) : (
@@ -264,7 +329,7 @@ function TimeToHireSection({ stats }: { stats: TimeToHireStats | undefined }) {
               <p className="font-serif text-3xl font-bold text-primary">
                 {stats.label}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-a11y-slate-500">
                 {stats.samplesCount === 0
                   ? "sem contratações no filtro selecionado"
                   : `${stats.samplesCount} ${stats.samplesCount === 1 ? "contratação" : "contratações"} no filtro`}
@@ -300,9 +365,28 @@ function FunnelSection({ funnel }: { funnel: FunnelResult | undefined }) {
       <Card title="Funil de Conversão" accent="primary">
         {funnel === undefined ? (
           <LoadingSection label="Carregando funil" />
+        ) : funnel.totalApplications === 0 ? (
+          <div
+            data-testid="funnel-empty"
+            className="flex flex-col items-center gap-2 py-6 text-center"
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF2F4] text-primary ring-1 ring-primary/20"
+            >
+              <Layers className="h-5 w-5" />
+            </span>
+            <p className="text-sm font-semibold text-slate-800">
+              Nenhuma candidatura no filtro atual
+            </p>
+            <p className="max-w-xs text-xs text-a11y-slate-500">
+              Ajuste ou limpe os filtros para ver o funil de conversão por
+              etapa do pipeline.
+            </p>
+          </div>
         ) : (
           <>
-            <p className="mb-3 text-xs text-slate-500">
+            <p className="mb-3 text-xs text-a11y-slate-500">
               Candidaturas por etapa do pipeline e % de avanço entre degraus —{" "}
               {funnel.totalApplications} candidaturas no filtro atual.
             </p>
@@ -336,7 +420,7 @@ function FunnelSection({ funnel }: { funnel: FunnelResult | undefined }) {
                     {step.count}
                   </span>
                   <span
-                    className="w-12 shrink-0 text-right text-xs text-slate-500"
+                    className="w-12 shrink-0 text-right text-xs text-a11y-slate-500"
                     aria-label={
                       step.conversionFromPrevious === null
                         ? "sem conversão anterior"
@@ -389,8 +473,7 @@ function RankingSection({
       className="mt-3 grid gap-3 md:grid-cols-2"
       aria-label="Empresas e vagas mais ativas"
     >
-      {" "}
-      <Card title="Empresas mais ativas">
+      <Card title="Empresas mais ativas" accent="primary">
         {rankings === undefined ? (
           <LoadingSection label="Carregando ranking" />
         ) : rankings.topCompanies.length === 0 ? (
@@ -413,7 +496,7 @@ function RankingSection({
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
                   {company.companyName}
                 </span>
-                <span className="shrink-0 text-xs text-slate-500">
+                <span className="shrink-0 text-xs text-a11y-slate-500">
                   {company.publishedJobs}{" "}
                   {company.publishedJobs === 1 ? "vaga" : "vagas"} ·{" "}
                   <strong className="text-primary">
@@ -425,8 +508,8 @@ function RankingSection({
             ))}
           </ol>
         )}
-      </Card>{" "}
-      <Card title="Vagas mais procuradas">
+      </Card>
+      <Card title="Vagas mais procuradas" accent="primary">
         {rankings === undefined ? (
           <LoadingSection label="Carregando ranking" />
         ) : rankings.topJobs.length === 0 ? (
@@ -454,7 +537,7 @@ function RankingSection({
                     {job.companyName}
                   </span>
                 </span>
-                <span className="shrink-0 text-xs text-slate-500">
+                <span className="shrink-0 text-xs text-a11y-slate-500">
                   <strong className="text-primary">
                     {job.applicationsCount}
                   </strong>{" "}
@@ -474,25 +557,67 @@ export function OperationalPanel() {
   // métricas do painel.
   const [filterState, setFilterState] = useState<FilterState>(EMPTY_FILTERS);
 
-  const filters: DashboardFilters = normalizeDashboardFilters({
-    from:
-      filterState.period !== ""
-        ? Date.now() - Number(filterState.period) * DAY
-        : undefined,
-    course: filterState.course,
-    company: filterState.company,
-    status: filterState.status,
-  });
+  // Início do dia local. Só muda quando o dia vira (o setState com o mesmo
+  // valor não re-renderiza), mantendo os argumentos das queries estáveis e
+  // ainda assim atualizando o período se o painel ficar aberto de um dia
+  // para o outro.
+  const [todayStart, setTodayStart] = useState<number>(() =>
+    startOfLocalDay(Date.now()),
+  );
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setTodayStart(startOfLocalDay(Date.now()));
+    }, 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // `from` depende apenas do filtro e do dia atual: sem Date.now() solto
+  // no render, evitando resubscribe em loop.
+  const filters: DashboardFilters = useMemo(
+    () =>
+      normalizeDashboardFilters({
+        from:
+          filterState.period !== ""
+            ? localDaysAgo(todayStart, Number(filterState.period))
+            : undefined,
+        course: filterState.course,
+        company: filterState.company,
+        status: filterState.status,
+      }),
+    [filterState, todayStart],
+  );
   const filtersActive = hasActiveFilters(filters);
 
   // Toda mudança de filtro muda os argumentos → resubscribe reativa.
-  const summary = useQuery(api.operational.operationalSummary, filters);
-  const tth = useQuery(api.operational.timeToHireStats, filters);
-  const funnel = useQuery(api.operational.pipelineFunnel, filters);
-  const rankings = useQuery(api.operational.activeRankings, {
-    limit: 5,
-    ...filters,
-  });
+  // useStableQuery segura o último valor enquanto o novo carrega.
+  const summaryQuery = useStableQuery(
+    useQuery(api.operational.operationalSummary, filters),
+  );
+  const tthQuery = useStableQuery(
+    useQuery(api.operational.timeToHireStats, filters),
+  );
+  const funnelQuery = useStableQuery(
+    useQuery(api.operational.pipelineFunnel, filters),
+  );
+  const rankingsQuery = useStableQuery(
+    useQuery(api.operational.activeRankings, { limit: 5, ...filters }),
+  );
+
+  const summary = summaryQuery.data;
+  const tth = tthQuery.data;
+  const funnel = funnelQuery.data;
+  const rankings = rankingsQuery.data;
+  const refreshing =
+    summaryQuery.stale ||
+    tthQuery.stale ||
+    funnelQuery.stale ||
+    rankingsQuery.stale;
+
+  // Horário da última atualização recebida do servidor.
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  useEffect(() => {
+    if (summary !== undefined) setUpdatedAt(Date.now());
+  }, [summary, tth, funnel, rankings]);
 
   if (summary === undefined) {
     return (
@@ -501,7 +626,7 @@ export function OperationalPanel() {
         role="status"
         aria-live="polite"
       >
-        <p className="text-sm text-slate-500">Carregando indicadores…</p>
+        <p className="text-sm text-a11y-slate-500">Carregando indicadores…</p>
       </div>
     );
   }
@@ -537,6 +662,15 @@ export function OperationalPanel() {
             topJobs: rankings.topJobs,
           },
   });
+
+  // Só exporta com todas as seções carregadas e atualizadas — evita
+  // arquivos incompletos ou com dados do filtro anterior.
+  const exportReady =
+    tth !== undefined &&
+    funnel !== undefined &&
+    rankings !== undefined &&
+    !refreshing;
+
   const exportReport = (format: "csv" | "xlsx") => {
     downloadReport(report, format);
   };
@@ -551,46 +685,67 @@ export function OperationalPanel() {
       data-testid="operational-panel"
       role="region"
       aria-label="Painel operacional"
+      aria-busy={refreshing}
     >
       {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="font-serif text-2xl font-bold text-primary flex items-center gap-2">
-            <Gauge className="h-5 w-5" aria-hidden="true" />
+          <h2 className="flex items-center gap-2 font-serif text-2xl font-bold text-primary">
             Painel Operacional
           </h2>
           <p className="mt-1 text-sm text-slate-600">
             Visão geral das vagas e do desempenho dos processos seletivos,
             atualizado em tempo real com o banco do portal.
           </p>
+          <p
+            data-testid="live-indicator"
+            className="mt-1 flex items-center gap-2 text-xs text-a11y-slate-500"
+          >
+            <span className="relative flex h-2 w-2" aria-hidden="true">
+              <span
+                className={`absolute inline-flex h-full w-full rounded-full bg-success opacity-60 ${
+                  refreshing ? "animate-ping" : ""
+                }`}
+              />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
+            </span>
+            {refreshing
+              ? "Atualizando…"
+              : updatedAt !== null
+                ? `Ao vivo · atualizado às ${new Date(updatedAt).toLocaleTimeString("pt-BR")}`
+                : "Ao vivo"}
+          </p>
         </div>
         <div
-          className="flex gap-2"
+          className="flex flex-wrap gap-2"
           role="group"
           aria-label="Exportar relatório com os filtros atuais"
         >
           <Button
             variant="secondary"
             onClick={() => exportReport("csv")}
+            disabled={!exportReady}
             title="Planilha CSV (Excel/LibreOffice) com os indicadores filtrados"
           >
-            <Download className="h-4 w-4" aria-hidden="true" />
+            <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
             Baixar CSV
           </Button>
           <Button
             variant="secondary"
             onClick={() => exportReport("xlsx")}
+            disabled={!exportReady}
             title="Pasta de trabalho Excel (.xlsx) com os indicadores filtrados"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
             Baixar Excel
           </Button>
           <Button
-            variant="accent"
+            variant="secondary"
             onClick={printPdf}
+            disabled={!exportReady}
             title="Relatório em PDF com o template institucional UNICAP (usa a impressão do navegador)"
           >
-            <Download className="h-4 w-4" aria-hidden="true" />
+            <FileText className="h-4 w-4" aria-hidden="true" />
             Baixar PDF
           </Button>
         </div>
@@ -599,70 +754,78 @@ export function OperationalPanel() {
       <FilterBar
         state={filterState}
         onChange={setFilterState}
-        facets={tth?.facets ?? { courses: [], companies: [] }}
+        facets={tth?.facets ?? EMPTY_FACETS}
         active={filtersActive}
       />
 
-      <div className="grid grid-cols-2 gap-6 sm:grid-cols-4">
-        <KpiCard
-          value={summary.jobs.open}
-          label="Vagas abertas"
-          hint="recebendo candidaturas"
-          icon={<Briefcase className="h-5 w-5" />}
-        />
-        <KpiCard
-          value={summary.jobs.closed}
-          label="Vagas fechadas"
-          icon={<Lock className="h-5 w-5" />}
-        />
-        <KpiCard
-          value={summary.jobs.filled}
-          label="Vagas preenchidas"
-          hint="encerradas (prazo ou ciclo completo)"
-          icon={<BadgeCheck className="h-5 w-5" />}
-        />
-        <KpiCard
-          value={summary.jobs.total}
-          label="Total de vagas"
-          icon={<Layers className="h-5 w-5" />}
-        />
-      </div>
+      {/* Enquanto os novos dados chegam, os antigos ficam na tela
+          levemente esmaecidos (sem piscar nem pular o layout). */}
+      <div
+        className={`transition-opacity duration-200 ${
+          refreshing ? "opacity-60" : "opacity-100"
+        }`}
+      >
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <KpiCard
+            value={summary.jobs.open}
+            label="Vagas abertas"
+            hint="recebendo candidaturas"
+            icon={<Briefcase className="h-5 w-5" />}
+          />
+          <KpiCard
+            value={summary.jobs.closed}
+            label="Vagas fechadas"
+            icon={<Lock className="h-5 w-5" />}
+          />
+          <KpiCard
+            value={summary.jobs.filled}
+            label="Vagas encerradas"
+            hint="prazo vencido ou ciclo completo"
+            icon={<BadgeCheck className="h-5 w-5" />}
+          />
+          <KpiCard
+            value={summary.jobs.total}
+            label="Total de vagas"
+            icon={<Layers className="h-5 w-5" />}
+          />
+        </div>
 
-      {/* [REFACTOR_UI] Painel executivo: cards e gráficos distribuídos em
-          CSS Grid (sem empilhamento vertical de documento). */}
-      <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-        <Card title="Taxa de Empregabilidade">
-          <p className="font-serif text-3xl font-bold text-primary">
-            {formatEmployabilityRate(summary.employability.rate)}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Aprovados sobre finalizados
-          </p>
-        </Card>
-        <Card title="Candidaturas em andamento">
-          <p className="font-serif text-3xl font-bold text-primary">
-            {summary.applications.inProgress}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Inscrito, triagem e entrevista
-          </p>
-        </Card>
-        <Card title="Resultados finais">
-          <p className="font-serif text-3xl font-bold text-primary">
-            {summary.applications.finalized}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            {summary.applications.approved} aprovados ·{" "}
-            {summary.applications.rejected} reprovados
-          </p>
-        </Card>
-      </div>
+        {/* [REFACTOR_UI] Painel executivo: cards e gráficos distribuídos em
+            CSS Grid (sem empilhamento vertical de documento). */}
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
+          <Card title="Taxa de Empregabilidade" accent="primary">
+            <p className="font-serif text-3xl font-bold text-primary">
+              {formatEmployabilityRate(summary.employability.rate)}
+            </p>
+            <p className="mt-1 text-xs text-a11y-slate-500">
+              Aprovados sobre finalizados
+            </p>
+          </Card>
+          <Card title="Candidaturas em andamento" accent="primary">
+            <p className="font-serif text-3xl font-bold text-primary">
+              {summary.applications.inProgress}
+            </p>
+            <p className="mt-1 text-xs text-a11y-slate-500">
+              Inscrito, triagem e entrevista
+            </p>
+          </Card>
+          <Card title="Resultados finais" accent="primary">
+            <p className="font-serif text-3xl font-bold text-primary">
+              {summary.applications.finalized}
+            </p>
+            <p className="mt-1 text-xs text-a11y-slate-500">
+              {summary.applications.approved} aprovados ·{" "}
+              {summary.applications.rejected} reprovados
+            </p>
+          </Card>
+        </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <TimeToHireSection stats={tth} />
-        <FunnelSection funnel={funnel} />
+        <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <TimeToHireSection stats={tth} />
+          <FunnelSection funnel={funnel} />
+        </div>
+        <RankingSection rankings={rankings} />
       </div>
-      <RankingSection rankings={rankings} />
     </section>
   );
 }

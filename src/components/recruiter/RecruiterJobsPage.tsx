@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { JobsPanel } from "./JobsPanel";
 import { JobKanban } from "./JobKanban";
 
@@ -12,7 +13,7 @@ import { JobKanban } from "./JobKanban";
  * - "Voltar para Minhas Vagas" retorna à lista.
  */
 export function RecruiterJobsPage() {
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<Id<"jobs"> | null>(null);
 
   if (selectedJobId !== null) {
     return (

@@ -18,6 +18,7 @@ import type * as crons from "../crons.js";
 import type * as emails from "../emails.js";
 import type * as health from "../health.js";
 import type * as http from "../http.js";
+import type * as invitations from "../invitations.js";
 import type * as jobs from "../jobs.js";
 import type * as lgpd from "../lgpd.js";
 import type * as lib_currentUser from "../lib/currentUser.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   emails: typeof emails;
   health: typeof health;
   http: typeof http;
+  invitations: typeof invitations;
   jobs: typeof jobs;
   lgpd: typeof lgpd;
   "lib/currentUser": typeof lib_currentUser;

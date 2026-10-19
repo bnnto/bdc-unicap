@@ -334,6 +334,29 @@ export default defineSchema({
      */
     .index("by_stage", ["stage"]),
 
+
+  /**
+  * [CONVITES] Convites por e-mail de recrutador para aluno (Resend).
+  * Serve de auditoria LGPD (quem contatou quem, quando e com qual texto)
+  * e de base para o limite diário e o intervalo entre convites ao mesmo aluno.
+  */
+  invitations: defineTable({
+    recruiterId: v.id("users"),
+    studentId: v.id("students"),
+    subject: v.string(),
+    message: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("sent"),
+      v.literal("failed"),
+    ),
+    error: v.optional(v.string()),
+    resendId: v.optional(v.string()),
+  })
+    .index("by_recruiter", ["recruiterId"])
+    .index("by_recruiter_student", ["recruiterId", "studentId"])
+    .index("by_student", ["studentId"]),
+
   /**
    * [S8-1] Trilha de auditoria LGPD — snapshot imutável de cada execução
    * do checklist (`lgpd.runAudit`, papel gestor). `report` guarda o

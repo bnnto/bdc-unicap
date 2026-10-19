@@ -14,17 +14,19 @@ import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { ResumeForm } from "./ResumeForm";
 import { ResumeDownload } from "./ResumeDownload";
-import { Eye, FileDown } from "lucide-react";
+import { CheckCircle2, Eye, FileDown, XCircle } from "lucide-react";
+import { toast } from "sonner";
+import { friendlyErrorMessage } from "../../lib/toastMessages";
 
 /** Âncoras dos 7 blocos do formulário (navegação rápida da sidebar). */
-const SECTION_LINKS: Array<{ href: string; label: string }> = [
-  { href: "#bloco-pessoais", label: "1. Dados Pessoais & Apresentação" },
-  { href: "#bloco-academico", label: "2. Formação Institucional UNICAP" },
-  { href: "#bloco-links", label: "3. Links & Portfólio" },
-  { href: "#bloco-competencias", label: "4. Competências (Skills)" },
-  { href: "#bloco-idiomas", label: "5. Idiomas & Proficiência" },
-  { href: "#bloco-experiencias", label: "6. Experiências & Extensão" },
-  { href: "#bloco-certificacoes", label: "7. Certificações & Atividades" },
+const SECTION_LINKS: Array<{ href: string; label: string; index: number }> = [
+  { href: "#bloco-pessoais", label: "1. Dados Pessoais & Apresentação", index: 0 },
+  { href: "#bloco-academico", label: "2. Formação Institucional UNICAP", index: 1 },
+  { href: "#bloco-links", label: "3. Links & Portfólio", index: 2 },
+  { href: "#bloco-competencias", label: "4. Competências (Skills)", index: 3 },
+  { href: "#bloco-idiomas", label: "5. Idiomas & Proficiência", index: 4 },
+  { href: "#bloco-experiencias", label: "6. Experiências & Extensão", index: 5 },
+  { href: "#bloco-certificacoes", label: "7. Certificações & Atividades", index: 6 },
 ];
 
 /** Iniciais do avatar: primeira + última palavra (sem foto externa). */
@@ -34,6 +36,53 @@ function initialsOf(name: string): string {
   const first = parts[0]!.charAt(0);
   const last = parts.length > 1 ? parts[parts.length - 1]!.charAt(0) : "";
   return (first + last).toUpperCase();
+}
+
+/** Avalia se um bloco específico está preenchido com base nos dados do perfil */
+function isBlockFilled(profile: Doc<"students"> | null | undefined, blockIndex: number): boolean {
+  if (!profile) return false;
+
+  const resume = profile.resumeData;
+
+  switch (blockIndex) {
+    case 0: // Pessoais
+      // Para o Bloco 1, verificamos se tem headline e summary. Os dados pessoais
+      // básicos vêm do perfil que sempre existe se chegamos aqui, mas o
+      // currículo só é "valido" se a apresentação foi feita.
+      return !!(resume && resume.headline.trim() && resume.summary.trim());
+    
+    case 1: // Acadêmico
+      // CORREÇÃO: O curso principal da UNICAP (profile.course) já conta como 
+      // formação acadêmica! Não é obrigatório ter histórico adicional.
+      return !!(profile.course || (resume && resume.academicHistory && resume.academicHistory.length > 0));
+      
+    case 2: // Links
+      // Verifica links salvos no perfil ou no currículo (legacy)
+      return !!(
+        profile.linkedinUrl || 
+        profile.portfolioUrl || 
+        (resume && resume.links && (resume.links.github || resume.links.lattes))
+      );
+      
+    case 3: // Competências
+      return !!(profile.skills && profile.skills.length > 0);
+      
+    case 4: // Idiomas
+      return !!(profile.languages && profile.languages.length > 0);
+      
+    case 5: // Experiências
+      return !!(
+        resume && 
+        ((resume.experiences && resume.experiences.length > 0) || 
+         (resume.projectsText && resume.projectsText.trim()))
+      );
+      
+    case 6: // Certificações
+      return !!(resume && resume.certifications && resume.certifications.length > 0);
+      
+    default:
+      return false;
+  }
 }
 
 export function ResumeBuilderPage() {
@@ -52,6 +101,17 @@ export function ResumeBuilderPage() {
     } catch {
       // Erro exibido pelos próprios controles do formulário/privacidade;
       // aqui o toggle volta ao estado salvo pela reação do useQuery.
+    }
+  }
+
+  const setContactConsent = useMutation(api.students.setContactConsent);
+  const showContact = profile?.showContactToRecruiters ?? false;
+
+  async function handleContactConsent(next: boolean) {
+    try {
+      await setContactConsent({ allow: next });
+    } catch (err) {
+      toast.error(friendlyErrorMessage(err));
     }
   }
 
@@ -133,7 +193,6 @@ export function ResumeBuilderPage() {
                 type="checkbox"
                 role="switch"
                 aria-labelledby="visibility-switch-label"
-                aria-checked={isPublic}
                 checked={isPublic}
                 disabled={profile === undefined || profile === null}
                 onChange={(event) =>
@@ -147,19 +206,52 @@ export function ResumeBuilderPage() {
             <p className="mt-2 text-xs text-slate-500">
               {isPublic ? (
                 <>
-                  <strong className="text-primary">Público:</strong> seu
-                  currículo aparece nas buscas do banco de talentos.
+                  <strong className="text-primary">Público:</strong> seu currículo
+                  aparece nas buscas do banco de talentos.
                 </>
               ) : (
                 <>
-                  <strong className="text-primary">Privado:</strong> visível
-                  apenas a recrutadores de vagas em que você é candidato.
+                  <strong className="text-primary">Privado:</strong> visível apenas a
+                  recrutadores de vagas em que você é candidato.
+                </>
+              )}
+            </p>
+
+            <hr className="my-4 border-slate-200" />
+
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span
+                id="contact-switch-label"
+                className="text-sm font-semibold text-slate-700"
+              >
+                Permitir contato de recrutadores
+              </span>
+              <input
+                type="checkbox"
+                role="switch"
+                aria-labelledby="contact-switch-label"
+                checked={showContact}
+                disabled={profile === undefined || profile === null}
+                onChange={(event) => void handleContactConsent(event.target.checked)}
+                className="relative h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-slate-300 checked:bg-primary transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:content-[''] checked:after:translate-x-5"
+              />
+            </label>
+            <p className="mt-2 text-xs text-slate-500">
+              {showContact ? (
+                <>
+                  <strong className="text-primary">Autorizado:</strong> recrutadores
+                  podem ver seu e-mail e enviar convites por e-mail pelo portal.
+                </>
+              ) : (
+                <>
+                  <strong className="text-primary">Não autorizado:</strong> seu e-mail
+                  fica oculto e você não recebe convites.
                 </>
               )}
             </p>
           </section>
 
-          {/* Navegação rápida por âncoras (menu do formulário). */}
+          {/* Navegação rápida por âncoras (menu do formulário com indicadores). */}
           <nav
             aria-label="Navegação rápida do currículo"
             className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
@@ -168,20 +260,26 @@ export function ResumeBuilderPage() {
               Navegação rápida do currículo
             </p>
             <ul className="flex flex-col gap-1 text-sm">
-              {SECTION_LINKS.map((link) => (
-                <li key={link.href}>
-                  <a
-                    href={link.href}
-                    className="flex items-center gap-2 rounded px-2 py-1.5 text-slate-600 transition-colors hover:bg-[#FDF2F4] hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="h-1.5 w-1.5 rounded-full bg-primary"
-                    />
-                    {link.label}
-                  </a>
-                </li>
-              ))}
+              {SECTION_LINKS.map((link) => {
+                const filled = isBlockFilled(profile, link.index);
+                return (
+                  <li key={link.href}>
+                    <a
+                      href={link.href}
+                      className="group flex items-center justify-between gap-2 rounded px-2 py-1.5 text-slate-700 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-300 dark:hover:bg-primary/25 dark:hover:text-white"
+                    >
+                      <span className="truncate">{link.label}</span>
+                      <span className="shrink-0" aria-hidden="true">
+                        {filled ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500 group-hover:text-emerald-600 transition-colors" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
+                        )}
+                      </span>
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
           </nav>
         </aside>

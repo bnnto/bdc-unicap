@@ -8,15 +8,10 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Eye, EyeOff, KeyRound, LogIn } from "lucide-react";
 import { RoleSelect } from "./RoleSelect";
-import {
-  PUBLIC_SIGNUP_ROLES,
-  ROLE_LABELS,
-  type PublicSignupRole,
-} from "../../lib/roles";
+import { type PublicSignupRole } from "../../lib/roles";
 import {
   CONSENT_TERM,
   CONSENT_TERM_VERSION,
-  consentSummary,
 } from "../../lib/consentTerm";
 
 /**
@@ -90,13 +85,9 @@ export function AuthPage() {
         <h1 className="mt-2 font-serif text-3xl font-bold text-primary">
           Banco de Currículos
         </h1>
-        <p className="mt-2 text-sm text-slate-600">
-          Acesso ao Banco de Currículos e ao Setor de Extensão
-        </p>
       </header>
 
-      {/* [S8-2]: main único da página (o App não aninha outro) e destino
-          do skip-link. */}
+      {/* [S8-2]: main único da página (o App não aninha outro) e destino do skip-link. */}
       <main
         id="conteudo"
         tabIndex={-1}
@@ -107,8 +98,15 @@ export function AuthPage() {
           <div
             role="tablist"
             aria-label="Modo de autenticação"
-            className="mb-6 grid grid-cols-2 gap-1 rounded border border-slate-200 bg-canvas p-1"
+            className="relative mb-6 grid grid-cols-2 rounded border border-slate-200 bg-canvas p-1"
           >
+            {/* Indicador que desliza entre as abas */}
+            <span
+              aria-hidden="true"
+              className={`absolute left-1 top-1 h-[calc(100%-0.5rem)] w-[calc(50%-0.25rem)] rounded bg-primary shadow-level1 transition-transform duration-300 ease-out ${
+                mode === "signUp" ? "translate-x-full" : "translate-x-0"
+              }`}
+            />
             {(["signIn", "signUp"] as const).map((m) => (
               <button
                 key={m}
@@ -117,10 +115,8 @@ export function AuthPage() {
                 aria-selected={mode === m}
                 aria-controls="painel-auth"
                 onClick={() => setMode(m)}
-                className={`rounded px-3 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                  mode === m
-                    ? "bg-primary text-white"
-                    : "text-slate-600 hover:text-primary"
+                className={`relative z-10 rounded px-3 py-2 text-sm font-semibold transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                  mode === m ? "text-white" : "text-slate-600 hover:text-primary"
                 }`}
               >
                 {m === "signIn" ? "Entrar" : "Criar conta"}
@@ -134,91 +130,88 @@ export function AuthPage() {
               e.preventDefault();
               void handleSubmit(e);
             }}
-            className="flex flex-col gap-4"
+            className="flex flex-col"
           >
-            {/* [UX_REFINEMENT Etapa 1] — os erros de autenticação vivem
-                nos Toasts; [UX-P2] H9-2 preservado: o campo senha nunca
-                carrega o erro (sem aria-invalid/aria-describedby). */}
-            {mode === "signUp" ? (
-              <>
+            <Collapse open={mode === "signUp"}>
+              <div className="flex flex-col gap-4 pb-4">
                 <Input
                   label="Nome completo"
-                  required
+                  required={mode === "signUp"}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   autoComplete="name"
+                  tabIndex={mode === "signUp" ? 0 : -1}
                 />
                 <RoleSelect
                   label="Perfil de acesso"
                   value={role}
                   onChange={setRole}
-                  required
+                  required={mode === "signUp"}
                 />
+              </div>
+            </Collapse>
+
+            <div className="flex flex-col gap-4 pb-4">
+              <Input
+                label="E-mail"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+              />
+              <Input
+                label="Senha"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={mode === "signUp" ? "new-password" : "current-password"}
+                trailing={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    className="rounded p-1 text-slate-400 transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <span className="sr-only">
+                      {showPassword ? "Ocultar senha" : "Mostrar senha"}
+                    </span>
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
+                }
+              />
+            </div>
+
+            <Collapse open={mode === "signUp"}>
+              <div className="pb-4">
                 <ConsentCheckbox
                   checked={consentAccepted}
                   onChange={setConsentAccepted}
                   errorId={consentErrorId}
+                  enabled={mode === "signUp"}
                 />
-              </>
-            ) : null}
-
-            <Input
-              label="E-mail"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-            <Input
-              label="Senha"
-              type={showPassword ? "text" : "password"}
-              required
-              minLength={8}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={
-                mode === "signUp" ? "new-password" : "current-password"
-              }
-              trailing={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((visible) => !visible)}
-                  className="rounded p-1 text-slate-400 transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <span className="sr-only">
-                    {showPassword ? "Ocultar senha" : "Mostrar senha"}
-                  </span>
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" aria-hidden="true" />
-                  ) : (
-                    <Eye className="h-4 w-4" aria-hidden="true" />
-                  )}
-                </button>
-              }
-            />
+              </div>
+            </Collapse>
 
             <Button
               type="submit"
               variant="primary"
               disabled={pending || (mode === "signUp" && !consentAccepted)}
               aria-describedby={
-                mode === "signUp" && !consentAccepted
-                  ? consentErrorId
-                  : undefined
+                mode === "signUp" && !consentAccepted ? consentErrorId : undefined
               }
             >
               <LogIn className="h-4 w-4" aria-hidden="true" />
-              {pending
-                ? "Processando…"
-                : mode === "signIn"
-                  ? "Entrar"
-                  : "Criar conta"}
+              {pending ? "Processando…" : mode === "signIn" ? "Entrar" : "Criar conta"}
             </Button>
 
-            {/* [ONBOARDING_RECOVERY] Recuperação de senha junto do login. */}
-            {mode === "signIn" ? (
-              <p className="text-center text-sm">
+            <Collapse open={mode === "signIn"}>
+              <p className="pt-4 text-center text-sm">
                 <button
                   type="button"
                   onClick={() => navigateTo(PASSWORD_RESET_PATH)}
@@ -228,14 +221,32 @@ export function AuthPage() {
                   Esqueci minha senha
                 </button>
               </p>
-            ) : null}
+            </Collapse>
           </form>
         </div>
-
-        <p className="mt-6 text-center text-xs text-a11y-slate-500">
-          {PUBLIC_SIGNUP_ROLES.map((r) => ROLE_LABELS[r]).join(" · ")}
-        </p>
       </main>
+    </div>
+  );
+}
+
+/** Expande/recolhe com animação de altura + fade, sem desmontar o conteúdo. */
+function Collapse({
+  open,
+  children,
+}: {
+  open: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      aria-hidden={!open}
+      className={`grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-in-out ${
+        open
+          ? "visible grid-rows-[1fr] opacity-100"
+          : "invisible grid-rows-[0fr] opacity-0"
+      }`}
+    >
+      <div className="-mx-1 overflow-hidden px-1">{children}</div>
     </div>
   );
 }
@@ -244,47 +255,39 @@ type ConsentCheckboxProps = {
   checked: boolean;
   onChange: (checked: boolean) => void;
   errorId: string;
+  enabled: boolean;
 };
 
 /**
- * Checkbox obrigatória de aceite do termo LGPD (issue [S1-2], R7).
+ * Checkbox obrigatória de aceite do termo LGPD simplificada e mais compacta.
  * Bloqueia o submit até o aceite e dá acesso ao texto integral do termo
  * vigente em <details> acessível (sem dependências externas).
  */
-function ConsentCheckbox({ checked, onChange, errorId }: ConsentCheckboxProps) {
+function ConsentCheckbox({ checked, onChange, errorId, enabled }: ConsentCheckboxProps) {
   return (
-    <div className="flex flex-col gap-2">
-      <label className="flex cursor-pointer items-start gap-2 text-sm text-a11y-slate-700">
+    <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 mt-1">
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-a11y-slate-700">
         <input
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          required
-          className="mt-0.5 accent-primary"
-          aria-required="true"
+          required={enabled}
+          className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-primary"
+          aria-required={enabled}
+          tabIndex={enabled ? 0 : -1}
         />
-        <span>
-          Li e aceito o Termo de Consentimento LGPD ({CONSENT_TERM_VERSION}) —{" "}
-          <span className="text-a11y-slate-500">{consentSummary()}</span>
+        <span className="font-medium text-slate-800">
+          Li e aceito os termos de LGPD ({CONSENT_TERM_VERSION})
         </span>
       </label>
-      <details className="rounded border border-slate-200 bg-canvas px-3 py-2">
-        <summary className="cursor-pointer text-xs font-semibold text-primary">
+      <details className="group ml-6">
+        <summary className="cursor-pointer text-xs font-semibold text-primary hover:underline outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 rounded-sm w-fit">
           Ler o termo completo
         </summary>
-        <pre className="mt-2 max-h-56 overflow-y-auto whitespace-pre-wrap font-sans text-xs leading-relaxed text-slate-600">
+        <pre className="mt-3 max-h-40 overflow-y-auto whitespace-pre-wrap rounded border border-slate-200 bg-white p-3 font-sans text-xs leading-relaxed text-slate-600 shadow-inner">
           {CONSENT_TERM}
         </pre>
       </details>
-      {!checked ? (
-        <p
-          id={errorId}
-          role="alert"
-          className="text-xs font-medium text-danger"
-        >
-          O aceite do termo é obrigatório para criar a conta.
-        </p>
-      ) : null}
     </div>
   );
 }

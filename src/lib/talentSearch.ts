@@ -175,6 +175,11 @@ export function normalizeForSearch(value: string): string {
     .trim();
 }
 
+function ownsSkill(skills: readonly string[], wanted: string): boolean {
+  const target = normalizeForSearch(wanted);
+  return skills.some((s) => normalizeForSearch(s) === target);
+}
+
 /**
  * R1 + R2 — elegibilidade para aparecer no Banco de Talentos:
  * vínculo válido (R1: ativo/egresso) e escolha do aluno (R2: público).
@@ -276,13 +281,7 @@ function matchesTextFilters(
   // [REFACTOR_UI] Chips de competências: casa com pelo menos uma (OU).
   const chips = (filters.skills ?? []).filter((c) => c.trim().length > 0);
   if (chips.length > 0) {
-    const hasAny = chips.some((chip) => {
-      const wanted = normalizeForSearch(chip);
-      return candidate.skills.some((s) =>
-        normalizeForSearch(s).includes(wanted),
-      );
-    });
-    if (!hasAny) return false;
+    if (!chips.some((chip) => ownsSkill(candidate.skills, chip))) return false;
   }
 
   const language = filters.language ?? "";
@@ -339,8 +338,21 @@ export function filterTalentCandidates(
   // [REFACTOR_UI] Ordenação estável (Array.sort) aplicada antes da paginação.
   const sort = filters.sort ?? "relevancia";
   const comparator = SORT_COMPARATORS[sort];
-  const sorted =
-    comparator === undefined ? matching : [...matching].sort(comparator);
+  const chips = (filters.skills ?? []).filter((c) => c.trim().length > 0);
+  let sorted: TalentCandidate[];
+  if (chips.length > 0) {
+    const scored = matching.map((candidate) => ({
+      candidate,
+      score: countSkillMatches(candidate, chips),
+    }));
+    scored.sort(
+      (a, b) =>
+        b.score - a.score || comparator(a.candidate, b.candidate),
+    );
+    sorted = scored.map((entry) => entry.candidate);
+  } else {
+    sorted = [...matching].sort(comparator);
+  }
 
   const total = sorted.length;
   const pageCount = Math.max(1, Math.ceil(total / TALENT_PAGE_SIZE));
@@ -370,4 +382,18 @@ export function formatTalentSummary(input: {
       ? `${input.semester}º semestre (conclusão ${input.graduationYear})`
       : `conclusão ${input.graduationYear}`;
   return [STATUS_LABELS[input.status], input.course, detail].join(" · ");
+}
+
+/**
+ * Quantas das competências escolhidas (chips) o candidato possui.
+ * Mesmo critério de casamento do filtro (normalizado, "contém"), mas
+ * cada chip conta no máximo uma vez.
+ */
+export function countSkillMatches(
+  candidate: Pick<TalentCandidate, "skills">,
+  chips: readonly string[],
+): number {
+  return chips.filter(
+    (chip) => chip.trim().length > 0 && ownsSkill(candidate.skills, chip),
+  ).length;
 }

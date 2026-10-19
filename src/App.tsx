@@ -143,10 +143,10 @@ function RecruiterNavbar({
                   aria-controls={`panel-${tab.key}`}
                   id={`tab-${tab.key}`}
                   onClick={() => onChange(tab.key)}
-                  className={`flex items-center gap-2 rounded px-4 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                     active === tab.key
                       ? "border-b-2 border-secondary bg-[#FDF2F4] text-primary"
-                      : "border-b-2 border-transparent text-slate-600 hover:bg-[#FDF2F4] hover:text-primary"
+                      : "border-b-2 border-transparent text-slate-600 hover:bg-[#FDF2F4] hover:text-primary dark:hover:text-white"
                   }`}
                 >
                   <tab.icon className="h-4 w-4" aria-hidden={true} />

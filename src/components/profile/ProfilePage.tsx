@@ -21,8 +21,6 @@ import {
   type ThemePreferences,
 } from "../../lib/preferences";
 import {
-  AArrowDown,
-  AArrowUp,
   AlertTriangle,
   Bell,
   Download,
@@ -30,28 +28,8 @@ import {
   MonitorSmartphone,
   Trash2,
   X,
+  ZoomIn,
 } from "lucide-react";
-
-/**
- * [PERFIL_E_LGPD] Rota `/perfil` — central de configurações e
- * segurança (spec PERFIL_E_LGPD.md):
- *
- * - Etapa 1 — identidade (foto de avatar + sair) e ACESSIBILIDADE:
- *   modo escuro, alto contraste e escala de fonte, persistidos em
- *   localStorage e aplicados no <html>.
- * - Etapa 2 — SEGURANÇA: sessões recentes humanizadas ("Chrome no
- *   Windows", nunca IDs crus) com a atual marcada, kill switch
- *   "Encerrar sessão em todos os outros dispositivos" e notificações.
- * - Etapa 3 — LGPD: portabilidade (download do JSON dos próprios
- *   dados) e o botão vermelho de exclusão com confirmação "EXCLUIR"
- *   (a mutation de cascata roda no servidor — Etapa 4).
- *
- * [UX_REFINEMENT] Etapa 1/4 — erros e sucessos via Toast global
- * (amigáveis, auto-dismiss) e container na largura total do portal
- * (max-w-[1440px]).
- *
- * [S8-2] dona do landmark main único (#conteudo) deste rota.
- */
 
 const MAX_IMAGE_BYTES = 400 * 1024;
 
@@ -137,8 +115,10 @@ export function ProfilePage() {
     });
   }
 
-  // ---- Etapa 1: foto de avatar ----
+  // ---- Etapa 1: foto de avatar (upload direto + visualização) ----
   const updateProfile = useMutation(api.users.updateMyProfile);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+
   async function handleImageFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = ""; // permite escolher o mesmo arquivo de novo
@@ -155,12 +135,14 @@ export function ProfilePage() {
     }
     try {
       const image = await readAsDataURL(file);
+      // Salva direto no servidor como originalmente planejado
       await updateProfile({ image });
       toast.success("Foto de perfil atualizada.");
     } catch (err) {
       toast.error(friendlyErrorMessage(err));
     }
   }
+
   async function handleRemoveImage() {
     try {
       await updateProfile({ image: undefined });
@@ -173,8 +155,6 @@ export function ProfilePage() {
   // ---- Etapa 2: sessões + kill switch ----
   const sessions = useQuery(api.users.listMySessions, {});
   const revokeOtherSessions = useMutation(api.users.revokeOtherSessions);
-  // [UX_REFINEMENT Etapa 4] — grava o UA desta sessão na montagem para
-  // humanizar a lista ("Chrome no Windows").
   const recordMySession = useMutation(api.users.recordMySession);
   useEffect(() => {
     const userAgent =
@@ -218,8 +198,7 @@ export function ProfilePage() {
           key === "applicationUpdates" ? value : applicationUpdates,
       });
     } catch {
-      // Preferência local reflete a UI; o servidor mantém a fonte da
-      // verdade — erro só é exibido nos fluxos críticos (foto/sessão).
+      // Preferência local reflete a UI; o servidor mantém a fonte da verdade
     }
   }
 
@@ -246,8 +225,6 @@ export function ProfilePage() {
     try {
       await deleteMyAccount({});
       setDeleteOpen(false);
-      // A cascata apagou usuário e sessões: `me` vira null no servidor
-      // reativo e o AuthGate cai na vitrine; a rota também volta a /.
       navigateTo("/");
     } catch (err) {
       setDeleteError(friendlyErrorMessage(err));
@@ -278,7 +255,7 @@ export function ProfilePage() {
             event.preventDefault();
             navigateTo("/");
           }}
-          className="inline-flex text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="inline-flex text-m font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           ← Voltar ao painel
         </a>
@@ -294,15 +271,25 @@ export function ProfilePage() {
         <Card title="Identidade e conta">
           <div className="flex flex-wrap items-center gap-4 pt-1">
             {user?.image ? (
-              <img
-                src={user.image}
-                alt="Foto de perfil atual"
-                className="h-16 w-16 rounded-full border border-slate-200 object-cover"
-              />
+              <button
+                type="button"
+                onClick={() => setViewingImage(user.image!)}
+                aria-label="Ver foto de perfil ampliada"
+                className="group relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <img
+                  src={user.image}
+                  alt="Sua foto de perfil"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                  <ZoomIn className="h-5 w-5 text-white" />
+                </div>
+              </button>
             ) : (
               <span
                 aria-hidden="true"
-                className="flex h-16 w-16 items-center justify-center rounded-full bg-primary font-serif text-xl font-bold text-white"
+                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary font-serif text-xl font-bold text-white"
               >
                 {initials}
               </span>
@@ -320,16 +307,23 @@ export function ProfilePage() {
               <SignOutButton />
             </div>
           </div>
-          <div className="mt-4 flex flex-col gap-2">
-            <Input
-              label="Alterar foto do perfil"
-              type="file"
-              accept="image/*"
-              hint="PNG, JPEG ou WebP — até 400KB."
-              onChange={(event) => void handleImageFile(event)}
-            />
-            {user?.image ? (
-              <div>
+          
+          <div className="mt-5 flex flex-col gap-1">
+            <span className="text-sm font-semibold text-slate-700">
+              Alterar foto do perfil
+            </span>
+            <div className="mt-1 flex flex-wrap items-center gap-3">
+              <label className="cursor-pointer inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary/90 focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2">
+                <span>Escolher imagem</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(event) => void handleImageFile(event)}
+                />
+              </label>
+              
+              {user?.image ? (
                 <Button
                   variant="secondary"
                   onClick={() => void handleRemoveImage()}
@@ -337,8 +331,11 @@ export function ProfilePage() {
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                   Remover foto
                 </Button>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              PNG, JPEG ou WebP — até 400KB.
+            </p>
           </div>
         </Card>
 
@@ -374,7 +371,6 @@ export function ProfilePage() {
                     disabled={prefs.fontScale === 0}
                     onClick={() => changeFontSize(-1)}
                   >
-                    <AArrowDown className="h-4 w-4" aria-hidden="true" />
                     A−
                   </Button>
                   <output
@@ -389,7 +385,6 @@ export function ProfilePage() {
                     disabled={prefs.fontScale === FONT_SCALE_STEPS.length - 1}
                     onClick={() => changeFontSize(1)}
                   >
-                    <AArrowUp className="h-4 w-4" aria-hidden="true" />
                     A+
                   </Button>
                 </div>
@@ -425,8 +420,6 @@ export function ProfilePage() {
                     className="flex flex-wrap items-center justify-between gap-2 rounded border border-slate-200 bg-white px-3 py-2"
                   >
                     <div>
-                      {/* [UX_REFINEMENT] rótulo humano no lugar do ID
-                          criptográfico; fallback quando sem UA. */}
                       <p className="text-sm font-semibold text-slate-700">
                         {describeUserAgent(session.userAgent) ??
                           "Sessão ativa em outro dispositivo"}
@@ -464,10 +457,6 @@ export function ProfilePage() {
               Notificações
             </h3>
             <div className="mt-2 flex flex-col gap-2">
-              {/* [QUICK_WIN_NOTIF] O recrutador CRIA as vagas — alertas
-                  de "novas vagas" não se aplicam a essa role: toggle
-                  removido da UI (a propriedade `notifyJobAlerts` do
-                  utilizador é mantida no schema/servidor). */}
               {role !== "recrutador" ? (
                 <PreferenceSwitch
                   label="Alertas de Vagas"
@@ -531,7 +520,7 @@ export function ProfilePage() {
           </Card>
         </div>
 
-        {/* Modal crítico de exclusão — exige digitar EXCLUIR (Etapa 3). */}
+        {/* Modal crítico de exclusão — exige digitar EXCLUIR. */}
         {deleteOpen ? (
           <div
             role="dialog"
@@ -599,6 +588,34 @@ export function ProfilePage() {
                   {deleting ? "Excluindo…" : "Sim, excluir minha conta"}
                 </Button>
               </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Modal/Lightbox para visualizar a foto em ecrã inteiro */}
+        {viewingImage ? (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Visualização da foto de perfil"
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setViewingImage(null)}
+          >
+            <div className="relative flex max-h-full max-w-3xl items-center justify-center">
+              <button
+                type="button"
+                className="absolute -right-4 -top-12 sm:-right-12 sm:top-0 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white"
+                onClick={() => setViewingImage(null)}
+                aria-label="Fechar visualização"
+              >
+                <X className="h-6 w-6" aria-hidden="true" />
+              </button>
+              <img
+                src={viewingImage}
+                alt="Sua foto de perfil ampliada"
+                className="max-h-[85vh] w-auto rounded-lg object-contain shadow-2xl"
+                onClick={(e) => e.stopPropagation()} // Impede que clicar na imagem feche o modal
+              />
             </div>
           </div>
         ) : null}

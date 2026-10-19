@@ -30,6 +30,7 @@ import {
   TALENT_SCAN_BATCH,
   TALENT_SCAN_SLICE_BATCH,
   toTalentCandidate,
+  countSkillMatches,
   type TalentCandidate,
   type TalentFilters,
 } from "../src/lib/talentSearch";
@@ -758,6 +759,7 @@ export const searchTalent = query({
     const result = filterTalentCandidates(rows, filters);
 
     const items = [];
+    const chips = (args.skills ?? []).filter((c) => c.trim().length > 0);
     for (const row of result.items) {
       // Re-checagem por card: o perfil pode ter mudado entre índice e leitura.
       const student = await ctx.db.get(row.id as Id<"students">);
@@ -796,6 +798,7 @@ export const searchTalent = query({
           semester: student.semester ?? null,
         }),
         skills: student.skills ?? [],
+        skillMatches: countSkillMatches({ skills: student.skills ?? [] }, chips),
         languages: student.languages ?? [],
         headline: student.resumeData?.headline ?? null,
         contactAllowed,

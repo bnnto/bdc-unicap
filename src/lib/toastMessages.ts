@@ -8,6 +8,8 @@
  */
 
 /** Fallback seguro — nunca expor detalhes internos ao utilizador. */
+import { ConvexError } from "convex/values";
+
 export const GENERIC_ERROR = "Algo deu errado. Tente novamente.";
 
 /** Mensagens canônicas (fonte única de verdade das traduções). */
@@ -52,7 +54,11 @@ function clean(raw: string): string {
  * fetch` vira orientação de conexão, não o fallback.
  */
 export function friendlyErrorMessage(error: unknown): string {
+  if (error instanceof ConvexError && typeof error.data === "string") {
+    return error.data;
+  }
   const raw = extractMessage(error);
+  
   if (raw === null) return GENERIC_ERROR;
   const msg = clean(raw);
   if (msg.length === 0) return GENERIC_ERROR;

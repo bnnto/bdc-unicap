@@ -15,9 +15,9 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
  * asterisco vermelho para obrigatórios e erro acessível via aria.
  *
  * [UX_QUICK_WINS] `type="file"` deixa o botão nativo crú: as variantes
- * `file:*` do Tailwind vestem o "Escolher arquivo" (pílula bordô) sem
- * tocar nos outros campos. `trailing` abre um slot à direita para o
- * estado da senha (olho Mostrar/Ocultar).
+ * `file:*` do Tailwind vestem o "Escolher arquivo" com um botão premium
+ * e agora com contraste correto também no dark mode.
+ * `trailing` abre um slot à direita para o estado da senha (olho Mostrar/Ocultar).
  */
 export function Input({
   label,
@@ -53,9 +53,10 @@ export function Input({
               .filter((x) => x !== null)
               .join(" ") || undefined
           }
-          className={`rounded-md border bg-white px-3 py-2 text-slate-900 transition-all duration-200 ease-in-out placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 file:mr-4 file:cursor-pointer file:rounded-full file:border-0 file:bg-primary/10 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary ${
-            error ? "border-danger" : "border-slate-300"
-          } ${trailing ? "pr-10" : ""}`}
+          className={`w-full rounded-md border bg-white px-3 py-2 text-slate-900 transition-all duration-200 ease-in-out placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 
+          file:mr-4 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90 file:shadow-sm file:transition-colors
+          ${error ? "border-danger" : "border-slate-300"} 
+          ${trailing ? "pr-10" : ""}`}
           {...rest}
         />
         {trailing ? (
@@ -65,7 +66,7 @@ export function Input({
         ) : null}
       </div>
       {hint ? (
-        <p id={hintId} className="text-xs text-slate-500">
+        <p id={hintId} className="text-xs text-slate-500 mt-1">
           {hint}
         </p>
       ) : null}
@@ -73,7 +74,7 @@ export function Input({
         <p
           id={errorId}
           role="alert"
-          className="text-xs font-medium text-danger"
+          className="text-xs font-medium text-danger mt-1"
         >
           {error}
         </p>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
@@ -6,6 +6,7 @@ import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Select } from "../ui/select";
 import {
   Banknote,
   FileText,
@@ -49,6 +50,24 @@ const AVAILABILITY_LABELS: Record<(typeof AVAILABILITY)[number], string> = {
   freelancer: "Freelancer",
 };
 
+/**
+ * Pré-requisito em edição: ganha um `id` local e estável para servir de
+ * `key` no React (remover um item do meio não embaralha os inputs).
+ * O `id` nunca é enviado ao servidor.
+ */
+type PrerequisiteDraft = JobPrerequisite & { id: string };
+
+let prerequisiteSeq = 0;
+function newPrerequisite(item = "", required = true): PrerequisiteDraft {
+  prerequisiteSeq += 1;
+  return { id: `prereq-${prerequisiteSeq}`, item, required };
+}
+
+/** Mantém só dígitos nos campos de salário. */
+function digitsOnly(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
 type JobFormProps = {
   /** Vaga em edição (null = nova vaga). */
   initial?: Doc<"jobs"> | null;
@@ -60,6 +79,10 @@ type JobFormProps = {
  * pré-requisitos obrigatórios/opcionais (CA 3, base R3/R8), tipo de
  * contrato, faixa salarial validada (CA 2) e localização. Validação
  * com a mesma regra pura do servidor (src/lib/job.ts).
+ *
+ * O estado é inicializado direto a partir de `initial`: o componente é
+ * montado do zero ao entrar em "nova vaga" ou "editar", então não há
+ * necessidade de efeito de pré-preenchimento.
  */
 export function JobForm({ initial = null, onDone }: JobFormProps) {
   // [RECRUITER_WORKFLOW] Etapa 3 — publicação usa `createJob` (mesma
@@ -67,63 +90,48 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
   const upsert = useMutation(api.jobs.upsertJob);
   const create = useMutation(api.jobs.createJob);
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [prerequisites, setPrerequisites] = useState<JobPrerequisite[]>([
-    { item: "", required: true },
-  ]);
-  const [contractType, setContractType] = useState<ContractType>("estagio");
-  const [salaryMin, setSalaryMin] = useState("");
-  const [salaryMax, setSalaryMax] = useState("");
-  const [location, setLocation] = useState("");
-  const [languageName, setLanguageName] = useState("");
-  const [languageLevel, setLanguageLevel] = useState<LanguageLevel>("basico");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [prerequisites, setPrerequisites] = useState<PrerequisiteDraft[]>(() =>
+    initial !== null && initial.prerequisites.length > 0
+      ? initial.prerequisites.map((p) => newPrerequisite(p.item, p.required))
+      : [newPrerequisite()],
+  );
+  const [contractType, setContractType] = useState<ContractType>(
+    initial?.contractType ?? "estagio",
+  );
+  const [salaryMin, setSalaryMin] = useState(
+    initial?.salaryMin !== undefined ? String(initial.salaryMin) : "",
+  );
+  const [salaryMax, setSalaryMax] = useState(
+    initial?.salaryMax !== undefined ? String(initial.salaryMax) : "",
+  );
+  const [location, setLocation] = useState(initial?.location ?? "");
+  const [languageName, setLanguageName] = useState(
+    initial?.requiredLanguage?.name ?? "",
+  );
+  const [languageLevel, setLanguageLevel] = useState<LanguageLevel>(
+    initial?.requiredLanguage?.level ?? "basico",
+  );
   const [jobAvailability, setJobAvailability] = useState<
     (typeof AVAILABILITY)[number] | ""
-  >("");
+  >(initial?.availability ?? "");
   const [errors, setErrors] = useState<string[]>([]);
-  const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [loaded, setLoaded] = useState(false);
 
-  // Pré-preenche no modo edição (idempotente).
-  useEffect(() => {
-    if (initial !== null && !loaded) {
-      setTitle(initial.title);
-      setDescription(initial.description);
-      setPrerequisites(
-        initial.prerequisites.length > 0
-          ? initial.prerequisites.map((p) => ({ ...p }))
-          : [{ item: "", required: true }],
-      );
-      setContractType(initial.contractType);
-      setSalaryMin(
-        initial.salaryMin !== undefined ? String(initial.salaryMin) : "",
-      );
-      setSalaryMax(
-        initial.salaryMax !== undefined ? String(initial.salaryMax) : "",
-      );
-      setLocation(initial.location ?? "");
-      setLanguageName(initial.requiredLanguage?.name ?? "");
-      setLanguageLevel(initial.requiredLanguage?.level ?? "basico");
-      setJobAvailability(initial.availability ?? "");
-      setLoaded(true);
-    }
-  }, [initial, loaded]);
-
-  function updatePrereq(
-    index: number,
+  function updatePrerequisite(
+    id: string,
     key: keyof JobPrerequisite,
     value: string | boolean,
   ) {
     setPrerequisites((list) =>
-      list.map((p, i) => (i === index ? { ...p, [key]: value } : p)),
+      list.map((p) => (p.id === id ? { ...p, [key]: value } : p)),
     );
   }
 
   async function handleSubmit(): Promise<void> {
+    if (pending) return;
     setErrors([]);
-    setNotice(null);
 
     const parseSalary = (raw: string): number | undefined => {
       const trimmed = raw.trim();
@@ -134,7 +142,10 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
     const validation = validateJob({
       title,
       description,
-      prerequisites,
+      prerequisites: prerequisites.map(({ item, required }) => ({
+        item,
+        required,
+      })),
       contractType,
       salaryMin: parseSalary(salaryMin),
       salaryMax: parseSalary(salaryMax),
@@ -188,22 +199,6 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
           : "Formulário de nova vaga"
       }
     >
-      {notice !== null ? (
-        <p
-          role="status"
-          className="rounded border border-success bg-white px-3 py-2 text-sm font-medium text-success"
-        >
-          {notice}{" "}
-          <button
-            type="button"
-            onClick={onDone}
-            className="font-semibold underline"
-          >
-            ← Voltar para a lista
-          </button>
-        </p>
-      ) : null}
-
       {errors.length > 0 ? (
         <div
           role="alert"
@@ -257,7 +252,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
           />
           <p
             id="job-description-count"
-            className="text-xs text-slate-500"
+            className="text-xs text-a11y-slate-500"
             aria-live="polite"
           >
             {description.trim().length}/{DESCRIPTION_MAX} caracteres (mínimo 30)
@@ -269,13 +264,13 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         <legend className="flex items-center gap-2 font-serif text-sm font-bold text-primary pb-3">
           <ListChecks className="h-4 w-4" aria-hidden="true" />
           Pré-requisitos{" "}
-          <span className="font-sans text-xs font-normal text-slate-500">
+          <span className="font-sans text-xs font-normal text-a11y-slate-500">
             ({prerequisites.length}/{MAX_PREREQS}) — marque se são obrigatórios
           </span>
         </legend>
         {prerequisites.map((prereq, index) => (
           <div
-            key={index}
+            key={prereq.id}
             className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-6 transition-colors hover:border-primary/30"
           >
             <div className="flex items-start gap-2">
@@ -284,15 +279,20 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
                   label={`Pré-requisito ${index + 1}`}
                   required
                   value={prereq.item}
-                  onChange={(e) => updatePrereq(index, "item", e.target.value)}
+                  onChange={(e) =>
+                    updatePrerequisite(prereq.id, "item", e.target.value)
+                  }
                   hint="Ex.: Conclusão de 60% do curso; Inglês técnico…"
                 />
               </div>
               <Button
                 variant="secondary"
                 className="mt-6 h-10 shrink-0"
+                aria-label={`Remover pré-requisito ${index + 1}`}
                 onClick={() =>
-                  setPrerequisites((list) => list.filter((_, i) => i !== index))
+                  setPrerequisites((list) =>
+                    list.filter((p) => p.id !== prereq.id),
+                  )
                 }
               >
                 <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -304,7 +304,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
                 type="checkbox"
                 checked={prereq.required}
                 onChange={(e) =>
-                  updatePrereq(index, "required", e.target.checked)
+                  updatePrerequisite(prereq.id, "required", e.target.checked)
                 }
                 className="accent-primary"
               />
@@ -317,10 +317,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             variant="secondary"
             className="mt-2"
             onClick={() =>
-              setPrerequisites((list) => [
-                ...list,
-                { item: "", required: true },
-              ])
+              setPrerequisites((list) => [...list, newPrerequisite()])
             }
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -343,30 +340,30 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
                 *
               </span>
             </span>
-            <select
+            <Select
+              className="w-full"
               value={contractType}
               onChange={(e) => setContractType(e.target.value as ContractType)}
-              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             >
               {CONTRACT_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {CONTRACT_LABELS[type]}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <Input
             label="Salário mínimo (R$)"
             inputMode="numeric"
             value={salaryMin}
-            onChange={(e) => setSalaryMin(e.target.value)}
+            onChange={(e) => setSalaryMin(digitsOnly(e.target.value))}
             hint="Opcional"
           />
           <Input
             label="Salário máximo (R$)"
             inputMode="numeric"
             value={salaryMax}
-            onChange={(e) => setSalaryMax(e.target.value)}
+            onChange={(e) => setSalaryMax(digitsOnly(e.target.value))}
             hint="Opcional; deve ser ≥ mínimo"
           />
         </div>
@@ -383,55 +380,69 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         <legend className="flex items-center gap-2 font-serif text-sm font-bold text-primary pb-3">
           <Target className="h-4 w-4" aria-hidden="true" />
           Matching (opcional) —{" "}
-          <span className="font-sans text-xs font-normal text-slate-500">
+          <span className="font-sans text-xs font-normal text-a11y-slate-500">
             usados no cálculo do % de compatibilidade dos candidatos
           </span>
         </legend>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="grid gap-4 sm:grid-cols-3">
           {/* [UX-P3] H6-1 — sugestões nativas via datalist (sem libs). */}
-          <input
-            type="text"
-            value={languageName}
-            onChange={(e) => setLanguageName(e.target.value)}
-            placeholder="Idioma exigido (ex.: Inglês)"
-            aria-label="Idioma exigido"
-            list="job-language-options"
-            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-          />
-          <datalist id="job-language-options">
-            {KNOWN_LANGUAGES.map((language) => (
-              <option key={language} value={language} />
-            ))}
-          </datalist>
-          <select
-            value={languageLevel}
-            onChange={(e) => setLanguageLevel(e.target.value as LanguageLevel)}
-            aria-label="Nível mínimo do idioma"
-            className="appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-          >
-            {LANGUAGE_LEVELS.map((level) => (
-              <option key={level} value={level}>
-                {LEVEL_LABELS[level]}
-              </option>
-            ))}
-          </select>
-          <select
-            value={jobAvailability}
-            onChange={(e) =>
-              setJobAvailability(
-                e.target.value as (typeof AVAILABILITY)[number] | "",
-              )
-            }
-            aria-label="Disponibilidade desejada"
-            className="appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-          >
-            <option value="">Disponibilidade: qualquer</option>
-            {AVAILABILITY.map((value) => (
-              <option key={value} value={value}>
-                {AVAILABILITY_LABELS[value]}
-              </option>
-            ))}
-          </select>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-slate-700">
+              Idioma exigido
+            </span>
+            <input
+              type="text"
+              value={languageName}
+              onChange={(e) => setLanguageName(e.target.value)}
+              placeholder="Ex.: Inglês"
+              list="job-language-options"
+              className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-900 transition-colors placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+            />
+            <datalist id="job-language-options">
+              {KNOWN_LANGUAGES.map((language) => (
+                <option key={language} value={language} />
+              ))}
+            </datalist>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-slate-700">
+              Nível mínimo do idioma
+            </span>
+            <Select
+              className="w-full"
+              value={languageLevel}
+              onChange={(e) =>
+                setLanguageLevel(e.target.value as LanguageLevel)
+              }
+            >
+              {LANGUAGE_LEVELS.map((level) => (
+                <option key={level} value={level}>
+                  {LEVEL_LABELS[level]}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-slate-700">
+              Disponibilidade desejada
+            </span>
+            <Select
+              className="w-full"
+              value={jobAvailability}
+              onChange={(e) =>
+                setJobAvailability(
+                  e.target.value as (typeof AVAILABILITY)[number] | "",
+                )
+              }
+            >
+              <option value="">Qualquer</option>
+              {AVAILABILITY.map((value) => (
+                <option key={value} value={value}>
+                  {AVAILABILITY_LABELS[value]}
+                </option>
+              ))}
+            </Select>
+          </label>
         </div>
       </fieldset>
 

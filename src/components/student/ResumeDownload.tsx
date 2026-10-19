@@ -96,9 +96,16 @@ export function ResumeDownload() {
   return (
     <div className="flex flex-col gap-5">
       {/* Bloco de instrução amigável e destacado */}
-      <div className="rounded-xl border border-primary/30 bg-primary/10 p-6 text-sm text-slate-300">
-        O seu currículo já está formatado no <strong>padrão oficial da UNICAP</strong>. 
-        Ao clicar no botão de download, escolha a opção <strong className="text-white">"Salvar como PDF"</strong> na janela de impressão do seu navegador.
+      <div className="rounded-xl border border-primary/30 bg-primary/5 p-6 text-sm text-slate-800 dark:bg-primary/10 dark:text-slate-300">
+        O seu currículo já está formatado no{" "}
+        <strong className="font-semibold text-primary dark:text-white">
+          padrão oficial da UNICAP
+        </strong>
+        . Ao clicar no botão de download, escolha a opção{" "}
+        <strong className="font-bold text-primary dark:text-white">
+          "Salvar como PDF"
+        </strong>{" "}
+        na janela de impressão do seu navegador.
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

@@ -46,6 +46,8 @@ type ComboboxProps = {
   required?: boolean;
   /** Mensagem do estado vazio (default: "Nenhum resultado"). */
   emptyText?: string;
+  /** Abre a lista ao focar/clicar (default). Com `false`, só abre ao digitar. */
+  openOnFocus?: boolean;
 };
 
 /**
@@ -66,6 +68,7 @@ export function Combobox({
   disabled = false,
   required = false,
   emptyText = "Nenhum resultado",
+  openOnFocus = true,
 }: ComboboxProps) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -76,7 +79,7 @@ export function Combobox({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
 
-  // O pai pode limpor o valor por fora (reset, chip já adicionado…) —
+  // O pai pode limpar o valor por fora (reset, chip já adicionado…) —
   // só nesse caso o texto do input é reescrito; digitação nunca é
   // sobrescrita.
   useEffect(() => {
@@ -177,8 +180,11 @@ export function Combobox({
     }
   }
 
+  // Com `openOnFocus={false}`, a lista só aparece enquanto há texto digitado.
+  const listVisible = open && !disabled && (openOnFocus || fold.length > 0);
+
   const activeId =
-    open && trimmedActive >= 0
+    listVisible && trimmedActive >= 0
       ? `${listId}-option-${trimmedActive}`
       : undefined;
 
@@ -189,7 +195,7 @@ export function Combobox({
         role="combobox"
         id={id}
         aria-label={ariaLabel}
-        aria-expanded={open}
+        aria-expanded={listVisible}
         aria-controls={listId}
         aria-activedescendant={activeId}
         aria-autocomplete="list"
@@ -201,7 +207,7 @@ export function Combobox({
         placeholder={placeholder}
         value={query}
         onChange={(event) => handleChange(event.target.value)}
-        onFocus={() => !disabled && setOpen(true)}
+        onFocus={() => !disabled && openOnFocus && setOpen(true)}
         onKeyDown={handleKeyDown}
         onBlur={(event) => {
           if (!rootRef.current?.contains(event.relatedTarget)) {
@@ -210,7 +216,7 @@ export function Combobox({
         }}
         className={COMBOBOX_INPUT_CLASS}
       />
-      {open && !disabled ? (
+      {listVisible ? (
         <ul
           id={listId}
           role="listbox"

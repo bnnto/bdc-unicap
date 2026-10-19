@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
@@ -8,6 +8,8 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
+import { Modal } from "../ui/modal";
+import { Select } from "../ui/select";
 import {
   APPLICATION_STAGES,
   STAGE_LABELS,
@@ -104,15 +106,20 @@ export function JobKanban({
   onBack,
 }: {
   /** [RECRUITER_UX_UPGRADE] Master-Detail: abre direto no board da vaga. */
-  initialJobId?: string | null;
+  initialJobId?: Id<"jobs"> | null;
   /** [RECRUITER_UX_UPGRADE] Master-Detail: volta à lista "Minhas vagas". */
   onBack?: () => void;
 } = {}) {
   // [RECRUITER_WORKFLOW] Vagas do recrutador logado (getMyJobs).
   const jobs = useQuery(api.jobs.getMyJobs, {});
-  const [selectedJobId, setSelectedJobId] = useState<string | null>(
+  const [selectedJobId, setSelectedJobId] = useState<Id<"jobs"> | null>(
     initialJobId,
   );
+  // Se o pai trocar `initialJobId` sem remontar o componente (Master-Detail),
+  // o board acompanha a nova vaga em vez de ficar preso na anterior.
+  useEffect(() => {
+    setSelectedJobId(initialJobId);
+  }, [initialJobId]);
   /**
    * [UX-P2] H9-1 — erro por card: a mensagem aparece junto ao card que
    * originou a ação (não no topo do board), mesmo com muitas candidaturas.
@@ -120,6 +127,12 @@ export function JobKanban({
   const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<ApplicationStage | null>(null);
+  /**
+   * Trava de ações em voo: o ref bloqueia cliques repetidos antes do
+   * re-render; o state desabilita os botões na UI.
+   */
+  const savingRef = useRef(false);
+  const [saving, setSaving] = useState(false);
   /**
    * [RECRUITER_WORKFLOW] Etapa 4.3 — Modal de Reprovação: o card em
    * processo de reprovação e o motivo escolhido (obrigatório para
@@ -145,43 +158,94 @@ export function JobKanban({
   });
   const [startDraft, setStartDraft] = useState("");
 
-  const boardJobId = selectedJobId as Id<"jobs"> | null;
-  const board =
-    useQuery(
-      api.applications.jobBoard,
-      boardJobId !== null ? { jobId: boardJobId } : "skip",
-    ) ?? undefined;
+  const boardResult = useQuery(
+    api.applications.jobBoard,
+    selectedJobId !== null ? { jobId: selectedJobId } : "skip",
+  );
+  // `undefined` = carregando; `null` = vaga inexistente/sem acesso.
+  const board = boardResult ?? undefined;
+  const boardNotFound = selectedJobId !== null && boardResult === null;
   const moveApplication = useMutation(api.applications.moveApplication);
   const rejectApplication = useMutation(api.applications.rejectApplication);
   // [FINAL_UPGRADE Etapa 3] — contador (mock) de Visualizações do Perfil:
   // disparado quando o recrutador clica no contato/LinkedIn do aluno.
   const trackProfileView = useMutation(api.applications.trackProfileView);
 
-  async function handleMove(applicationId: string, to: ApplicationStage) {
+  function setCardError(applicationId: string, message: string) {
+    setCardErrors((prev) => ({ ...prev, [applicationId]: message }));
+  }
+
+  function clearCardError(applicationId: string) {
     setCardErrors((prev) => {
+      if (!(applicationId in prev)) return prev;
       const rest = { ...prev };
       delete rest[applicationId];
       return rest;
     });
+  }
+
+  /**
+   * Executa uma mutation com trava anti duplo clique e Toast amigável em
+   * caso de falha (H9-1). Retorna `true` se concluiu com sucesso.
+   */
+  async function runMutation(action: () => Promise<unknown>): Promise<boolean> {
+    if (savingRef.current) return false;
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      await action();
+      return true;
+    } catch (err) {
+      toast.error(friendlyErrorMessage(err));
+      return false;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }
+
+  function openReject(applicationId: string) {
+    clearCardError(applicationId);
+    setRejectingId(applicationId);
+    setReasonDraft("");
+  }
+
+  /** Fecha o modal de reprovação limpando rascunho e erro. */
+  function closeReject() {
+    if (rejectingId !== null) clearCardError(rejectingId);
+    setRejectingId(null);
+    setReasonDraft("");
+  }
+
+  /** Fecha o modal de progressão sem deixar rascunhos nem erros pendentes. */
+  function closePendingMove() {
+    if (pendingMove !== null) clearCardError(pendingMove.applicationId);
+    setPendingMove(null);
+    setInterviewDraft({ date: "", time: "", link: "" });
+    setStartDraft("");
+  }
+
+  async function handleMove(applicationId: string, to: ApplicationStage) {
+    if (savingRef.current) return;
+    clearCardError(applicationId);
+    const current = board?.items.find(
+      (item) => item.applicationId === applicationId,
+    );
+    // Soltar o card na própria coluna (ou usar uma seta que leva ao mesmo
+    // estágio) não é uma movimentação: evita mutation/modais desnecessários,
+    // inclusive abrir o modal de reprovação para quem já está reprovado.
+    if (current !== undefined && current.stage === to) return;
     if (to === "reprovado") {
       // [UX-P1] H3-2/H5-1 — a reprovação exige motivo padronizado (R5):
       // arrastar até a coluna Reprovado (ou usar a seta →) abre o painel
       // de motivo em vez de mover direto, mantendo a trilha auditável.
-      setRejectingId(applicationId);
-      setReasonDraft("");
+      openReject(applicationId);
       return;
     }
     // [UX_UPGRADE] Etapa 3 — interceptação ANTES da mutation: os modais
     // de Entrevista e Contratação coletam os dados auditáveis e só aí a
     // mutation dispara; cancelar = rollback visual (nada foi gravado).
-    const current = board?.items.find(
-      (item) => item.applicationId === applicationId,
-    );
-    if (
-      current !== undefined &&
-      current.stage !== to &&
-      (to === "entrevista" || to === "aprovado")
-    ) {
+    if (current !== undefined && (to === "entrevista" || to === "aprovado")) {
       if (to === "entrevista") {
         setInterviewDraft({
           date: toDateInputValue(current.interviewDate),
@@ -194,90 +258,63 @@ export function JobKanban({
       setPendingMove({ applicationId, to });
       return;
     }
-    try {
-      await moveApplication({
+    await runMutation(() =>
+      moveApplication({
         applicationId: applicationId as Id<"applications">,
         to,
-      });
-    } catch (err) {
-      // [UX_REFINEMENT] H9-1 — Toast amigável, sem bloco de erro no card.
-      toast.error(friendlyErrorMessage(err));
-    }
+      }),
+    );
   }
 
   /** [UX_UPGRADE] Salva a entrevista e SÓ ENTÃO dispara a mutation. */
   async function handleInterviewSave(applicationId: string) {
+    if (savingRef.current) return;
     if (interviewDraft.date === "" || interviewDraft.time === "") return;
     const link = interviewDraft.link.trim();
     if (link === "") {
-      setCardErrors((prev) => ({
-        ...prev,
-        [applicationId]:
-          "Link ou local da entrevista é obrigatório (até 500 caracteres).",
-      }));
+      setCardError(
+        applicationId,
+        "Link ou local da entrevista é obrigatório (até 500 caracteres).",
+      );
       return;
     }
     const interviewDate = new Date(
       `${interviewDraft.date}T${interviewDraft.time}`,
     ).getTime();
     if (!Number.isFinite(interviewDate)) {
-      setCardErrors((prev) => ({
-        ...prev,
-        [applicationId]: "Data e hora da entrevista inválidas.",
-      }));
+      setCardError(applicationId, "Data e hora da entrevista inválidas.");
       return;
     }
-    setCardErrors((prev) => {
-      const rest = { ...prev };
-      delete rest[applicationId];
-      return rest;
-    });
-    try {
-      await moveApplication({
+    clearCardError(applicationId);
+    const ok = await runMutation(() =>
+      moveApplication({
         applicationId: applicationId as Id<"applications">,
         to: "entrevista",
         interviewDate,
         interviewLink: link,
-      });
-      closePendingMove();
-    } catch (err) {
-      toast.error(friendlyErrorMessage(err));
-    }
+      }),
+    );
+    if (ok) closePendingMove();
   }
 
   /** [UX_UPGRADE] Salva a contratação e SÓ ENTÃO dispara a mutation. */
   async function handleHireSave(applicationId: string) {
+    if (savingRef.current) return;
     if (startDraft === "") return;
     const expectedStartDate = new Date(`${startDraft}T00:00:00`).getTime();
     if (!Number.isFinite(expectedStartDate)) {
-      setCardErrors((prev) => ({
-        ...prev,
-        [applicationId]: "Data de início prevista inválida.",
-      }));
+      setCardError(applicationId, "Data de início prevista inválida.");
       return;
     }
-    setCardErrors((prev) => {
-      const rest = { ...prev };
-      delete rest[applicationId];
-      return rest;
-    });
-    try {
-      await moveApplication({
+    clearCardError(applicationId);
+    const ok = await runMutation(() =>
+      moveApplication({
         applicationId: applicationId as Id<"applications">,
         to: "aprovado",
         expectedStartDate,
-      });
-      closePendingMove();
-    } catch (err) {
-      toast.error(friendlyErrorMessage(err));
-    }
-  }
-
-  /** Fecha o modal de progressão sem deixar rascunhos pendentes. */
-  function closePendingMove() {
-    setPendingMove(null);
-    setInterviewDraft({ date: "", time: "", link: "" });
-    setStartDraft("");
+      }),
+    );
+    if (ok) closePendingMove();
   }
 
   // [S4-2] R5 — reprovação só acontece COM motivo do enum fixo; sem
@@ -286,34 +323,39 @@ export function JobKanban({
     applicationId: string,
     reason: RejectionReason | "",
   ) {
-    setCardErrors((prev) => {
-      const rest = { ...prev };
-      delete rest[applicationId];
-      return rest;
-    });
+    if (savingRef.current) return;
+    clearCardError(applicationId);
     if (reason === "") {
-      setCardErrors((prev) => ({
-        ...prev,
-        [applicationId]:
-          "Selecione o motivo da reprovação — ele é obrigatório para a auditoria do processo.",
-      }));
+      setCardError(
+        applicationId,
+        "Selecione o motivo da reprovação — ele é obrigatório para a auditoria do processo.",
+      );
       return;
     }
-    try {
-      await rejectApplication({
+    const ok = await runMutation(() =>
+      rejectApplication({
         applicationId: applicationId as Id<"applications">,
         reason,
-      });
-      setRejectingId(null);
-      setReasonDraft("");
-    } catch (err) {
-      toast.error(friendlyErrorMessage(err));
+      }),
+    );
+    if (ok) closeReject();
+  }
+
+  function handleBack() {
+    if (onBack !== undefined) {
+      onBack();
+    } else {
+      setSelectedJobId(null);
     }
   }
 
   if (jobs === undefined && selectedJobId === null) {
     return (
-      <p className="text-sm text-slate-500" role="status" aria-live="polite">
+      <p
+        className="text-sm text-a11y-slate-500"
+        role="status"
+        aria-live="polite"
+      >
         Carregando vagas…
       </p>
     );
@@ -342,7 +384,7 @@ export function JobKanban({
             <li key={job._id}>
               <Button
                 variant="secondary"
-                onClick={() => setSelectedJobId(String(job._id))}
+                onClick={() => setSelectedJobId(job._id)}
               >
                 <Briefcase className="h-4 w-4" aria-hidden="true" />
                 {job.title}
@@ -350,6 +392,19 @@ export function JobKanban({
             </li>
           ))}
         </ul>
+      </Card>
+    );
+  }
+
+  if (boardNotFound) {
+    return (
+      <Card title="Pipeline de candidaturas" accent="primary">
+        <EmptyState
+          icon={Briefcase}
+          title="Vaga não encontrada"
+          description="Esta vaga não existe mais ou você não tem acesso a ela."
+          action={{ label: "Voltar", onClick: handleBack }}
+        />
       </Card>
     );
   }
@@ -370,9 +425,7 @@ export function JobKanban({
       : null;
   const grouped = groupApplicationsByStage(applications);
   const selectedJobTitle =
-    board?.job.title ??
-    jobs?.find((j) => String(j._id) === selectedJobId)?.title ??
-    "";
+    board?.job.title ?? jobs?.find((j) => j._id === selectedJobId)?.title ?? "";
 
   return (
     <Card title={`Pipeline — ${selectedJobTitle}`} accent="primary">
@@ -394,7 +447,7 @@ export function JobKanban({
             {selectedJobTitle}
           </span>
         </div>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-a11y-slate-500">
           Arraste os cards ou use as setas do teclado; clique no nome ou em Ver
           Perfil para abrir o currículo completo do candidato; para reprovar,
           escolha o motivo, ele fica registrado para auditoria.
@@ -402,11 +455,15 @@ export function JobKanban({
       </div>
 
       {board === undefined ? (
-        <p className="text-sm text-slate-500" role="status" aria-live="polite">
+        <p
+          className="text-sm text-a11y-slate-500"
+          role="status"
+          aria-live="polite"
+        >
           Carregando pipeline…
         </p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-5 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {APPLICATION_STAGES.map((stage) => (
             <section
               key={stage}
@@ -420,7 +477,13 @@ export function JobKanban({
                 e.preventDefault();
                 setDropTarget(stage);
               }}
-              onDragLeave={() => setDropTarget(null)}
+              onDragLeave={(e) => {
+                // dragleave também dispara ao entrar em elementos filhos;
+                // só limpa o destaque ao sair de fato da coluna.
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  setDropTarget(null);
+                }
+              }}
               onDrop={(e) => {
                 e.preventDefault();
                 setDropTarget(null);
@@ -469,12 +532,23 @@ export function JobKanban({
                     currentIndex < APPLICATION_STAGES.length - 1
                       ? (APPLICATION_STAGES[currentIndex + 1] ?? null)
                       : null;
+                  // Dica de teclado explícita (destino de cada seta).
+                  const keyboardHint = [
+                    prevStage !== null
+                      ? `Seta para a esquerda move para ${STAGE_LABELS[prevStage]}.`
+                      : null,
+                    nextStage !== null
+                      ? `Seta para a direita move para ${STAGE_LABELS[nextStage]}.`
+                      : null,
+                  ]
+                    .filter((hint): hint is string => hint !== null)
+                    .join(" ");
                   return (
                     <article
                       key={application.applicationId}
                       draggable
                       tabIndex={0}
-                      aria-label={`${application.fullName}, ${STAGE_LABELS[application.stage]}. Use as setas do teclado para mover.`}
+                      aria-label={`${application.fullName}, ${STAGE_LABELS[application.stage]}. ${keyboardHint}`}
                       onDragStart={(e) => {
                         e.dataTransfer.setData(
                           "text/plain",
@@ -484,6 +558,15 @@ export function JobKanban({
                       }}
                       onDragEnd={() => setDraggingId(null)}
                       onKeyDown={(e) => {
+                        // Campos de formulário dentro do card mantêm o
+                        // comportamento nativo das setas.
+                        if (
+                          (e.target as HTMLElement).closest(
+                            "input, textarea, select, [contenteditable='true']",
+                          ) !== null
+                        ) {
+                          return;
+                        }
                         if (e.key === "ArrowLeft" && prevStage !== null) {
                           e.preventDefault();
                           void handleMove(application.applicationId, prevStage);
@@ -526,7 +609,7 @@ export function JobKanban({
                           {application.matchScore}%
                         </Badge>
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-a11y-slate-500">
                         {application.course} ·{" "}
                         {MATCH_BAND_LABELS[matchBand(application.matchScore)]}
                       </p>
@@ -538,7 +621,7 @@ export function JobKanban({
                         {application.contactReleased ? (
                           <span className="text-success">Contato liberado</span>
                         ) : (
-                          <span className="text-slate-500">
+                          <span className="text-a11y-slate-500">
                             Contato não liberado
                           </span>
                         )}
@@ -592,6 +675,7 @@ export function JobKanban({
                         {prevStage !== null ? (
                           <Button
                             variant="secondary"
+                            disabled={saving}
                             aria-label={`Mover ${application.fullName} para ${STAGE_LABELS[prevStage]}`}
                             onClick={() =>
                               void handleMove(
@@ -606,6 +690,7 @@ export function JobKanban({
                         {nextStage !== null ? (
                           <Button
                             variant="secondary"
+                            disabled={saving}
                             aria-label={`Mover ${application.fullName} para ${STAGE_LABELS[nextStage]}`}
                             onClick={() =>
                               void handleMove(
@@ -623,15 +708,9 @@ export function JobKanban({
                         {stage !== "reprovado" ? (
                           <Button
                             variant="secondary"
+                            disabled={saving}
                             aria-label={`Reprovar ${application.fullName} com motivo padronizado`}
-                            onClick={() => {
-                              setRejectingId((current) =>
-                                current === application.applicationId
-                                  ? null
-                                  : application.applicationId,
-                              );
-                              setReasonDraft("");
-                            }}
+                            onClick={() => openReject(application.applicationId)}
                           >
                             <UserX className="h-4 w-4" aria-hidden="true" />
                             Reprovar
@@ -661,271 +740,236 @@ export function JobKanban({
       )}
 
       {rejectingApplication !== null ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="reject-modal-title"
-          aria-describedby="reject-modal-description"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 p-4"
-          onClick={(e) => {
-            // Clique no backdrop fecha (não é o conteúdo do diálogo).
-            if (e.target === e.currentTarget) {
-              setRejectingId(null);
-              setReasonDraft("");
-            }
-          }}
+        <Modal
+          titleId="reject-modal-title"
+          descriptionId="reject-modal-description"
+          onClose={closeReject}
         >
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
-            <h3
-              id="reject-modal-title"
-              className="font-serif text-lg font-bold text-primary flex items-center gap-2"
+          <h3
+            id="reject-modal-title"
+            className="flex items-center gap-2 font-serif text-lg font-bold text-primary"
+          >
+            <UserX className="h-4 w-4" aria-hidden="true" />
+            Reprovar candidatura
+          </h3>
+          <p
+            id="reject-modal-description"
+            className="mt-1 text-sm text-slate-600"
+          >
+            {rejectingApplication.fullName} — {rejectingApplication.course}.
+            Escolha o motivo padronizado: ele fica registrado para auditoria do
+            processo e aparece para o candidato.
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            <label
+              htmlFor="reject-reason-select"
+              className="text-sm font-semibold text-slate-700"
+            >
+              Motivo da reprovação (obrigatório)
+            </label>
+            <Select
+              id="reject-reason-select"
+              className="w-full"
+              value={reasonDraft}
+              onChange={(e) =>
+                setReasonDraft(e.target.value as RejectionReason | "")
+              }
+            >
+              <option value="">Selecione…</option>
+              {REJECTION_REASONS.map((reason) => (
+                <option key={reason} value={reason}>
+                  {REJECTION_REASON_LABELS[reason]}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {cardErrors[rejectingApplication.applicationId] !== undefined ? (
+            <p
+              role="alert"
+              className="mt-2 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
+            >
+              {cardErrors[rejectingApplication.applicationId]}
+            </p>
+          ) : null}
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <Button variant="secondary" onClick={closeReject}>
+              <X className="h-4 w-4" aria-hidden="true" />
+              Cancelar
+            </Button>
+            <Button
+              variant="danger"
+              aria-label="Confirmar reprovação com o motivo selecionado"
+              disabled={reasonDraft === "" || saving}
+              onClick={() =>
+                void handleReject(
+                  rejectingApplication.applicationId,
+                  reasonDraft,
+                )
+              }
             >
               <UserX className="h-4 w-4" aria-hidden="true" />
-              Reprovar candidatura
-            </h3>
-            <p
-              id="reject-modal-description"
-              className="mt-1 text-sm text-slate-600"
-            >
-              {rejectingApplication.fullName} — {rejectingApplication.course}.
-              Escolha o motivo padronizado: ele fica registrado para auditoria
-              do processo e aparece para o candidato.
-            </p>
-            <div className="mt-3 flex flex-col gap-2">
-              <label
-                htmlFor="reject-reason-select"
-                className="text-sm font-semibold text-slate-700"
-              >
-                Motivo da reprovação (obrigatório)
-              </label>
-              <select
-                id="reject-reason-select"
-                value={reasonDraft}
-                onChange={(e) =>
-                  setReasonDraft(e.target.value as RejectionReason | "")
-                }
-                className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-              >
-                <option value="">Selecione…</option>
-                {REJECTION_REASONS.map((reason) => (
-                  <option key={reason} value={reason}>
-                    {REJECTION_REASON_LABELS[reason]}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {cardErrors[rejectingApplication.applicationId] !== undefined ? (
-              <p
-                role="alert"
-                className="mt-2 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-              >
-                {cardErrors[rejectingApplication.applicationId]}
-              </p>
-            ) : null}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setRejectingId(null);
-                  setReasonDraft("");
-                }}
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-                Cancelar
-              </Button>
-              <Button
-                variant="danger"
-                aria-label="Confirmar reprovação com o motivo selecionado"
-                disabled={reasonDraft === ""}
-                onClick={() =>
-                  void handleReject(
-                    rejectingApplication.applicationId,
-                    reasonDraft,
-                  )
-                }
-              >
-                <UserX className="h-4 w-4" aria-hidden="true" />
-                Confirmar reprovação
-              </Button>
-            </div>
+              Confirmar reprovação
+            </Button>
           </div>
-        </div>
+        </Modal>
       ) : null}
 
       {/* [UX_UPGRADE] Etapa 3 — Modal de Entrevista: Data, Hora e
           Link/Local são exigidos ANTES de disparar a mutation; cancelar
-          (ou clicar no backdrop) mantém o card na coluna de origem. */}
+          (Esc ou clique no backdrop) mantém o card na coluna de origem. */}
       {pendingApplication !== null && pendingMove?.to === "entrevista" ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="interview-modal-title"
-          aria-describedby="interview-modal-description"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 p-4"
-          onClick={(e) => {
-            // Clique no backdrop fecha (não é o conteúdo do diálogo).
-            if (e.target === e.currentTarget) {
-              closePendingMove();
-            }
-          }}
+        <Modal
+          titleId="interview-modal-title"
+          descriptionId="interview-modal-description"
+          onClose={closePendingMove}
         >
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
-            <h3
-              id="interview-modal-title"
-              className="font-serif text-lg font-bold text-primary flex items-center gap-2"
-            >
-              <CalendarPlus className="h-4 w-4" aria-hidden="true" />
-              Agendar entrevista
-            </h3>
-            <p
-              id="interview-modal-description"
-              className="mt-1 text-sm text-slate-600"
-            >
-              {pendingApplication.fullName} — {pendingApplication.course}. Data,
-              hora e link/local ficam registrados para auditoria do processo
-              seletivo; a mudança só acontece após salvar.
-            </p>
-            <div className="mt-3 flex flex-col gap-3">
-              <Input
-                label="Data da entrevista"
-                type="date"
-                required
-                value={interviewDraft.date}
-                onChange={(e) =>
-                  setInterviewDraft((draft) => ({
-                    ...draft,
-                    date: e.target.value,
-                  }))
-                }
-              />
-              <Input
-                label="Hora da entrevista"
-                type="time"
-                required
-                value={interviewDraft.time}
-                onChange={(e) =>
-                  setInterviewDraft((draft) => ({
-                    ...draft,
-                    time: e.target.value,
-                  }))
-                }
-              />
-              <Input
-                label="Link ou local da entrevista"
-                type="text"
-                required
-                maxLength={500}
-                placeholder="https://meet.example.com/… ou Auditório do Bloco 2"
-                value={interviewDraft.link}
-                onChange={(e) =>
-                  setInterviewDraft((draft) => ({
-                    ...draft,
-                    link: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            {cardErrors[pendingApplication.applicationId] !== undefined ? (
-              <p
-                role="alert"
-                className="mt-3 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-              >
-                {cardErrors[pendingApplication.applicationId]}
-              </p>
-            ) : null}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <Button variant="secondary" onClick={closePendingMove}>
-                <X className="h-4 w-4" aria-hidden="true" />
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                aria-label="Salvar entrevista e mover o card"
-                disabled={
-                  interviewDraft.date === "" ||
-                  interviewDraft.time === "" ||
-                  interviewDraft.link.trim() === ""
-                }
-                onClick={() =>
-                  void handleInterviewSave(pendingApplication.applicationId)
-                }
-              >
-                <CalendarCheck className="h-4 w-4" aria-hidden="true" />
-                Salvar entrevista
-              </Button>
-            </div>
+          <h3
+            id="interview-modal-title"
+            className="flex items-center gap-2 font-serif text-lg font-bold text-primary"
+          >
+            <CalendarPlus className="h-4 w-4" aria-hidden="true" />
+            Agendar entrevista
+          </h3>
+          <p
+            id="interview-modal-description"
+            className="mt-1 text-sm text-slate-600"
+          >
+            {pendingApplication.fullName} — {pendingApplication.course}. Data,
+            hora e link/local ficam registrados para auditoria do processo
+            seletivo; a mudança só acontece após salvar.
+          </p>
+          <div className="mt-3 flex flex-col gap-3">
+            <Input
+              label="Data da entrevista"
+              type="date"
+              required
+              value={interviewDraft.date}
+              onChange={(e) =>
+                setInterviewDraft((draft) => ({
+                  ...draft,
+                  date: e.target.value,
+                }))
+              }
+            />
+            <Input
+              label="Hora da entrevista"
+              type="time"
+              required
+              value={interviewDraft.time}
+              onChange={(e) =>
+                setInterviewDraft((draft) => ({
+                  ...draft,
+                  time: e.target.value,
+                }))
+              }
+            />
+            <Input
+              label="Link ou local da entrevista"
+              type="text"
+              required
+              maxLength={500}
+              placeholder="https://meet.example.com/… ou Auditório do Bloco 2"
+              value={interviewDraft.link}
+              onChange={(e) =>
+                setInterviewDraft((draft) => ({
+                  ...draft,
+                  link: e.target.value,
+                }))
+              }
+            />
           </div>
-        </div>
+          {cardErrors[pendingApplication.applicationId] !== undefined ? (
+            <p
+              role="alert"
+              className="mt-3 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
+            >
+              {cardErrors[pendingApplication.applicationId]}
+            </p>
+          ) : null}
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <Button variant="secondary" onClick={closePendingMove}>
+              <X className="h-4 w-4" aria-hidden="true" />
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              aria-label="Salvar entrevista e mover o card"
+              disabled={
+                saving ||
+                interviewDraft.date === "" ||
+                interviewDraft.time === "" ||
+                interviewDraft.link.trim() === ""
+              }
+              onClick={() =>
+                void handleInterviewSave(pendingApplication.applicationId)
+              }
+            >
+              <CalendarCheck className="h-4 w-4" aria-hidden="true" />
+              Salvar entrevista
+            </Button>
+          </div>
+        </Modal>
       ) : null}
 
       {/* [UX_UPGRADE] Etapa 3 — Modal de Contratação: a Data de Início
           Prevista é exigida ANTES de disparar a mutation; cancelar
           mantém o card em "Entrevista". */}
       {pendingApplication !== null && pendingMove?.to === "aprovado" ? (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="hire-modal-title"
-          aria-describedby="hire-modal-description"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              closePendingMove();
-            }
-          }}
+        <Modal
+          titleId="hire-modal-title"
+          descriptionId="hire-modal-description"
+          onClose={closePendingMove}
         >
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
-            <h3
-              id="hire-modal-title"
-              className="font-serif text-lg font-bold text-primary flex items-center gap-2"
+          <h3
+            id="hire-modal-title"
+            className="flex items-center gap-2 font-serif text-lg font-bold text-primary"
+          >
+            <UserCheck className="h-4 w-4" aria-hidden="true" />
+            Confirmar contratação
+          </h3>
+          <p
+            id="hire-modal-description"
+            className="mt-1 text-sm text-slate-600"
+          >
+            {pendingApplication.fullName} — {pendingApplication.course}. A data
+            de início prevista fica registrada para auditoria do processo; o
+            card só é aprovado após salvar.
+          </p>
+          <div className="mt-3">
+            <Input
+              label="Data de início prevista"
+              type="date"
+              required
+              value={startDraft}
+              onChange={(e) => setStartDraft(e.target.value)}
+            />
+          </div>
+          {cardErrors[pendingApplication.applicationId] !== undefined ? (
+            <p
+              role="alert"
+              className="mt-3 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
+            >
+              {cardErrors[pendingApplication.applicationId]}
+            </p>
+          ) : null}
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <Button variant="secondary" onClick={closePendingMove}>
+              <X className="h-4 w-4" aria-hidden="true" />
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              aria-label="Confirmar contratação com a data de início"
+              disabled={saving || startDraft === ""}
+              onClick={() =>
+                void handleHireSave(pendingApplication.applicationId)
+              }
             >
               <UserCheck className="h-4 w-4" aria-hidden="true" />
               Confirmar contratação
-            </h3>
-            <p
-              id="hire-modal-description"
-              className="mt-1 text-sm text-slate-600"
-            >
-              {pendingApplication.fullName} — {pendingApplication.course}. A
-              data de início prevista fica registrada para auditoria do
-              processo; o card só é aprovado após salvar.
-            </p>
-            <div className="mt-3">
-              <Input
-                label="Data de início prevista"
-                type="date"
-                required
-                value={startDraft}
-                onChange={(e) => setStartDraft(e.target.value)}
-              />
-            </div>
-            {cardErrors[pendingApplication.applicationId] !== undefined ? (
-              <p
-                role="alert"
-                className="mt-3 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-              >
-                {cardErrors[pendingApplication.applicationId]}
-              </p>
-            ) : null}
-            <div className="mt-4 flex items-center justify-end gap-2">
-              <Button variant="secondary" onClick={closePendingMove}>
-                <X className="h-4 w-4" aria-hidden="true" />
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                aria-label="Confirmar contratação com a data de início"
-                disabled={startDraft === ""}
-                onClick={() =>
-                  void handleHireSave(pendingApplication.applicationId)
-                }
-              >
-                <UserCheck className="h-4 w-4" aria-hidden="true" />
-                Confirmar contratação
-              </Button>
-            </div>
+            </Button>
           </div>
-        </div>
+        </Modal>
       ) : null}
     </Card>
   );

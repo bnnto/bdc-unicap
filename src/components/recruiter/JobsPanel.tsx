@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
@@ -24,7 +24,7 @@ import {
 import { EmptyState } from "../ui/emptyState";
 
 /** [UI_OVERHAUL] Ícone por mudança de status no botão dinâmico. */
-const STATUS_BUTTON_ICON: Record<Doc<"jobs">["status"], React.ReactNode> = {
+const STATUS_BUTTON_ICON: Record<Doc<"jobs">["status"], ReactNode> = {
   aberta: <DoorOpen className="h-4 w-4" aria-hidden="true" />,
   fechada: <Lock className="h-4 w-4" aria-hidden="true" />,
   encerrada: <Ban className="h-4 w-4" aria-hidden="true" />,
@@ -56,6 +56,37 @@ const NEXT_STATUS: Record<
   fechada: [{ value: "aberta", label: "Reabrir" }],
   encerrada: [],
 };
+
+function formatDay(timestamp: number | undefined): string {
+  if (timestamp === undefined) return "—";
+  return new Date(timestamp).toLocaleDateString("pt-BR");
+}
+
+/** Aviso de expiração/renovação (R4) exibido ao lado da data de expiração. */
+function ExpiryNote({ job }: { job: Doc<"jobs"> }) {
+  if (job.expiresAt === undefined || job.status !== "aberta") return null;
+  const renewal = renewalWindow(
+    { status: job.status, expiresAt: job.expiresAt },
+    Date.now(),
+  );
+  if (renewal.expired) {
+    return (
+      <span className="font-semibold text-danger">
+        {" "}
+        · vencida — será encerrada pelo cron diário
+      </span>
+    );
+  }
+  if (renewal.expiring) {
+    return (
+      <span className="font-semibold text-warning">
+        {" "}
+        · {renewal.daysLeft} dia(s) restante(s) — renove para reativar 30 dias
+      </span>
+    );
+  }
+  return <>{` · ${renewal.daysLeft} dia(s) restante(s)`}</>;
+}
 
 /**
  * Painel do recrutador (issues [S3-1]/[S3-2]): CRUD de vagas persistidas
@@ -117,11 +148,6 @@ export function JobsPanel({
     }
   }
 
-  function formatDay(timestamp: number | undefined): string {
-    if (timestamp === undefined) return "—";
-    return new Date(timestamp).toLocaleDateString("pt-BR");
-  }
-
   if (mode.kind === "new") {
     return (
       <Card title="Publicar nova vaga" accent="primary">
@@ -148,7 +174,11 @@ export function JobsPanel({
       </div>
 
       {jobs === undefined ? (
-        <p className="text-sm text-slate-500" role="status" aria-live="polite">
+        <p
+          className="text-sm text-a11y-slate-500"
+          role="status"
+          aria-live="polite"
+        >
           Carregando vagas…
         </p>
       ) : jobs.length === 0 ? (
@@ -174,7 +204,7 @@ export function JobsPanel({
                   <h3 className="font-serif text-base font-bold text-primary">
                     {job.title}
                   </h3>
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="mt-0.5 text-xs text-a11y-slate-500">
                     {CONTRACT_LABELS[job.contractType]} ·{" "}
                     {formatSalaryRange(
                       job.salaryMin ?? null,
@@ -190,35 +220,10 @@ export function JobsPanel({
               <p className="mt-2 line-clamp-2 text-sm text-slate-600">
                 {job.description}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-a11y-slate-500">
                 Publicada em {formatDay(job.publishedAt)} · expira em{" "}
                 {formatDay(job.expiresAt)}
-                {job.expiresAt !== undefined && job.status === "aberta"
-                  ? (() => {
-                      const window = renewalWindow(
-                        { status: job.status, expiresAt: job.expiresAt },
-                        Date.now(),
-                      );
-                      if (window.expired) {
-                        return (
-                          <span className="font-semibold text-danger">
-                            {" "}
-                            · vencida — será encerrada pelo cron diário
-                          </span>
-                        );
-                      }
-                      if (window.expiring) {
-                        return (
-                          <span className="font-semibold text-warning">
-                            {" "}
-                            · {window.daysLeft} dia(s) restante(s) — renove para
-                            reativar 30 dias
-                          </span>
-                        );
-                      }
-                      return ` · ${window.daysLeft} dia(s) restante(s)`;
-                    })()
-                  : null}
+                <ExpiryNote job={job} />
               </p>
               <ul
                 className="mt-2 flex flex-wrap gap-2"
@@ -318,6 +323,7 @@ export function JobsPanel({
                     <Button
                       variant="primary"
                       aria-label="Confirmar mudança de status"
+                      disabled={actionPending === String(job._id)}
                       onClick={() => {
                         const target = pendingStatus;
                         setPendingStatus(null);

@@ -174,28 +174,36 @@ export function ResumeBlockContent({
 
       {blockIndex === 5 && (
         <div className="space-y-3">
-          {data.experiences.map((exp, index) => (
-            <div
-              key={index}
-              className="rounded border border-slate-200 bg-slate-50 px-3 py-3 text-sm"
-            >
-              <p className="font-semibold text-slate-800">
-                {exp.company} — {exp.role}
-              </p>
-              <p className="text-xs text-slate-500">{exp.period}</p>
-              {exp.description ? (
-                <p className="mt-2 text-xs text-slate-600">{exp.description}</p>
+          {data.experiences.length === 0 && !data.projectsText ? (
+            <p className="text-sm text-slate-500">
+              Nenhum projeto de extensão ou experiência registada.
+            </p>
+          ) : (
+            <>
+              {data.experiences.map((exp, index) => (
+                <div
+                  key={index}
+                  className="rounded border border-slate-200 bg-slate-50 px-3 py-3 text-sm"
+                >
+                  <p className="font-semibold text-slate-800">
+                    {exp.company} — {exp.role}
+                  </p>
+                  <p className="text-xs text-slate-500">{exp.period}</p>
+                  {exp.description ? (
+                    <p className="mt-2 text-xs text-slate-600">{exp.description}</p>
+                  ) : null}
+                </div>
+              ))}
+              {data.projectsText ? (
+                <div className="rounded border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Projetos de Extensão
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">{data.projectsText}</p>
+                </div>
               ) : null}
-            </div>
-          ))}
-          {data.projectsText ? (
-            <div className="rounded border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Projetos de Extensão
-              </p>
-              <p className="mt-1 text-xs text-slate-600">{data.projectsText}</p>
-            </div>
-          ) : null}
+            </>
+          )}
         </div>
       )}
 
