@@ -276,7 +276,7 @@ function ConsentCheckbox({ checked, onChange, errorId, enabled }: ConsentCheckbo
           aria-required={enabled}
           tabIndex={enabled ? 0 : -1}
         />
-        <span className="font-medium text-slate-800">
+        <span id={errorId} className="font-medium text-slate-800">
           Li e aceito os termos de LGPD ({CONSENT_TERM_VERSION})
         </span>
       </label>

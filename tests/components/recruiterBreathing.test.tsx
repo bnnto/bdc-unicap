@@ -12,6 +12,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { Id } from "../../convex/_generated/dataModel";
 
 vi.mock("convex/react", () => ({
   useQuery: vi.fn(),
@@ -78,7 +79,7 @@ beforeEach(() => {
 
 async function renderBoard(initialJobId?: string) {
   if (initialJobId !== undefined) {
-    render(<JobKanban initialJobId={initialJobId} />);
+    render(<JobKanban initialJobId={initialJobId as Id<"jobs">} />);
     return;
   }
   render(<JobKanban />);
@@ -135,7 +136,7 @@ describe("JobKanban — fluxo Master-Detail (initialJobId + onBack)", () => {
 
   it("com onBack exibe 'Voltar para Minhas Vagas' e devolve o clique", async () => {
     const onBack = vi.fn();
-    render(<JobKanban initialJobId="job-1" onBack={onBack} />);
+    render(<JobKanban initialJobId={"job-1" as Id<"jobs">} onBack={onBack} />);
 
     await userEvent.click(
       screen.getByRole("button", { name: /voltar para minhas vagas/i }),

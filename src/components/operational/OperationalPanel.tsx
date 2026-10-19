@@ -40,8 +40,6 @@ import { useStableQuery } from "../../lib/useStableQuery";
  * do MESMO estado filtrado exibido — sem nova ida ao servidor.
  */
 
-const DAY = 24 * 60 * 60 * 1000;
-
 /** Início do dia no fuso LOCAL do usuário (e não em UTC). */
 function startOfLocalDay(now: number): number {
   const date = new Date(now);
