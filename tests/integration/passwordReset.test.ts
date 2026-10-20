@@ -123,12 +123,14 @@ describe("passwordResets.requestReset — geração do token", () => {
     expect(output).toContain(`${APP_URL}/recuperar-senha?token=${row.token}`);
   });
 
-  it("segundo pedido invalida o token anterior (só um ativo)", async () => {
+    it("segundo pedido (após o cooldown) invalida o token anterior", async () => {
     const t = convexTest({ schema, modules });
     await signUp(t);
 
     await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
     const first = (await firstReset(t)).token;
+
+    vi.advanceTimersByTime(3 * 60 * 1000); // passa do cooldown de 2 min
     await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
 
     const rows = await resets(t);
@@ -141,6 +143,21 @@ describe("passwordResets.requestReset — geração do token", () => {
         password: NEW_PASSWORD,
       }),
     ).rejects.toThrow(/inválido ou expirado/i);
+  });
+
+  it("pedido repetido em menos de 2 min mantém o link anterior e não reenvia", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const t = convexTest({ schema, modules });
+    await signUp(t);
+
+    await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
+    const first = (await firstReset(t)).token;
+    await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
+
+    // O link original continua valendo e só um e-mail foi enviado.
+    expect((await firstReset(t)).token).toBe(first);
+    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(1));
+    expect(log).toHaveBeenCalledTimes(1);
   });
 
   it("e-mail inexistente: mesma resposta e NENHUM e-mail (sem enumeração)", async () => {
@@ -173,6 +190,21 @@ describe("passwordResets.resetPassword — segurança da troca (TDD)", () => {
     await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
     return (await firstReset(t)).token;
   }
+
+  it("senha fraca (sem maiúscula) não troca e NÃO consome o token", async () => {
+    const t = convexTest({ schema, modules });
+    await signUp(t);
+    const token = await requestToken(t);
+
+    await expect(
+      t.mutation(api.passwordResets.resetPassword, {
+        token,
+        password: "senhafraca123",
+      }),
+    ).rejects.toThrow(/senha fraca/i);
+
+    expect(await resets(t)).toHaveLength(1);
+  });
 
   it("grava a senha HASHADA (PBKDF2) e derruba a senha antiga", async () => {
     const t = convexTest({ schema, modules });

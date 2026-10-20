@@ -7,6 +7,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { isRecruiterApproved } from "./lib/currentUser";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -43,9 +44,9 @@ export const sendInvite = mutation({
     ) {
       throw new ConvexError("Apenas recrutadores ativos podem enviar convites.");
     }
-    if (!recruiter.email) {
+    if (!isRecruiterApproved(recruiter)) {
       throw new ConvexError(
-        "Seu cadastro não tem e-mail, então o aluno não teria como responder.",
+        "Seu cadastro de recrutador ainda não foi aprovado pela coordenação.",
       );
     }
 
@@ -89,6 +90,7 @@ export const sendInvite = mutation({
           .eq("studentId", args.studentId)
           .gt("_creationTime", Date.now() - SAME_STUDENT_COOLDOWN),
       )
+      .filter((q) => q.neq(q.field("status"), "failed"))
       .first();
     if (repeated !== null) {
       throw new ConvexError(

@@ -7,6 +7,7 @@ import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Select } from "../ui/select";
+import { Combobox } from "../ui/Combobox";
 import {
   Banknote,
   FileText,
@@ -42,6 +43,8 @@ const LEVEL_LABELS: Record<LanguageLevel, string> = {
   fluente: "Fluente",
   nativo: "Nativo",
 };
+
+const LANGUAGE_GROUPS = [{ label: "Idiomas", items: KNOWN_LANGUAGES }];
 
 const AVAILABILITY_LABELS: Record<(typeof AVAILABILITY)[number], string> = {
   estagio: "Estágio",
@@ -386,24 +389,22 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         </legend>
         <div className="grid gap-4 sm:grid-cols-3">
           {/* [UX-P3] H6-1 — sugestões nativas via datalist (sem libs). */}
-          <label className="flex flex-col gap-1">
-            <span className="text-sm font-semibold text-slate-700">
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor="job-language"
+              className="text-sm font-semibold text-slate-700"
+            >
               Idioma exigido
-            </span>
-            <input
-              type="text"
+            </label>
+            <Combobox
+              id="job-language"
+              ariaLabel="Idioma exigido"
+              groups={LANGUAGE_GROUPS}
               value={languageName}
-              onChange={(e) => setLanguageName(e.target.value)}
+              onSelect={setLanguageName}
               placeholder="Ex.: Inglês"
-              list="job-language-options"
-              className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-900 transition-colors placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             />
-            <datalist id="job-language-options">
-              {KNOWN_LANGUAGES.map((language) => (
-                <option key={language} value={language} />
-              ))}
-            </datalist>
-          </label>
+          </div>
           <label className="flex flex-col gap-1">
             <span className="text-sm font-semibold text-slate-700">
               Nível mínimo do idioma

@@ -4,11 +4,13 @@ import { toast } from "sonner";
 import { friendlyErrorMessage } from "../../lib/toastMessages";
 import { navigateTo } from "../../lib/router";
 import { PASSWORD_RESET_PATH } from "../../lib/passwordReset";
+import { passwordRules, PASSWORD_MAX_LENGTH } from "../../lib/auth";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Eye, EyeOff, KeyRound, LogIn } from "lucide-react";
 import { RoleSelect } from "./RoleSelect";
 import { type PublicSignupRole } from "../../lib/roles";
+import { validateRecruiterLinkedin } from "../../lib/recruiterSignup";
 import {
   CONSENT_TERM,
   CONSENT_TERM_VERSION,
@@ -33,14 +35,32 @@ export function AuthPage() {
   const [role, setRole] = useState<PublicSignupRole>("aluno");
   const [pending, setPending] = useState(false);
   const [consentAccepted, setConsentAccepted] = useState(false);
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+  const isRecruiterSignUp = mode === "signUp" && role === "recrutador";
+  const linkedinCheck = validateRecruiterLinkedin(linkedinUrl);
+  const linkedinOk = !isRecruiterSignUp || linkedinCheck.ok;
   /** [UX_QUICK_WIN] — olhinho alterna password/texto no campo senha. */
   const [showPassword, setShowPassword] = useState(false);
   const consentErrorId = useId();
+
+  // Requisitos de senha (mesma regra do servidor, em src/lib/auth.ts).
+  const rules = passwordRules(password, { email, name });
+  const passwordOk = rules.every((rule) => rule.ok);
+  // A lista só aparece no cadastro e depois que a pessoa começa a digitar.
+  const showPasswordRules = mode === "signUp" && password.length > 0;
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
   ): Promise<void> {
     event.preventDefault();
+    if (mode === "signUp" && !passwordOk) {
+      toast.error("A senha não atende a todos os requisitos.");
+      return;
+    }
+    if (isRecruiterSignUp && !linkedinCheck.ok) {
+      toast.error(linkedinCheck.error);
+      return;
+    }
     setPending(true);
     if (signIn === undefined) {
       toast.error("Autenticação indisponível nesta tela.");
@@ -58,6 +78,9 @@ export function AuthPage() {
           role,
           flow: "signUp",
           consentTermVersion: CONSENT_TERM_VERSION,
+          ...(isRecruiterSignUp && linkedinCheck.ok
+            ? { linkedinUrl: linkedinCheck.normalized }
+            : {}),
         });
       } else {
         await signIn("credentials-email", { email, password, flow: "signIn" });
@@ -65,7 +88,9 @@ export function AuthPage() {
       // Sucesso: o ConvexAuthProvider reage e a UI troca para o painel.
       toast.success(
         mode === "signUp"
-          ? "Conta criada com sucesso. Bem-vindo(a)!"
+          ? isRecruiterSignUp
+            ? "Conta criada! Seu cadastro será analisado pela coordenação."
+            : "Conta criada com sucesso. Bem-vindo(a)!"
           : "Bem-vindo(a) de volta!",
       );
     } catch (err) {
@@ -148,6 +173,18 @@ export function AuthPage() {
                   onChange={setRole}
                   required={mode === "signUp"}
                 />
+                {role === "recrutador" ? (
+                  <Input
+                    label="LinkedIn"
+                    type="url"
+                    required={isRecruiterSignUp}
+                    value={linkedinUrl}
+                    onChange={(e) => setLinkedinUrl(e.target.value)}
+                    placeholder="https://www.linkedin.com/in/seu-perfil"
+                    autoComplete="url"
+                    tabIndex={isRecruiterSignUp ? 0 : -1}
+                  />
+                ) : null}
               </div>
             </Collapse>
 
@@ -165,6 +202,7 @@ export function AuthPage() {
                 type={showPassword ? "text" : "password"}
                 required
                 minLength={8}
+                maxLength={PASSWORD_MAX_LENGTH}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete={mode === "signUp" ? "new-password" : "current-password"}
@@ -185,6 +223,30 @@ export function AuthPage() {
                   </button>
                 }
               />
+              {showPasswordRules ? (
+                <ul
+                  aria-label="Requisitos da senha"
+                  aria-live="polite"
+                  className="-mt-2 flex flex-col gap-1 text-xs"
+                >
+                  {rules.map((rule) => (
+                    <li
+                      key={rule.id}
+                      className={
+                        rule.ok
+                          ? "font-medium text-success"
+                          : "text-a11y-slate-500"
+                      }
+                    >
+                      <span aria-hidden="true">{rule.ok ? "✓" : "○"}</span>{" "}
+                      {rule.label}
+                      <span className="sr-only">
+                        {rule.ok ? " (atendido)" : " (pendente)"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
 
             <Collapse open={mode === "signUp"}>
@@ -201,7 +263,11 @@ export function AuthPage() {
             <Button
               type="submit"
               variant="primary"
-              disabled={pending || (mode === "signUp" && !consentAccepted)}
+              disabled={
+                pending ||
+                (mode === "signUp" &&
+                  (!consentAccepted || !passwordOk || !linkedinOk))
+              }
               aria-describedby={
                 mode === "signUp" && !consentAccepted ? consentErrorId : undefined
               }

@@ -1,14 +1,24 @@
-import { query, internalQuery, internalMutation } from "./_generated/server";
+import { internalQuery, internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { validateRecruiterLinkedin } from "../src/lib/recruiterSignup";
 
 /**
  * Funções de suporte à autenticação e papéis (issue [S1-1]).
  * O hash da senha fica apenas em authAccounts (nunca retornado).
  */
 
-/** Retorna o id do usuário com o e-mail normalizado, ou null. */
-export const lookupByEmail = query({
+/** Anti força bruta no login: 5 erros em 15 min bloqueiam o e-mail por 15 min. */
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000;
+const LOCK_MS = 15 * 60 * 1000;
+
+/**
+ * Retorna o id do usuário com o e-mail normalizado, ou null.
+ * INTERNA: se fosse pública, qualquer pessoa descobriria quais e-mails
+ * têm conta chamando a função direto do navegador.
+ */
+export const lookupByEmail = internalQuery({
   args: { email: v.string() },
   handler: async (ctx, { email }) => {
     const user = await ctx.db
@@ -43,12 +53,74 @@ export const findAccount = internalQuery({
   },
 });
 
+/**
+ * Registra uma tentativa de login ANTES de verificar a senha (atômico:
+ * tentativas paralelas não furam o limite) e informa se pode prosseguir.
+ * Conta também e-mails inexistentes, para o bloqueio não revelar contas.
+ */
+export const beginLoginAttempt = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const now = Date.now();
+    const rec = await ctx.db
+      .query("loginAttempts")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+
+    if (rec === null) {
+      await ctx.db.insert("loginAttempts", {
+        email,
+        attempts: 1,
+        windowStart: now,
+      });
+      return { allowed: true as const };
+    }
+
+    if (rec.lockedUntil !== undefined && rec.lockedUntil > now) {
+      return { allowed: false as const, retryAfterMs: rec.lockedUntil - now };
+    }
+
+    // Bloqueio vencido ou janela expirada: recomeça a contagem.
+    const expired =
+      rec.lockedUntil !== undefined || now - rec.windowStart > WINDOW_MS;
+    const attempts = expired ? 1 : rec.attempts + 1;
+    const windowStart = expired ? now : rec.windowStart;
+
+    if (attempts > MAX_ATTEMPTS) {
+      await ctx.db.patch(rec._id, {
+        attempts,
+        windowStart,
+        lockedUntil: now + LOCK_MS,
+      });
+      return { allowed: false as const, retryAfterMs: LOCK_MS };
+    }
+
+    await ctx.db.patch(rec._id, {
+      attempts,
+      windowStart,
+      lockedUntil: undefined,
+    });
+    return { allowed: true as const };
+  },
+});
+
+/** Zera o contador (login correto ou senha redefinida). */
+export const clearLoginAttempts = internalMutation({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const rec = await ctx.db
+      .query("loginAttempts")
+      .withIndex("by_email", (q) => q.eq("email", email))
+      .unique();
+    if (rec !== null) await ctx.db.delete(rec._id);
+  },
+});
+
 /** Cria usuário (com papel) + conta de credenciais atomicamente no signUp. */
 export const createUser = internalMutation({
   args: {
     email: v.string(),
     name: v.string(),
-    /** [REFACTOR_UI] Cadastro com os papéis vigentes do sistema. */
     role: v.union(
       v.literal("aluno"),
       v.literal("recrutador"),
@@ -56,13 +128,32 @@ export const createUser = internalMutation({
     ),
     secret: v.string(),
     consentTermVersion: v.string(),
+    publicSignup: v.optional(v.boolean()),
+    linkedinUrl: v.optional(v.string()),
   },
-  handler: async (ctx, { email, name, role, secret, consentTermVersion }) => {
+  handler: async (
+    ctx,
+    { email, name, role, secret, consentTermVersion, publicSignup, linkedinUrl },
+  ) => {
+    const moderate = publicSignup === true && role === "recrutador";
+    let normalizedLinkedin: string | undefined;
+    if (moderate) {
+      const check = validateRecruiterLinkedin(linkedinUrl);
+      if (!check.ok) throw new Error(check.error);
+      normalizedLinkedin = check.normalized;
+    }
+
     const userId = await ctx.db.insert("users", {
       email,
       name,
       role,
       active: true,
+      ...(moderate
+        ? {
+            approvalStatus: "pendente" as const,
+            linkedinUrl: normalizedLinkedin,
+          }
+        : {}),
     });
     await ctx.db.insert("authAccounts", {
       userId,
@@ -70,8 +161,6 @@ export const createUser = internalMutation({
       providerAccountId: email,
       secret,
     });
-    // R7 — aceite do termo LGPD gravado atomicamente com o cadastro
-    // (issue [S1-2]); o criador do usuário concordou com esta versão.
     await ctx.db.insert("consents", {
       userId,
       termVersion: consentTermVersion,

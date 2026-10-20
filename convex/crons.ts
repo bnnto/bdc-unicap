@@ -16,4 +16,10 @@ crons.daily(
   internal.jobs.closeExpiredJobs,
 );
 
+crons.daily(
+  "purge stale recruiters",
+  { hourUTC: 6, minuteUTC: 0 },
+  internal.moderation.purgeStaleRecruiters,
+);
+
 export default crons;

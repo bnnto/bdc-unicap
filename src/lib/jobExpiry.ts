@@ -13,7 +13,12 @@ const JOB_EXPIRY_MS = JOB_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 /** Dias restantes que acionam o aviso de renovação na UI. */
 export const JOB_EXPIRY_WARNING_DAYS = 5;
 
-export type JobLifecycleStatus = "aberta" | "fechada" | "encerrada";
+export type JobLifecycleStatus =
+  | "aberta"
+  | "fechada"
+  | "encerrada"
+  | "em_revisao"
+  | "suspensa";
 
 export type ExpirableJob = {
   status: JobLifecycleStatus;
@@ -42,6 +47,7 @@ export function isJobExpired(
 export type RenewalResult =
   | { ok: true; expired: false; expiresAt: number; reopen?: boolean }
   | { ok: false; reason: "status_invalido" }
+  | { ok: false; reason: "moderacao" }
   | { ok: false; reason: "expirada"; nextStatus: "encerrada" };
 
 /**
@@ -51,6 +57,9 @@ export type RenewalResult =
  * Vaga fechada pode ser renovada e volta a ficar aberta.
  */
 export function renewJob(job: ExpirableJob, now: number): RenewalResult {
+  if (job.status === "em_revisao" || job.status === "suspensa") {
+    return { ok: false, reason: "moderacao" };
+  }
   if (job.status === "encerrada") {
     return { ok: false, reason: "status_invalido" };
   }

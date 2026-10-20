@@ -1,7 +1,6 @@
 import { query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { CURRENT_TERM_VERSION } from "./consentTerms";
 import {
   buildSkillsRadar,
   countRejectionReasons,
@@ -13,7 +12,8 @@ import {
   skillSupplyCounts,
   SKILLS_RADAR_LIMIT,
 } from "../src/lib/managerDashboard";
-import { getCurrentUser } from "./lib/currentUser";
+import { isRecruiterApproved, requireConsentedUser } from "./lib/currentUser";
+import { onlyLiveJobs } from "../src/lib/jobModeration";
 
 /**
  * [GESTOR_BACKEND] Agregações dos Insights Estratégicos do Painel do
@@ -38,20 +38,9 @@ import { getCurrentUser } from "./lib/currentUser";
  * empregabilidade por curso e recorte por empresa nas parceiras.
  */
 
-/** Guard comum das queries do gestor: R7 + papel gestor. */
+/** Guard comum das queries do gestor: conta ativa + R7 + papel gestor. */
 async function requireGestor(ctx: QueryCtx): Promise<Doc<"users">> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (identity === null) throw new Error("Não autenticado.");
-  const user = await getCurrentUser(ctx);
-  if (user === null) throw new Error("Usuário não encontrado.");
-  const consents = await ctx.db
-    .query("consents")
-    .withIndex("by_user", (q) => q.eq("userId", user._id))
-    .collect();
-  const active = consents.some((c) => c.termVersion === CURRENT_TERM_VERSION);
-  if (!active) {
-    throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
-  }
+  const user = await requireConsentedUser(ctx);
   if (user.role !== "gestor") {
     throw new Error("Insights estratégicos disponíveis apenas para gestores.");
   }
@@ -130,7 +119,9 @@ export const getSkillsRadar = query({
     const limit = rawArgs.limit ?? SKILLS_RADAR_LIMIT;
 
     // DEMANDA — todas as vagas do portal (pré-requisitos exigidos ou não).
-    const demand = skillDemandCounts(await ctx.db.query("jobs").collect());
+    const demand = skillDemandCounts(
+      onlyLiveJobs(await ctx.db.query("jobs").collect()),
+    );
 
     // OFERTA — alunos com vínculo (R1), filtráveis por curso.
     const supply = skillSupplyCounts(
@@ -220,7 +211,7 @@ export const getPartnerCompanies = query({
 
     // Recrutadores (empresas) — a conta basta para aparecer na tabela.
     const recruiters = (await ctx.db.query("users").collect()).filter(
-      (user) => user.role === "recrutador",
+      (user) => user.role === "recrutador" && isRecruiterApproved(user),
     );
     const filtered = company
       ? recruiters.filter(
@@ -230,7 +221,7 @@ export const getPartnerCompanies = query({
 
     // Vagas do portal + contratados por vaga (índice by_job).
     const jobRows = [];
-    for (const job of await ctx.db.query("jobs").collect()) {
+    for (const job of onlyLiveJobs(await ctx.db.query("jobs").collect())) {
       const hiredDocs = await ctx.db
         .query("applications")
         .withIndex("by_job_stage", (q) =>

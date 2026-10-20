@@ -41,7 +41,7 @@ type ApplicationRow = {
   applicationId: Id<"applications">;
   jobId: string;
   jobTitle: string;
-  jobStatus: "aberta" | "fechada" | "encerrada";
+  jobStatus: "aberta" | "fechada" | "encerrada" | "em_revisao" | "suspensa";
   stage: ApplicationStage;
   matchScore: number;
   appliedAt: number;

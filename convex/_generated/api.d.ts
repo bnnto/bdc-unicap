@@ -22,10 +22,13 @@ import type * as invitations from "../invitations.js";
 import type * as jobs from "../jobs.js";
 import type * as lgpd from "../lgpd.js";
 import type * as lib_currentUser from "../lib/currentUser.js";
+import type * as lib_moderationLog from "../lib/moderationLog.js";
 import type * as manager from "../manager.js";
+import type * as moderation from "../moderation.js";
 import type * as operational from "../operational.js";
 import type * as password from "../password.js";
 import type * as passwordResets from "../passwordResets.js";
+import type * as reports from "../reports.js";
 import type * as students from "../students.js";
 import type * as users from "../users.js";
 
@@ -50,10 +53,13 @@ declare const fullApi: ApiFromModules<{
   jobs: typeof jobs;
   lgpd: typeof lgpd;
   "lib/currentUser": typeof lib_currentUser;
+  "lib/moderationLog": typeof lib_moderationLog;
   manager: typeof manager;
+  moderation: typeof moderation;
   operational: typeof operational;
   password: typeof password;
   passwordResets: typeof passwordResets;
+  reports: typeof reports;
   students: typeof students;
   users: typeof users;
 }>;

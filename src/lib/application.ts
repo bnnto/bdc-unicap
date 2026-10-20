@@ -6,6 +6,7 @@
 import type { LanguageLevel } from "./skills";
 import type { Availability } from "./studentProfile";
 import { hasSkillFor } from "./matching";
+import type { JobLifecycleStatus } from "./jobExpiry";
 
 /**
  * Pipeline do Kanban (S4-1): as 5 colunas do issue, na ordem de fluxo.
@@ -80,7 +81,7 @@ export function groupApplicationsByStage<T extends { stage: ApplicationStage }>(
 
 /** Job mínimo necessário para decidir se a vaga aceita candidatura. */
 export type ApplicableJob = {
-  status: "aberta" | "fechada" | "encerrada";
+  status: JobLifecycleStatus;
   /** R4 — vencida não aceita candidatura (undefined = vaga legada aberta). */
   expiresAt?: number;
 };

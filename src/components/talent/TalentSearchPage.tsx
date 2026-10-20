@@ -1031,6 +1031,7 @@ export function TalentSearchPage() {
               value=""
               onSelect={addSkill}
               openOnFocus={false}
+              autoConfirmExact={false}
               placeholder="Digite para buscar (ex.: Next, React)…"
             />
             <p className="text-xs text-a11y-slate-500">

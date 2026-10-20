@@ -10,13 +10,18 @@ import {
 } from "./lib/router";
 import { useAuthState } from "./components/auth/authContext";
 import { StudentShell } from "./components/student/StudentShell";
-import { Kanban, LayoutDashboard, Users } from "lucide-react";
+import { Kanban, LayoutDashboard, ShieldAlert, UserCheck, Users } from "lucide-react";
+import { ManagerRecruitersPage } from "./components/manager/ManagerRecruitersPage";
+import { ManagerModerationPage } from "./components/manager/ManagerModerationPage";
+import { PendingRecruitersBadge } from "./components/manager/PendingRecruitersBadge";
 import { TalentSearchPage } from "./components/talent/TalentSearchPage";
 import { RecruiterJobsPage } from "./components/recruiter/RecruiterJobsPage";
 import { CandidateProfilePage } from "./components/recruiter/CandidateProfilePage";
 import { OperationalPanel } from "./components/operational/OperationalPanel";
 import { ManagerDashboard } from "./components/manager/ManagerDashboard";
 import { ROLE_LABELS } from "./lib/roles";
+import { RecruiterApprovalGate } from "./components/recruiter/RecruiterApprovalGate";
+import { PendingJobsBadge } from "./components/manager/PendingJobsBadge";
 
 /**
  * Shell da aplicação (issue [S1-1]): usuários autenticados veem o painel
@@ -72,21 +77,26 @@ function MainLandmark({ children }: { children: React.ReactNode }) {
 }
 
 /** Abas do portal (REFACTOR_UI Etapa 2). */
-type TabKey = "dashboard" | "talentos" | "vagas";
+type TabKey = "dashboard" | "talentos" | "vagas" | "recrutadores" | "moderacao";
 
-const TABS: Array<{
+type TabDef = {
   key: TabKey;
   label: string;
   /** [FINAL_UI_POLISH] Ícone lucide ao lado do texto (gap-2). */
   icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>;
-}> = [
-  {
-    key: "dashboard",
-    label: "Dashboard de Métricas",
-    icon: LayoutDashboard,
-  },
+};
+
+const RECRUITER_TABS: TabDef[] = [
+  { key: "dashboard", label: "Dashboard de Métricas", icon: LayoutDashboard },
   { key: "talentos", label: "Banco de Talentos", icon: Users },
   { key: "vagas", label: "Vagas & Pipeline", icon: Kanban },
+];
+
+/** [MODERACAO_RECRUTADOR] O gestor modera; não vê banco de talentos nem pipeline. */
+const MANAGER_TABS: TabDef[] = [
+  { key: "dashboard", label: "Dashboard de Métricas", icon: LayoutDashboard },
+  { key: "recrutadores", label: "Recrutadores", icon: UserCheck },
+  { key: "moderacao", label: "Moderação", icon: ShieldAlert },
 ];
 
 /**
@@ -99,11 +109,13 @@ const TABS: Array<{
  * "Sair".
  */
 function RecruiterNavbar({
+  tabs,
   active,
   onChange,
   userName,
   userImage,
 }: {
+  tabs: TabDef[];
   active: TabKey;
   onChange: (tab: TabKey) => void;
   userName: string;
@@ -134,7 +146,7 @@ function RecruiterNavbar({
         {/* Centro: abas de navegação (padrão ARIA tabs). */}
         <nav aria-label="Seções do portal" className="order-3 lg:order-2">
           <ul className="flex flex-wrap items-center gap-1" role="tablist">
-            {TABS.map((tab) => (
+            {tabs.map((tab) => (
               <li key={tab.key} role="presentation">
                 <button
                   type="button"
@@ -151,6 +163,8 @@ function RecruiterNavbar({
                 >
                   <tab.icon className="h-4 w-4" aria-hidden={true} />
                   {tab.label}
+                  {tab.key === "recrutadores" ? <PendingRecruitersBadge /> : null}
+                  {tab.key === "moderacao" ? <PendingJobsBadge /> : null}
                 </button>
               </li>
             ))}
@@ -273,6 +287,20 @@ function AuthGate() {
     );
   }
 
+  // [MODERACAO_RECRUTADOR] Recrutador pendente/recusado não entra no
+  // portal. Conta sem `approvalStatus` (legada) segue como aprovada.
+  if (
+    role === "recrutador" &&
+    (user.approvalStatus === "pendente" || user.approvalStatus === "recusado")
+  ) {
+    return (
+      <>
+        <SkipLink />
+        <RecruiterApprovalGate user={user} />
+      </>
+    );
+  }
+
   const isRecruiterSide = role === "recrutador" || role === "gestor";
 
   // [RECRUITER_VIEW_PROFILE] Rota dedicada `/recrutador/candidato/:id` —
@@ -294,6 +322,7 @@ function AuthGate() {
     <div className="min-h-screen bg-canvas">
       <SkipLink />
       <RecruiterNavbar
+        tabs={role === "gestor" ? MANAGER_TABS : RECRUITER_TABS}
         active={activeTab}
         onChange={setActiveTab}
         userName={user.name ?? user.email ?? "usuário"}
@@ -308,25 +337,18 @@ function AuthGate() {
           tabIndex={-1}
           className="mx-auto w-full max-w-[1440px] px-8 py-8"
         >
-          {isRecruiterSide && activeTab === "dashboard" ? (
-            /* [REFACTOR_GESTOR] Etapa 4 — o gestor recebe o Painel
-               Estratégico; o recrutador mantém o Painel Operacional. */
-            role === "gestor" ? (
-              <ManagerDashboard />
-            ) : (
-              <OperationalPanel />
-            )
-          ) : isRecruiterSide && activeTab === "talentos" ? (
+          {activeTab === "dashboard" ? (
+            role === "gestor" ? <ManagerDashboard /> : <OperationalPanel />
+          ) : role === "gestor" && activeTab === "recrutadores" ? (
+            <ManagerRecruitersPage />
+          ) : role === "gestor" && activeTab === "moderacao" ? (
+            <ManagerModerationPage />
+          ) : role === "recrutador" && activeTab === "talentos" ? (
             <TalentSearchPage />
-          ) : isRecruiterSide && activeTab === "vagas" ? (
-            /* [RECRUITER_UX_UPGRADE] Master-Detail: a aba mostra a lista de
-               vagas; o Kanban abre a tela inteira ao clicar em "Ver
-               Candidatos" (com botão de voltar). */
+          ) : role === "recrutador" && activeTab === "vagas" ? (
             <RecruiterJobsPage />
           ) : (
             <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
-              {/* [S8-2] h2 em vez de h1: o h1 da página é o título do portal
-                  no header (sem dois h1 na mesma página). */}
               <h2 className="font-serif text-2xl font-bold text-primary">
                 Bem-vindo(a), {user.name}
               </h2>

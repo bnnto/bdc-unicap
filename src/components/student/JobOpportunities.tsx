@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
@@ -21,9 +22,18 @@ import {
   type JobSortOrder,
   type OpenJobFilters,
 } from "../../lib/jobSearch";
+import {
+  REPORT_DETAILS_MAX,
+  REPORT_OTHER_MIN,
+  REPORT_REASONS,
+  REPORT_REASON_LABELS,
+  REPORT_SUSPEND_THRESHOLD,
+  type ReportReason,
+} from "../../lib/jobReport";
 import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
-import { Banknote, FilterX, MapPin, Search, Send } from "lucide-react";
+import { Banknote, FilterX, MapPin, Search, Send, Flag, X } from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
+import { Modal } from "../ui/modal";
 
 /** Vaga do mural — `matchScore` chega calculado no servidor (R8). */
 type OpenJob = Doc<"jobs"> & { matchScore?: number | null };
@@ -70,6 +80,46 @@ export function JobOpportunities() {
   const [order, setOrder] = useState<JobSortOrder>("compatibilidade");
   const [notice, setNotice] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const reportedIds = useQuery(api.reports.myReportedJobIds, {});
+  const reportJob = useMutation(api.reports.reportJob);
+  const [reportTarget, setReportTarget] = useState<{
+    id: Doc<"jobs">["_id"];
+    title: string;
+  } | null>(null);
+  const [reportReason, setReportReason] = useState<ReportReason | null>(null);
+  const [reportDetails, setReportDetails] = useState("");
+  const [reporting, setReporting] = useState(false);
+  const reportTitleId = useId();
+  const reportedSet = new Set(reportedIds ?? []);
+
+  function closeReport() {
+    setReportTarget(null);
+    setReportReason(null);
+    setReportDetails("");
+  }
+
+  async function submitReport() {
+    if (reportTarget === null || reportReason === null) return;
+    setReporting(true);
+    try {
+      const result = await reportJob({
+        jobId: reportTarget.id,
+        reason: reportReason,
+        details: reportDetails,
+      });
+      setNotice(
+        result.suspended
+          ? "Denúncia registrada. A vaga saiu do ar para análise da coordenação."
+          : "Denúncia registrada. Obrigado por ajudar a manter o portal seguro.",
+      );
+      closeReport();
+    } catch (err) {
+      toast.error(friendlyErrorMessage(err));
+    } finally {
+      setReporting(false);
+    }
+  }
 
   // Pré-candidaturas: ids das vagas já aplicadas (idempotência na UI).
   const appliedJobIds = new Set(
@@ -212,7 +262,7 @@ export function JobOpportunities() {
               {locationOptions.map((location) => (
                 <option key={location} value={location}>
                   {location}
-                </option>
+                </option> 
               ))}
             </select>
           </div>
@@ -401,40 +451,55 @@ export function JobOpportunities() {
                       Etapa inicial: {STAGE_LABELS.inscrito}
                     </span>
                   )}
-                  <Button
-                    variant="primary"
-                    disabled={applied || !hasProfile || blocked}
-                    title={
-                      blocked
-                        ? "Complete os requisitos obrigatórios no seu perfil para se candidatar."
-                        : undefined
-                    }
-                    onClick={() => {
-                      setNotice(null);
-                      void (async () => {
-                        try {
-                          const result = await apply({ jobId: job._id });
-                          const resultScore =
-                            typeof result.matchScore === "number"
-                              ? ` — match de ${result.matchScore}%`
-                              : "";
-                          setNotice(
-                            `Candidatura registrada para “${job.title}”${resultScore}. Acompanhe o andamento na aba Minhas Candidaturas.`,
-                          );
-                        } catch (err) {
-                          setErrors((prev) => ({
-                            ...prev,
-                            [String(job._id)]: friendlyErrorMessage(err),
-                          }));
-                        }
-                      })();
-                    }}
-                  >
-                    {!applied ? (
-                      <Send className="h-4 w-4" aria-hidden="true" />
-                    ) : null}
-                    {applied ? "Você já se candidatou" : "Candidatar-se"}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      disabled={reportedSet.has(String(job._id))}
+                      aria-label={`Denunciar a vaga ${job.title}`}
+                      onClick={() =>
+                        setReportTarget({ id: job._id, title: job.title })
+                      }
+                    >
+                      <Flag className="h-4 w-4" aria-hidden="true" />
+                      {reportedSet.has(String(job._id))
+                        ? "Denunciada"
+                        : "Denunciar"}
+                    </Button>
+                    <Button
+                      variant="primary"
+                      disabled={applied || !hasProfile || blocked}
+                      title={
+                        blocked
+                          ? "Complete os requisitos obrigatórios no seu perfil para se candidatar."
+                          : undefined
+                      }
+                      onClick={() => {
+                        setNotice(null);
+                        void (async () => {
+                          try {
+                            const result = await apply({ jobId: job._id });
+                            const resultScore =
+                              typeof result.matchScore === "number"
+                                ? ` — match de ${result.matchScore}%`
+                                : "";
+                            setNotice(
+                              `Candidatura registrada para “${job.title}”${resultScore}. Acompanhe o andamento na aba Minhas Candidaturas.`,
+                            );
+                          } catch (err) {
+                            setErrors((prev) => ({
+                              ...prev,
+                              [String(job._id)]: friendlyErrorMessage(err),
+                            }));
+                          }
+                        })();
+                      }}
+                    >
+                      {!applied ? (
+                        <Send className="h-4 w-4" aria-hidden="true" />
+                      ) : null}
+                      {applied ? "Você já se candidatou" : "Candidatar-se"}
+                    </Button>
+                  </div>
                 </div>
                 {error !== undefined ? (
                   <span className="text-xs text-danger" role="alert">
@@ -446,6 +511,76 @@ export function JobOpportunities() {
           })}
         </ul>
       )}
+      {reportTarget !== null ? (
+        <Modal titleId={reportTitleId} onClose={closeReport}>
+          <h2
+            id={reportTitleId}
+            className="flex items-center gap-2 font-serif text-lg font-bold text-primary"
+          >
+            <Flag className="h-5 w-5" aria-hidden="true" />
+            Denunciar vaga
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">“{reportTarget.title}”</p>
+
+          <fieldset className="mt-4 flex flex-col gap-2">
+            <legend className="text-sm font-semibold text-slate-700">
+              Qual é o problema?
+            </legend>
+            {REPORT_REASONS.map((reason) => (
+              <label
+                key={reason}
+                className="flex cursor-pointer items-center gap-2 text-sm text-slate-700"
+              >
+                <input
+                  type="radio"
+                  name="report-reason"
+                  value={reason}
+                  checked={reportReason === reason}
+                  onChange={() => setReportReason(reason)}
+                  className="h-4 w-4 accent-primary"
+                />
+                {REPORT_REASON_LABELS[reason]}
+              </label>
+            ))}
+          </fieldset>
+
+          <label className="mt-3 flex flex-col gap-1 text-sm font-semibold text-slate-700">
+            Detalhes {reportReason === "outro" ? "(obrigatório)" : "(opcional)"}
+            <textarea
+              value={reportDetails}
+              onChange={(e) => setReportDetails(e.target.value)}
+              rows={3}
+              maxLength={REPORT_DETAILS_MAX}
+              className="rounded-md border border-slate-300 p-2 text-sm font-normal focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </label>
+          <p className="mt-2 text-xs text-slate-500">
+            O recrutador não vê quem denunciou. Com {REPORT_SUSPEND_THRESHOLD}{" "}
+            denúncias de alunos diferentes, a vaga sai do ar até a coordenação
+            analisar.
+          </p>
+
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={closeReport}>
+              <X className="h-4 w-4" aria-hidden="true" />
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              disabled={
+                reporting ||
+                reportReason === null ||
+                (reportReason === "outro" &&
+                  reportDetails.trim().length < REPORT_OTHER_MIN)
+              }
+              onClick={() => void submitReport()}
+            >
+              <Flag className="h-4 w-4" aria-hidden="true" />
+              Enviar denúncia
+            </Button>
+          </div>
+        </Modal>
+      ) : null}
     </div>
   );
 }

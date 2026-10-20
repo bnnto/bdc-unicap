@@ -2,7 +2,6 @@ import { query, mutation, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { CURRENT_TERM_VERSION } from "./consentTerms";
 import { computeMatchScore } from "../src/lib/matching";
 import {
   canApplyTo,
@@ -22,7 +21,8 @@ import {
 import type { LanguageLevel } from "../src/lib/skills";
 import { shouldNotifyStageAdvance } from "../src/lib/emailNotify";
 import { computeStudentAnalytics } from "../src/lib/analytics";
-import { getCurrentUser } from "./lib/currentUser";
+import { requireConsentedUser } from "./lib/currentUser";
+import { isModerationHold } from "../src/lib/jobModeration";
 
 /**
  * Candidaturas (issue [S3-4], R8).
@@ -31,21 +31,9 @@ import { getCurrentUser } from "./lib/currentUser";
  * Toda operação exige consentimento vigente (R7) e o papel correto.
  */
 
-/** Guard comum: usuário autenticado com consentimento vigente (R7). */
+/** Guard comum: conta ativa, recrutador aprovado e consentimento vigente (R7). */
 async function requireActiveUser(ctx: QueryCtx): Promise<Doc<"users">> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (identity === null) throw new Error("Não autenticado.");
-  const user = await getCurrentUser(ctx);
-  if (user === null) throw new Error("Usuário não encontrado.");
-  const consents = await ctx.db
-    .query("consents")
-    .withIndex("by_user", (q) => q.eq("userId", user._id))
-    .collect();
-  const active = consents.some((c) => c.termVersion === CURRENT_TERM_VERSION);
-  if (!active) {
-    throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
-  }
-  return user;
+  return requireConsentedUser(ctx);
 }
 
 /** Carrega a vaga no formato da regra pura de candidatura. */
@@ -401,6 +389,11 @@ export const moveApplication = mutation({
     }
     const job = await ctx.db.get(application.jobId);
     if (job === null) throw new Error("Vaga não encontrada.");
+    if (isModerationHold(job.status)) {
+      throw new Error(
+        "Vaga em revisão ou suspensa pela coordenação: o pipeline está bloqueado.",
+      );
+    }
     if (job.recruiterId !== user._id) {
       throw new Error("Apenas o recrutador da vaga move as candidaturas.");
     }
@@ -572,6 +565,11 @@ export const rejectApplication = mutation({
     }
     const job = await ctx.db.get(application.jobId);
     if (job === null) throw new Error("Vaga não encontrada.");
+    if (isModerationHold(job.status)) {
+      throw new Error(
+        "Vaga em revisão ou suspensa pela coordenação: o pipeline está bloqueado.",
+      );
+    }
     if (job.recruiterId !== user._id) {
       throw new Error("Apenas o recrutador da vaga reprova candidaturas.");
     }

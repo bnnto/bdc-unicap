@@ -1,7 +1,6 @@
 import { query, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { CURRENT_TERM_VERSION } from "./consentTerms";
 import {
   APPLICATION_STAGES,
   type ApplicationStage,
@@ -29,7 +28,8 @@ import {
   filterJobsForDashboard,
   normalizeDashboardFilters,
 } from "../src/lib/dashboardFilters";
-import { getCurrentUser } from "./lib/currentUser";
+import { requireConsentedUser } from "./lib/currentUser";
+import { onlyLiveJobs } from "../src/lib/jobModeration";
 
 /**
  * Painel Operacional (issues [S5-1] a [S5-5]) — agregações no SERVIDOR.
@@ -54,20 +54,9 @@ function canViewOperationalPanel(
   return role === "recrutador" || role === "gestor";
 }
 
-/** Guard comum (R7 + papel): autenticado, consentimento vigente, papel certo. */
+/** Guard comum (conta ativa + aprovação + R7 + papel). */
 async function requireOperationalViewer(ctx: QueryCtx): Promise<Doc<"users">> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (identity === null) throw new Error("Não autenticado.");
-  const user = await getCurrentUser(ctx);
-  if (user === null) throw new Error("Usuário não encontrado.");
-  const consents = await ctx.db
-    .query("consents")
-    .withIndex("by_user", (q) => q.eq("userId", user._id))
-    .collect();
-  const active = consents.some((c) => c.termVersion === CURRENT_TERM_VERSION);
-  if (!active) {
-    throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
-  }
+  const user = await requireConsentedUser(ctx);
   if (!canViewOperationalPanel(user.role)) {
     throw new Error(
       "Painel operacional disponível apenas para gestores e recrutadores.",
@@ -151,7 +140,7 @@ export const operationalSummary = query({
         .withIndex("by_status", (q) => q.eq("status", "encerrada"))
         .collect(),
     ]);
-    const allJobs = [...openJobs, ...closedJobs, ...filledJobs];
+    const allJobs = onlyLiveJobs([...openJobs, ...closedJobs, ...filledJobs]);
 
     // S5-5 — filtros de vaga: status + período de publicação.
     // A regra pura decide os IDs (projeção mínima); docs completos seguem.
@@ -201,6 +190,7 @@ export const operationalSummary = query({
     }
     const companyJobIds = jobIdsForCompany(allJobs, filters, companyNameFor);
     let visibleApps = filterAppsByCourseAndCompany(stageDocs, ctxOf);
+    visibleApps = visibleApps.filter((doc) => jobStatusById.has(doc.jobId));
     if (companyJobIds !== null) {
       visibleApps = visibleApps.filter((doc) => companyJobIds.has(doc.jobId));
     }
@@ -377,7 +367,7 @@ export const pipelineFunnel = query({
     await requireOperationalViewer(ctx);
     const filters = normalizeDashboardFilters(rawArgs);
 
-    const allJobs = await ctx.db.query("jobs").collect();
+    const allJobs = onlyLiveJobs(await ctx.db.query("jobs").collect());
     const jobStatusById = new Map(allJobs.map((job) => [job._id, job.status]));
     const studentCourseById = new Map(
       (await ctx.db.query("students").collect()).map((s) => [s._id, s.course]),
@@ -405,6 +395,7 @@ export const pipelineFunnel = query({
       stageDocs = stageDocs.concat(docs);
     }
     let visibleDocs = filterAppsByCourseAndCompany(stageDocs, ctxOf);
+    visibleDocs = visibleDocs.filter((doc) => jobStatusById.has(doc.jobId));
     if (companyJobIds !== null) {
       visibleDocs = visibleDocs.filter((doc) => companyJobIds.has(doc.jobId));
     }
@@ -439,7 +430,7 @@ export const activeRankings = query({
     const filters = normalizeDashboardFilters(filterArgs);
     const limit = rawLimit ?? 5;
 
-    const allJobs = await ctx.db.query("jobs").collect();
+    const allJobs = onlyLiveJobs(await ctx.db.query("jobs").collect());
     const studentCourseById = new Map(
       (await ctx.db.query("students").collect()).map((s) => [s._id, s.course]),
     );

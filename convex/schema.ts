@@ -56,9 +56,24 @@ export default defineSchema({
      */
     notifyJobAlerts: v.optional(v.boolean()),
     notifyApplicationUpdates: v.optional(v.boolean()),
+
+    approvalStatus: v.optional(
+      v.union(
+        v.literal("pendente"),
+        v.literal("aprovado"),
+        v.literal("recusado"),
+      ),
+    ),
+    /** LinkedIn do recrutador, exigido no cadastro público. */
+    linkedinUrl: v.optional(v.string()),
+    /** Motivo mostrado ao recrutador quando recusado/revogado. */
+    approvalReason: v.optional(v.string()),
+    approvalReviewedAt: v.optional(v.number()),
+    approvalReviewedBy: v.optional(v.id("users")),
   })
     .index("by_email", ["email"])
-    .index("by_role", ["role"]),
+    .index("by_role", ["role"])
+    .index("by_role_approval", ["role", "approvalStatus"]),
 
   /**
    * Consentimento LGPD versionado (R7) — o aceite é registrado na [S1-2];
@@ -226,7 +241,20 @@ export default defineSchema({
       v.literal("aberta"),
       v.literal("fechada"),
       v.literal("encerrada"),
+      v.literal("em_revisao"),
+      v.literal("suspensa"),
     ),
+    /** [MODERACAO_VAGA] Motivo mostrado ao recrutador (revisão/suspensão). */
+    moderationReason: v.optional(v.string()),
+    moderationCause: v.optional(
+      v.union(
+        v.literal("regra"),
+        v.literal("gestor"),
+        v.literal("recrutador"),
+        v.literal("denuncia"),
+      ),
+    ),
+    moderatedAt: v.optional(v.number()),
     /**
      * [S3-2] R4 — expiração: `expiresAt = publishedAt + 30d` gravado na
      * publicação; renovação reativa o prazo; cron diário encerra vencidas.
@@ -358,6 +386,18 @@ export default defineSchema({
     .index("by_student", ["studentId"]),
 
   /**
+  * Controle de tentativas de login por e-mail (anti força bruta).
+  * Conta tentativas numa janela; ao estourar, bloqueia até `lockedUntil`.
+  * É apagado quando o login dá certo ou a senha é redefinida.
+  */
+  loginAttempts: defineTable({
+    email: v.string(),
+    attempts: v.number(),
+    windowStart: v.number(),
+    lockedUntil: v.optional(v.number()),
+  }).index("by_email", ["email"]),
+
+  /**
    * [S8-1] Trilha de auditoria LGPD — snapshot imutável de cada execução
    * do checklist (`lgpd.runAudit`, papel gestor). `report` guarda o
    * resultado completo do checklist (itens, status, detalhes) para
@@ -371,4 +411,58 @@ export default defineSchema({
     report: v.any(),
     createdAt: v.number(),
   }).index("by_actor", ["actorId"]),
+    /**
+   * [MODERACAO_VAGA] Denúncias de alunos. Uma por aluno por vaga. O aluno
+   * nunca é exposto ao recrutador. `arquivada` = gestor analisou e zerou.
+   */
+  jobReports: defineTable({
+    jobId: v.id("jobs"),
+    studentId: v.id("students"),
+    reason: v.union(
+      v.literal("cobranca_indevida"),
+      v.literal("empresa_falsa"),
+      v.literal("contato_fora_do_portal"),
+      v.literal("conteudo_enganoso"),
+      v.literal("discriminacao"),
+      v.literal("outro"),
+    ),
+    details: v.optional(v.string()),
+    status: v.union(v.literal("ativa"), v.literal("arquivada")),
+  })
+    .index("by_job", ["jobId"])
+    .index("by_job_student", ["jobId", "studentId"])
+    .index("by_student", ["studentId"]),
+
+  /**
+   * [MODERACAO_VAGA] Registro de moderação: cópia (snapshot) do que foi
+   * decidido, que SOBREVIVE à exclusão da vaga. Ids como string de
+   * propósito: não dependem de a vaga/usuário ainda existirem.
+   */
+  moderationLogs: defineTable({
+    jobId: v.string(),
+    jobTitle: v.string(),
+    jobDescription: v.string(),
+    recruiterId: v.string(),
+    recruiterName: v.string(),
+    recruiterEmail: v.string(),
+    action: v.union(
+      v.literal("em_revisao"),
+      v.literal("suspensa"),
+      v.literal("aprovada"),
+      v.literal("excluida"),
+    ),
+    cause: v.optional(
+      v.union(
+        v.literal("regra"),
+        v.literal("gestor"),
+        v.literal("recrutador"),
+        v.literal("denuncia"),
+      ),
+    ),
+    reason: v.string(),
+    actorId: v.optional(v.string()),
+    reportsCount: v.optional(v.number()),
+  })
+    .index("by_job", ["jobId"])
+    .index("by_recruiter", ["recruiterId"]),
 });

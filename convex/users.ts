@@ -8,6 +8,7 @@ import { v } from "convex/values";
 import { getAuthSessionId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./lib/currentUser";
+import { logModeration } from "./lib/moderationLog";
 
 /**
  * [PERFIL_E_LGPD] Central de Perfil, Segurança e LGPD (convex/users.ts).
@@ -117,6 +118,22 @@ export const deleteMyAccount = mutation({
           deleted.applications += 1;
         }
       }
+
+      const jobReports = await ctx.db
+        .query("jobReports")
+        .withIndex("by_job", (q) => q.eq("jobId", job._id))
+        .collect();
+      if (job.status === "suspensa" || jobReports.length > 0) {
+        await logModeration(ctx, {
+          job,
+          action: "excluida",
+          cause: job.moderationCause,
+          reason: "Conta do recrutador excluída pelo titular.",
+          reportsCount: jobReports.length,
+        });
+      }
+      for (const report of jobReports) await ctx.db.delete(report._id);
+
       await ctx.db.delete(job._id);
       deleted.jobs += 1;
     }
@@ -139,6 +156,13 @@ export const deleteMyAccount = mutation({
           deleted.applications += 1;
         }
       }
+
+      const studentReports = await ctx.db
+        .query("jobReports")
+        .withIndex("by_student", (q) => q.eq("studentId", student._id))
+        .collect();
+      for (const report of studentReports) await ctx.db.delete(report._id);
+
       await ctx.db.delete(student._id);
       deleted.students += 1;
     }

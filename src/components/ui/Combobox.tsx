@@ -48,6 +48,7 @@ type ComboboxProps = {
   emptyText?: string;
   /** Abre a lista ao focar/clicar (default). Com `false`, só abre ao digitar. */
   openOnFocus?: boolean;
+  autoConfirmExact?: boolean;
 };
 
 /**
@@ -69,6 +70,7 @@ export function Combobox({
   required = false,
   emptyText = "Nenhum resultado",
   openOnFocus = true,
+  autoConfirmExact = true,
 }: ComboboxProps) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -134,6 +136,9 @@ export function Combobox({
     setQuery(text);
     setOpen(true);
     setActive(0);
+        // Modo "só ao escolher": digitar nunca emite nada.
+    if (!autoConfirmExact) return;
+
     // Confirma automático SOMENTE com correspondência exata de um termo
     // oficial; qualquer outro texto invalida o rascunho do formulário.
     const key = dictionaryKey(text);

@@ -39,7 +39,11 @@ import {
   canRecruiterSeeContact,
   recruiterProjection,
 } from "../src/lib/visibility";
-import { getCurrentUser, requireActiveConsentUser } from "./lib/currentUser";
+import {
+  getCurrentUser,
+  requireActiveConsentUser,
+  requireConsentedUser,
+} from "./lib/currentUser";
 
 /**
  * Perfil do aluno/egresso (issues [S1-3]/[S1-4], R1/R2/R6).
@@ -539,17 +543,7 @@ export const publicProfile = query({
 export const getCandidateProfile = query({
   args: { studentId: v.id("students") },
   handler: async (ctx, { studentId }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) throw new Error("Não autenticado.");
-    const user = await getCurrentUser(ctx);
-    if (user === null) throw new Error("Usuário não encontrado.");
-    const consents = await ctx.db
-      .query("consents")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
-    if (!consents.some((c) => c.termVersion === CURRENT_TERM_VERSION)) {
-      throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
-    }
+    const user = await requireConsentedUser(ctx);
     if (user.role !== "recrutador" && user.role !== "gestor") {
       throw new Error(
         "Apenas recrutadores e gestores visualizam perfis de candidatos.",
@@ -669,21 +663,7 @@ export const searchTalent = query({
     page: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (identity === null) throw new Error("Não autenticado.");
-    // R7 + papel — uma única resolução do guard por consulta.
-    const user = await getCurrentUser(ctx);
-    if (user === null) throw new Error("Usuário não encontrado.");
-    const consents = await ctx.db
-      .query("consents")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect();
-    const hasConsent = consents.some(
-      (c) => c.termVersion === CURRENT_TERM_VERSION,
-    );
-    if (!hasConsent) {
-      throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
-    }
+    const user = await requireConsentedUser(ctx);
     if (user.role !== "recrutador" && user.role !== "gestor") {
       throw new Error(
         "Apenas recrutadores e gestores acessam o Banco de Talentos.",
@@ -918,6 +898,13 @@ export const deleteMyProfile = mutation({
         await ctx.db.delete(app._id);
         applicationCount += 1;
       }
+
+      const reports = await ctx.db
+        .query("jobReports")
+        .withIndex("by_student", (q) => q.eq("studentId", student._id))
+        .collect();
+      for (const report of reports) await ctx.db.delete(report._id);
+      
       await ctx.db.delete(student._id);
     }
 

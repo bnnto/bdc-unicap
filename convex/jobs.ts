@@ -6,7 +6,6 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { CURRENT_TERM_VERSION } from "./consentTerms";
 import {
   validateJob,
   type JobInput,
@@ -17,7 +16,13 @@ import {
   isJobExpired,
   renewJob as renewJobDecision,
 } from "../src/lib/jobExpiry";
-import { getCurrentUser } from "./lib/currentUser";
+import { requireConsentedUser } from "./lib/currentUser";
+import {
+  HOLD_MESSAGE,
+  isModerationHold,
+  reviewJobContent,
+} from "../src/lib/jobModeration";
+import { logModeration } from "./lib/moderationLog";
 
 /**
  * Vagas do recrutador (issue [S3-1]).
@@ -33,20 +38,9 @@ function canManageJobs(
   return role === "recrutador" || role === "gestor";
 }
 
-/** Guard comum (R7 + papel): usuário autenticado com consentimento vigente. */
+/** Guard comum (R7 + aprovação + papel). */
 async function requireRecruiter(ctx: QueryCtx): Promise<Doc<"users">> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (identity === null) throw new Error("Não autenticado.");
-  const user = await getCurrentUser(ctx);
-  if (user === null) throw new Error("Usuário não encontrado.");
-  const consents = await ctx.db
-    .query("consents")
-    .withIndex("by_user", (q) => q.eq("userId", user._id))
-    .collect();
-  const active = consents.some((c) => c.termVersion === CURRENT_TERM_VERSION);
-  if (!active) {
-    throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
-  }
+  const user = await requireConsentedUser(ctx);
   if (!canManageJobs(user.role)) {
     throw new Error(
       "Apenas recrutadores e gestores publicam e gerenciam vagas.",
@@ -130,14 +124,59 @@ export const upsertJob = mutation({
     }
     const job = validation.normalized;
 
+    // [MODERACAO_VAGA] Nível 1: bloqueia o óbvio. Nível 2: duvidoso → revisão.
+    const review = reviewJobContent({
+      title: job.title,
+      description: job.description,
+      contractType: job.contractType,
+      salaryMin: job.salaryMin,
+      salaryMax: job.salaryMax,
+      location: job.location,
+    });
+    if (review.verdict === "bloqueada") {
+      throw new Error(`Vaga não publicada: ${review.reasons.join(" ")}`);
+    }
+    const toReview = review.verdict === "revisao";
+    const reviewFields = {
+      status: "em_revisao" as const,
+      moderationReason: review.reasons.join(" "),
+      moderationCause: "regra" as const,
+      moderatedAt: Date.now(),
+    };
+
     if (args.jobId !== undefined) {
       const existing = await ctx.db.get(args.jobId);
+
       if (existing === null) throw new Error("Vaga não encontrada.");
       if (existing.recruiterId !== user._id) {
         throw new Error("Você só pode editar as suas próprias vagas.");
       }
-      await ctx.db.patch(args.jobId, { ...job });
-      return { jobId: args.jobId, created: false as const };
+      const sendToReview =
+        toReview &&
+        (existing.status === "aberta" || existing.status === "fechada");
+      await ctx.db.patch(
+        args.jobId,
+        sendToReview ? { ...job, ...reviewFields } : { ...job },
+      );
+      
+      if (sendToReview) {
+        await logModeration(ctx, {
+          job: {
+            _id: args.jobId,
+            recruiterId: existing.recruiterId,
+            title: job.title,
+            description: job.description,
+          },
+          action: "em_revisao",
+          cause: "regra",
+          reason: reviewFields.moderationReason,
+        });
+      }
+      return {
+        jobId: args.jobId,
+        created: false as const,
+        status: sendToReview ? ("em_revisao" as const) : existing.status,
+      };
     }
 
     // [S3-2] CA 1 — prazo de expiração gravado na publicação (R4).
@@ -145,11 +184,29 @@ export const upsertJob = mutation({
     const jobId = await ctx.db.insert("jobs", {
       recruiterId: user._id,
       ...job,
-      status: "aberta",
       publishedAt: now,
       expiresAt: computeExpiresAt(now),
+      ...(toReview ? reviewFields : { status: "aberta" as const }),
     });
-    return { jobId, created: true as const };
+
+    if (toReview) {
+      await logModeration(ctx, {
+        job: {
+          _id: jobId,
+          recruiterId: user._id,
+          title: job.title,
+          description: job.description,
+        },
+        action: "em_revisao",
+        cause: "regra",
+        reason: reviewFields.moderationReason,
+      });
+    }
+    return {
+      jobId,
+      created: true as const,
+      status: toReview ? ("em_revisao" as const) : ("aberta" as const),
+    };
   },
 });
 
@@ -214,6 +271,7 @@ export const setJobStatus = mutation({
     if (job.recruiterId !== user._id) {
       throw new Error("Você só pode alterar as suas próprias vagas.");
     }
+    if (isModerationHold(job.status)) throw new Error(HOLD_MESSAGE);
     if (status === "aberta") {
       // Reabertura — reinicia o prazo de expiração a partir de agora e
       // [S5-2] limpa o momento de preenchimento (vaga volta ao ciclo ativo).
@@ -259,7 +317,9 @@ export const renewJob = mutation({
       throw new Error(
         decision.reason === "expirada"
           ? "Vaga expirada — o encerramento automático acontece no próximo ciclo."
-          : "Vaga encerrada não pode ser renovada.",
+          : decision.reason === "moderacao"
+            ? HOLD_MESSAGE
+            : "Vaga encerrada não pode ser renovada.",
       );
     }
     await ctx.db.patch(jobId, {
@@ -269,6 +329,55 @@ export const renewJob = mutation({
       filledAt: undefined,
     });
     return { ok: true as const, expiresAt: decision.expiresAt };
+  },
+});
+
+/**
+ * Exclusão definitiva de vaga própria. Só vagas encerradas ou suspensas
+ * podem ser excluídas. Antes de apagar, grava o registro de moderação
+ * (que sobrevive à exclusão); depois apaga denúncias e candidaturas.
+ */
+export const deleteJob = mutation({
+  args: { jobId: v.id("jobs") },
+  handler: async (ctx, { jobId }) => {
+    const user = await requireRecruiter(ctx);
+    const job = await ctx.db.get(jobId);
+    if (job === null) throw new Error("Vaga não encontrada.");
+    if (job.recruiterId !== user._id) {
+      throw new Error("Você só pode excluir as suas próprias vagas.");
+    }
+    if (job.status !== "encerrada" && job.status !== "suspensa") {
+      throw new Error("Só é possível excluir vagas encerradas ou suspensas.");
+    }
+
+    const reports = await ctx.db
+      .query("jobReports")
+      .withIndex("by_job", (q) => q.eq("jobId", jobId))
+      .collect();
+    if (job.status === "suspensa" || reports.length > 0) {
+      await logModeration(ctx, {
+        job,
+        action: "excluida",
+        cause: job.moderationCause,
+        reason:
+          `Excluída pelo recrutador (status: ${job.status}).` +
+          (job.moderationReason
+            ? ` Motivo da moderação: ${job.moderationReason}`
+            : ""),
+        reportsCount: reports.length,
+      });
+    }
+    for (const report of reports) await ctx.db.delete(report._id);
+
+    const applications = await ctx.db
+      .query("applications")
+      .withIndex("by_job", (q) => q.eq("jobId", jobId))
+      .collect();
+    for (const application of applications) {
+      await ctx.db.delete(application._id);
+    }
+    await ctx.db.delete(jobId);
+    return { ok: true as const, deletedApplications: applications.length };
   },
 });
 

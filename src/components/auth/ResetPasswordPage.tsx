@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { api } from "../../../convex/_generated/api";
 import { friendlyErrorMessage } from "../../lib/toastMessages";
 import { navigateTo } from "../../lib/router";
+import { passwordRules, PASSWORD_MAX_LENGTH } from "../../lib/auth";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Eye, EyeOff, Mail, ShieldCheck } from "lucide-react";
@@ -14,7 +15,8 @@ import { Eye, EyeOff, Mail, ShieldCheck } from "lucide-react";
  * - SEM token na URL: pede o e-mail e dispara `passwordResets.requestReset`
  *   (resposta idêntica com ou sem conta — sem enumeração de usuários).
  * - COM `?token=` na URL: formulário "Nova senha" + "Confirmar nova senha"
- *   que chama `passwordResets.resetPassword`.
+ *   que chama `passwordResets.resetPassword`. A senha segue as mesmas
+ *   regras do cadastro (src/lib/auth.ts), repetidas no servidor.
  *
  * Todo o feedback (sucesso "E-mail de recuperação enviado!", senhas
  * diferentes, "Token inválido ou expirado") sai por Toast global — a
@@ -38,6 +40,12 @@ export function ResetPasswordPage() {
   /** [UX_QUICK_WIN] — olhinho alterna password/texto por campo. */
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // Requisitos de senha (mesma regra do servidor). O e-mail do titular só
+  // é conhecido no servidor, que confere "não contém o e-mail" no envio.
+  const rules = passwordRules(password);
+  const passwordOk = rules.every((rule) => rule.ok);
+  const showPasswordRules = password.length > 0;
 
   function passwordTrailing(
     visible: boolean,
@@ -86,8 +94,8 @@ export function ResetPasswordPage() {
       toast.error("As senhas não coincidem.");
       return;
     }
-    if (password.length < 8) {
-      toast.error("A senha deve ter pelo menos 8 caracteres.");
+    if (!passwordOk) {
+      toast.error("A senha não atende a todos os requisitos.");
       return;
     }
     setPending(true);
@@ -96,7 +104,7 @@ export function ResetPasswordPage() {
       toast.success("Senha redefinida com sucesso! Entre com a nova senha.");
       navigateTo("/login");
     } catch (err) {
-      // Token inválido/expirado e demais erros viram Toast amigável.
+      // Token inválido/expirado, senha fraca e demais erros viram Toast amigável.
       toast.error(friendlyErrorMessage(err));
     } finally {
       setPending(false);
@@ -183,19 +191,44 @@ export function ResetPasswordPage() {
                   type={showPassword ? "text" : "password"}
                   required
                   minLength={8}
+                  maxLength={PASSWORD_MAX_LENGTH}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   autoComplete="new-password"
-                  hint="Mínimo de 8 caracteres"
                   trailing={passwordTrailing(showPassword, (next) =>
                     setShowPassword(next),
                   )}
                 />
+                {showPasswordRules ? (
+                  <ul
+                    aria-label="Requisitos da senha"
+                    aria-live="polite"
+                    className="-mt-2 flex flex-col gap-1 text-xs"
+                  >
+                    {rules.map((rule) => (
+                      <li
+                        key={rule.id}
+                        className={
+                          rule.ok
+                            ? "font-medium text-success"
+                            : "text-a11y-slate-500"
+                        }
+                      >
+                        <span aria-hidden="true">{rule.ok ? "✓" : "○"}</span>{" "}
+                        {rule.label}
+                        <span className="sr-only">
+                          {rule.ok ? " (atendido)" : " (pendente)"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 <Input
                   label="Confirmar nova senha"
                   type={showConfirm ? "text" : "password"}
                   required
                   minLength={8}
+                  maxLength={PASSWORD_MAX_LENGTH}
                   value={confirm}
                   onChange={(event) => setConfirm(event.target.value)}
                   autoComplete="new-password"
@@ -203,7 +236,11 @@ export function ResetPasswordPage() {
                     setShowConfirm(next),
                   )}
                 />
-                <Button type="submit" variant="primary" disabled={pending}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={pending || !passwordOk}
+                >
                   <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                   {pending ? "Salvando…" : "Redefinir senha"}
                 </Button>

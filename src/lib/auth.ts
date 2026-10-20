@@ -20,3 +20,42 @@ export function isValidEmail(email: string): boolean {
   if (domain.includes("@") || !domain.includes(".")) return false;
   return local.length > 0 && domain.split(".").every((p) => p.length > 0);
 }
+
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 128;
+
+const COMMON_PASSWORDS = new Set([
+  "12345678", "123456789", "1234567890", "password", "senha123",
+  "qwertyui", "qwerty123", "abc12345", "11111111", "iloveyou",
+  "admin123", "unicap123", "mudar123",
+]);
+
+export type PasswordRule = { id: string; label: string; ok: boolean };
+
+export function passwordRules(
+  password: string,
+  ctx: { email?: string; name?: string } = {},
+): PasswordRule[] {
+  const lower = password.toLowerCase();
+  const emailUser = (ctx.email ?? "").split("@")[0]?.toLowerCase() ?? "";
+  return [
+    {
+      id: "length",
+      label: `Pelo menos ${PASSWORD_MIN_LENGTH} caracteres`,
+      ok: password.length >= PASSWORD_MIN_LENGTH,
+    },
+    { id: "lower", label: "Uma letra minúscula", ok: /[a-z]/.test(password) },
+    { id: "upper", label: "Uma letra maiúscula", ok: /[A-Z]/.test(password) },
+    { id: "digit", label: "Um número", ok: /\d/.test(password) },
+    {
+      id: "common",
+      label: "Não pode ser uma senha comum",
+      ok: !COMMON_PASSWORDS.has(lower) && !/^(.)\1+$/.test(password),
+    },
+    {
+      id: "personal",
+      label: "Não pode conter seu e-mail",
+      ok: emailUser.length < 4 || !lower.includes(emailUser),
+    },
+  ];
+}

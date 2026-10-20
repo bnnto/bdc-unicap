@@ -3,7 +3,7 @@
  * Disponível no runtime padrão do Convex e em Node 20+ (testes Vitest).
  * Formato: `pbkdf2$<iterações>$<salt-hex>$<hash-hex>`; salt aleatório por senha.
  */
-const ITERATIONS = 100_000;
+const ITERATIONS = 600_000;
 const KEYLEN_BYTES = 32;
 
 async function deriveBits(

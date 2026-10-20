@@ -20,6 +20,8 @@ import {
   RefreshCw,
   Users,
   X,
+  ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
 
@@ -28,7 +30,11 @@ const STATUS_BUTTON_ICON: Record<Doc<"jobs">["status"], ReactNode> = {
   aberta: <DoorOpen className="h-4 w-4" aria-hidden="true" />,
   fechada: <Lock className="h-4 w-4" aria-hidden="true" />,
   encerrada: <Ban className="h-4 w-4" aria-hidden="true" />,
+  em_revisao: <ShieldAlert className="h-4 w-4" aria-hidden="true" />,
+  suspensa: <Ban className="h-4 w-4" aria-hidden="true" />,
 };
+
+type SettableStatus = "aberta" | "fechada" | "encerrada";
 
 const STATUS_BADGE: Record<
   Doc<"jobs">["status"],
@@ -37,17 +43,21 @@ const STATUS_BADGE: Record<
   aberta: "aprovado",
   fechada: "triagem",
   encerrada: "reprovado",
+  em_revisao: "triagem",
+  suspensa: "reprovado",
 };
 
 const STATUS_LABELS: Record<Doc<"jobs">["status"], string> = {
   aberta: "Aberta",
   fechada: "Fechada",
   encerrada: "Encerrada",
+  em_revisao: "Em revisão",
+  suspensa: "Suspensa",
 };
 
 const NEXT_STATUS: Record<
   Doc<"jobs">["status"],
-  Array<{ value: Doc<"jobs">["status"]; label: string }>
+  Array<{ value: SettableStatus; label: string }>
 > = {
   aberta: [
     { value: "fechada", label: "Fechar" },
@@ -55,6 +65,8 @@ const NEXT_STATUS: Record<
   ],
   fechada: [{ value: "aberta", label: "Reabrir" }],
   encerrada: [],
+  em_revisao: [],
+  suspensa: [],
 };
 
 function formatDay(timestamp: number | undefined): string {
@@ -114,14 +126,18 @@ export function JobsPanel({
    */
   const [pendingStatus, setPendingStatus] = useState<{
     jobId: Doc<"jobs">["_id"];
-    status: Doc<"jobs">["status"];
+    status: SettableStatus;
   } | null>(null);
   /** [UX-P2] H1-1 — id da vaga com ação em voo (desabilita os botões dela). */
   const [actionPending, setActionPending] = useState<string | null>(null);
+  const deleteJob = useMutation(api.jobs.deleteJob);
+  const [pendingDelete, setPendingDelete] = useState<Doc<"jobs">["_id"] | null>(
+    null,
+  );
 
   async function handleStatus(
     jobId: Doc<"jobs">["_id"],
-    next: Doc<"jobs">["status"],
+    next: SettableStatus,
   ) {
     const key = String(jobId);
     // [UX-P2] H1-1 — trava as ações da vaga até a mutation terminar.
@@ -133,6 +149,19 @@ export function JobsPanel({
       toast.error(friendlyErrorMessage(err));
     } finally {
       setActionPending(null);
+    }
+  }
+
+  async function handleDelete(jobId: Doc<"jobs">["_id"]) {
+    setActionPending(String(jobId));
+    try {
+      await deleteJob({ jobId });
+      toast.success("Vaga excluída.");
+    } catch (err) {
+      toast.error(friendlyErrorMessage(err));
+    } finally {
+      setActionPending(null);
+      setPendingDelete(null);
     }
   }
 
@@ -223,6 +252,34 @@ export function JobsPanel({
               <p className="mt-1 text-xs text-a11y-slate-500">
                 Publicada em {formatDay(job.publishedAt)} · expira em{" "}
                 {formatDay(job.expiresAt)}
+                {job.status === "em_revisao" || job.status === "suspensa" ? (
+                  <div
+                    role="status"
+                    className="mt-3 flex w-fit max-w-full items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
+                  >
+                    <ShieldAlert
+                      className="mt-0.5 h-4 w-4 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0">
+                      <p className="font-semibold">
+                        {job.status === "em_revisao"
+                          ? "Em análise pela coordenação"
+                          : "Suspensa pela coordenação"}
+                      </p>
+                      <p className="mt-0.5 opacity-90">
+                        {job.status === "em_revisao"
+                          ? "Ainda não aparece para os alunos."
+                          : "Fora do ar e sem novas candidaturas."}
+                      </p>
+                      {job.moderationReason ? (
+                        <p className="mt-0.5 line-clamp-2 opacity-80">
+                          Motivo: {job.moderationReason}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
                 <ExpiryNote job={job} />
               </p>
               <ul
@@ -256,7 +313,7 @@ export function JobsPanel({
                     Ver Candidatos
                   </Button>
                 ) : null}
-                {job.status !== "encerrada" ? (
+                {job.status === "aberta" || job.status === "fechada" ? (
                   <Button
                     variant="accent"
                     disabled={actionPending === String(job._id)}
@@ -298,6 +355,16 @@ export function JobsPanel({
                     {option.label}
                   </Button>
                 ))}
+                {job.status === "encerrada" || job.status === "suspensa" ? (
+                  <Button
+                    variant="danger"
+                    disabled={actionPending === String(job._id)}
+                    onClick={() => setPendingDelete(job._id)}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    Excluir
+                  </Button>
+                ) : null}
               </div>
 
               {pendingStatus !== null && pendingStatus.jobId === job._id ? (
@@ -338,6 +405,42 @@ export function JobsPanel({
                     <Button
                       variant="secondary"
                       onClick={() => setPendingStatus(null)}
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+                            {pendingDelete === job._id ? (
+                <div
+                  role="dialog"
+                  aria-labelledby={`confirm-delete-${job._id}`}
+                  className="mt-3 rounded border border-danger bg-white p-3"
+                >
+                  <p
+                    id={`confirm-delete-${job._id}`}
+                    className="text-sm font-semibold text-slate-800"
+                  >
+                    Excluir vaga definitivamente
+                  </p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    A vaga e todas as candidaturas dela serão apagadas. Esta
+                    ação não pode ser desfeita.
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      variant="danger"
+                      aria-label="Confirmar exclusão da vaga"
+                      disabled={actionPending === String(job._id)}
+                      onClick={() => void handleDelete(job._id)}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      Excluir
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setPendingDelete(null)}
                     >
                       <X className="h-4 w-4" aria-hidden="true" />
                       Cancelar
