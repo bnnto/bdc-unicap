@@ -9,16 +9,16 @@
  *  - Taxa de Sucesso: (Candidaturas em Entrevista ou Aprovado / Total) × 100.
  *  - Visualizações do Perfil: contador simples gravado no perfil.
  */
-import { APPLICATION_STAGES, type ApplicationStage } from "./application";
+import { type ApplicationStage } from "./application";
 
 /** Mínimo necessário de uma candidatura para as métricas. */
-export type AnalyticsApplication = {
+type AnalyticsApplication = {
   stage: ApplicationStage;
   matchScore: number;
 };
 
 /** Agregado exibido no dashboard do aluno (serializável p/ Convex). */
-export type StudentAnalytics = {
+type StudentAnalytics = {
   total: number;
   /** 0–100 com 1 casa decimal; 0 quando não há candidaturas. */
   successRate: number;
@@ -89,5 +89,3 @@ export function computeStudentAnalytics(
   };
 }
 
-/** Ordem do funil — reexportada para conferência de cobertura nos testes. */
-export const ANALYTICS_STAGES = APPLICATION_STAGES;

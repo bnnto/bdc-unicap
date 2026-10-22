@@ -65,14 +65,14 @@ export const TALENT_SCAN_SCHEMA = {
   by_status_availability: ["status", "availability"] as const,
 } as const;
 
-export type TalentScanIndex = keyof typeof TALENT_SCAN_SCHEMA;
+type TalentScanIndex = keyof typeof TALENT_SCAN_SCHEMA;
 
 /**
  * [REFACTOR_UI] Opções do dropdown "Ordenar por" do Banco de Talentos.
  * "relevancia" preserva a ordem da varredura indexada (padrão); as demais
  * ordenam após os filtros, antes da paginação.
  */
-export const TALENT_SORT_OPTIONS = [
+const TALENT_SORT_OPTIONS = [
   "relevancia",
   "nome",
   "conclusao_proxima",
@@ -157,7 +157,7 @@ export type TalentFilters = {
   page?: number;
 };
 
-export type TalentSearchResult = {
+type TalentSearchResult = {
   items: TalentCandidate[];
   total: number;
   page: number;

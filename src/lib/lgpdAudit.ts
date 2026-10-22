@@ -32,14 +32,14 @@ export type ContactExposure = {
   phone?: string;
 };
 
-export type LgpdChecklistItemId =
+type LgpdChecklistItemId =
   | "consentimento_versionado"
   | "autorizacao_contato"
   | "retificacao"
   | "exclusao"
   | "minimizacao_publica";
 
-export type LgpdChecklistItem = {
+type LgpdChecklistItem = {
   id: LgpdChecklistItemId;
   title: string;
   status: "ok" | "falha";

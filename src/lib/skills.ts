@@ -13,7 +13,7 @@ export const MAX_SKILLS = 20;
 export const MAX_LANGUAGES = 8;
 
 /** Área do dicionário — agrupa as opções do Combobox pesquisável. */
-export type SkillGroup = {
+type SkillGroup = {
   readonly label: string;
   readonly items: readonly string[];
 };
@@ -539,7 +539,7 @@ export function removeLanguage(
   return languages.filter((l) => dictionaryKey(l.name) !== target);
 }
 
-export type SkillsValidation = { ok: true } | { ok: false; errors: string[] };
+type SkillsValidation = { ok: true } | { ok: false; errors: string[] };
 
 /**
  * [DICIONARIO_FECHADO] Valida a lista de competências: só termos do
@@ -571,7 +571,7 @@ export function validateSkills(skills: readonly string[]): SkillsValidation {
   return errors.length > 0 ? { ok: false, errors } : { ok: true };
 }
 
-export type LanguagesValidation =
+type LanguagesValidation =
   { ok: true } | { ok: false; errors: string[] };
 
 /**

@@ -22,7 +22,7 @@ export const FUNNEL_STAGES = [
   "aprovado",
 ] as const;
 
-export type FunnelStage = (typeof FUNNEL_STAGES)[number];
+type FunnelStage = (typeof FUNNEL_STAGES)[number];
 
 /** Linha mínima de candidatura (etapa do pipeline de 5 colunas, S4-1). */
 export type FunnelApplicationRow = {

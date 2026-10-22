@@ -19,7 +19,7 @@
  */
 
 /** Filtros combináveis do dashboard (entrada da UI, pode ter ruído). */
-export type DashboardFiltersInput = {
+type DashboardFiltersInput = {
   from?: number;
   to?: number;
   course?: string;
@@ -28,7 +28,7 @@ export type DashboardFiltersInput = {
 };
 
 /** Status do ciclo de vida da vaga (espelha convex/schema.ts). */
-export type DashboardJobStatus = "aberta" | "fechada" | "encerrada";
+type DashboardJobStatus = "aberta" | "fechada" | "encerrada";
 
 /** Filtros normalizados: só campos válidos e preenchidos. */
 export type DashboardFilters = {

@@ -53,13 +53,13 @@ export const RELEASE_QUALITY_GATES = {
   coverage: "bun run test:coverage",
 } as const;
 
-export type ReleaseGateStatus = {
+type ReleaseGateStatus = {
   issueId: string;
   passed: boolean;
   evidence: string;
 };
 
-export type ReleaseQualityInput = {
+type ReleaseQualityInput = {
   testsPassed: number;
   testsFailed: number;
   typecheck: boolean;
@@ -67,27 +67,27 @@ export type ReleaseQualityInput = {
   coverage: boolean;
 };
 
-export type ReleaseHealthInput = {
+type ReleaseHealthInput = {
   status: "ok" | "degraded";
   db: boolean;
   checkedAt: number;
 };
 
-export type ReleaseDeploymentInput = {
+type ReleaseDeploymentInput = {
   url: string;
   deployed: boolean;
   /** Estado do endpoint /healthz observado pela monitoração. */
   healthz: "up" | "down" | "unknown";
 };
 
-export type ReleaseReadinessInput = {
+type ReleaseReadinessInput = {
   gates: readonly ReleaseGateStatus[];
   quality: ReleaseQualityInput;
   health: ReleaseHealthInput;
   deployment: ReleaseDeploymentInput;
 };
 
-export type ReleaseReadinessReport = {
+type ReleaseReadinessReport = {
   version: string;
   ready: boolean;
   checks: {

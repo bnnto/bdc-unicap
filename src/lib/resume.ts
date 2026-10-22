@@ -5,18 +5,18 @@
 
 export const MAX_EXPERIENCES = 10;
 export const MAX_ACADEMIC = 15;
-export const HEADLINE_MIN = 10;
-export const HEADLINE_MAX = 120;
+const HEADLINE_MIN = 10;
+const HEADLINE_MAX = 120;
 export const SUMMARY_MIN = 30;
 export const SUMMARY_MAX = 1000;
 /** [REFACTOR_ALUNO Etapa 2] — novos blocos do construtor de currículo. */
 export const PROJECTS_TEXT_MAX = 2000;
 export const MAX_CERTIFICATIONS = 20;
-export const MAX_LINK_LENGTH = 200;
+const MAX_LINK_LENGTH = 200;
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-export type ExperienceEntry = {
+type ExperienceEntry = {
   company: string;
   role: string;
   period: string;
@@ -29,7 +29,7 @@ export type AcademicEntry = {
 };
 
 /** Links profissionais (bloco 3): GitHub e Lattes (opcionais). */
-export type ResumeLinks = {
+type ResumeLinks = {
   github?: string;
   lattes?: string;
 };
@@ -47,7 +47,7 @@ export type ResumeDataInput = {
   certifications?: string[];
 };
 
-export type ResumeValidation =
+type ResumeValidation =
   { ok: true; normalized: ResumeDataInput } | { ok: false; errors: string[] };
 
 /** Valida o CV completo e devolve versão normalizada (trim) ou erros. */

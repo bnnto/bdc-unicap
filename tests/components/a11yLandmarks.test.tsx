@@ -45,7 +45,6 @@ import { useQuery, useMutation } from "convex/react";
 import App from "../../src/App";
 import { AuthStateContext } from "../../src/components/auth/authContext";
 import { AuthPage } from "../../src/components/auth/AuthPage";
-import { StudentHomePage } from "../../src/components/student/StudentHomePage";
 import { MyApplicationsPage } from "../../src/components/student/MyApplicationsPage";
 import { TalentSearchPage } from "../../src/components/talent/TalentSearchPage";
 import { OperationalPanel } from "../../src/components/operational/OperationalPanel";
@@ -298,41 +297,6 @@ describe("S8-2 CA 2 — landmarks corretos (WCAG 1.3.1)", () => {
     expect(
       screen.getByRole("main", { name: /autenticação/i }),
     ).toBeInTheDocument();
-  });
-
-  it("StudentHomePage — nav de âncoras com nome acessível e títulos sem saltos", () => {
-    // myProfile ainda não criado (null) — formulario e privacidade renderizam
-    // sem crashar, mantendo os headings reais da pagina no teste de hierarquia.
-    mockedUseQuery.mockReturnValue(null);
-    render(
-      <AuthStateContext.Provider
-        value={{
-          isLoading: false,
-          isAuthenticated: true,
-          user: null,
-          role: "aluno",
-        }}
-      >
-        <StudentHomePage />
-      </AuthStateContext.Provider>,
-    );
-
-    expect(
-      screen.getByRole("navigation", { name: "Seções desta página" }),
-    ).toBeInTheDocument();
-
-    const levels = screen
-      .getAllByRole("heading")
-      .map((heading) => Number(heading.tagName.slice(1)));
-    expect(levels.length).toBeGreaterThan(0);
-    const first = levels[0] ?? 9;
-    expect(first).toBeLessThanOrEqual(2);
-    for (let i = 1; i < levels.length; i++) {
-      const previous = levels[i - 1] ?? 9;
-      expect(levels[i], `salto de título na posição ${i}`).toBeLessThanOrEqual(
-        previous + 1,
-      );
-    }
   });
 
   it("MyApplicationsPage — main local vira região nomeada", () => {

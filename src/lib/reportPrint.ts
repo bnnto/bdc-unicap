@@ -198,7 +198,7 @@ export function buildReportPrintMarkup(
 }
 
 /** Injeta o CSS de impressão uma única vez (idempotente). */
-export function injectReportPrintStyle(doc: Document): void {
+function injectReportPrintStyle(doc: Document): void {
   if (doc.getElementById(STYLE_ID) !== null) return;
   const style = doc.createElement("style");
   style.id = STYLE_ID;

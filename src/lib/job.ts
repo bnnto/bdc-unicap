@@ -37,7 +37,7 @@ export type JobInput = {
   availability?: Availability;
 };
 
-export type JobValidation =
+type JobValidation =
   { ok: true; normalized: JobInput } | { ok: false; errors: string[] };
 
 /** BRL inteiro, sem centavos — ex.: 1200 → "R$ 1.200". */

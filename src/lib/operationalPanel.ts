@@ -14,7 +14,7 @@
 import type { ApplicationStage } from "./application";
 
 /** Status possíveis de uma vaga (espelha convex/schema.ts — jobs.status). */
-export type JobStatus = "aberta" | "fechada" | "encerrada";
+type JobStatus = "aberta" | "fechada" | "encerrada";
 
 /** Linha mínima de vaga para agregação (o que o servidor lê de `jobs`). */
 export type JobRow = {
@@ -23,12 +23,12 @@ export type JobRow = {
 };
 
 /** Linha mínima de candidatura (etapa do pipeline de 5 colunas, S4-1). */
-export type ApplicationStageRow = {
+type ApplicationStageRow = {
   stage: ApplicationStage;
 };
 
 /** Resumo de vagas por status. "Preenchidas" = vagas encerradas (R4/cron). */
-export type JobSummary = {
+type JobSummary = {
   /** Vagas recebendo candidaturas. */
   open: number;
   /** Vagas fechadas manualmente pelo recrutador. */
@@ -144,13 +144,13 @@ export function timeToHireDays(filledAt: number, appliedAt: number): number {
 }
 
 /** Vaga preenchida com momento do preenchimento (insumo do pareamento). */
-export type FilledJobRow = {
+type FilledJobRow = {
   jobId: string;
   filledAt: number;
 };
 
 /** Aprovação com a data da candidatura (insumo do pareamento). */
-export type ApprovalRow = {
+type ApprovalRow = {
   jobId: string;
   studentId: string;
   appliedAt: number;
@@ -183,7 +183,7 @@ export function hireSamples(
 }
 
 /** Filtro de período sobre a data de preenchimento (limites inclusivos). */
-export type PeriodFilter = {
+type PeriodFilter = {
   from?: number;
   to?: number;
 };
@@ -228,7 +228,7 @@ import type { ExportReport, ReportRow, ReportSection } from "./reportExport";
 import type { FunnelStep } from "./funnel";
 
 /** Entrada: estado vigente das métricas do painel (podem estar ausentes). */
-export type OperationalReportInput = {
+type OperationalReportInput = {
   summary: {
     jobs: JobSummary;
     applications: {

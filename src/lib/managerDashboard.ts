@@ -22,7 +22,7 @@ export const REJECTION_LABELS: Record<string, string> = {
   outro: "Outros",
 };
 
-export type ManagerKpiInput = {
+type ManagerKpiInput = {
   /** Vagas abertas no período (jobs.status = "aberta"). */
   openJobs: number;
   /** % de empregabilidade (aprovados / finalizados) ou null sem amostra. */
@@ -33,9 +33,9 @@ export type ManagerKpiInput = {
   availableTalents: number;
 };
 
-export type ManagerKpiValue = { value: string; hasData: boolean };
+type ManagerKpiValue = { value: string; hasData: boolean };
 
-export type ManagerKpis = {
+type ManagerKpis = {
   oportunidades: { value: number; label: string; hint: string };
   empregabilidade: ManagerKpiValue;
   tempoContratacao: ManagerKpiValue & { unit: string };
@@ -90,7 +90,7 @@ export function partnerStatus(
   return "inativa";
 }
 
-export type RejectionShareRow = {
+type RejectionShareRow = {
   reason: string;
   label: string;
   count: number;
@@ -122,14 +122,14 @@ export function rejectionShare(
 /* ------------------------------------------------------------------ */
 
 /** Linha mínima de aluno para a empregabilidade por curso. */
-export type CourseEmployabilityStudentRow = {
+type CourseEmployabilityStudentRow = {
   course: string;
   /** O aluno tem pelo menos uma candidatura aprovada? */
   approved: boolean;
 };
 
 /** Linha de empregabilidade de um curso. */
-export type CourseEmployabilityRow = {
+type CourseEmployabilityRow = {
   course: string;
   /** Alunos elegíveis do curso (R1: ativo/egresso). */
   total: number;
@@ -172,20 +172,20 @@ export function employabilityByCourseRows(
 }
 
 /** Recrutador (empresa) conhecido pelo agregador de parceiras. */
-export type PartnerCompanyRow = {
+type PartnerCompanyRow = {
   userId: string;
   companyName: string;
 };
 
 /** Vaga mínima contabilizada por empresa parceira. */
-export type PartnerJobRow = {
+type PartnerJobRow = {
   recruiterId: string;
   /** Quantidade de candidaturas aprovadas nesta vaga. */
   hiredCount: number;
 };
 
 /** Linha de empresa parceira (contratados/vagas publicadas por parceiro). */
-export type PartnerRow = {
+type PartnerRow = {
   recruiterId: string;
   companyName: string;
   /** Vagas publicadas pelo parceiro (todos os status). */
@@ -241,7 +241,7 @@ export function partnerCompanyRows(
 /* ------------------------------------------------------------------ */
 
 /** Linha mínima de candidatura para a agregação de reprovações (R5). */
-export type RejectionCountRow = {
+type RejectionCountRow = {
   stage: string;
   rejectionReason?: string | null;
 };
@@ -318,7 +318,7 @@ function skillPresenceCounts(
 }
 
 /** Linha mínima de vaga para a agregação de demanda. */
-export type JobPrerequisitesRow = {
+type JobPrerequisitesRow = {
   prerequisites: readonly { item: string; required: boolean }[];
 };
 
@@ -337,7 +337,7 @@ export function skillDemandCounts(
 }
 
 /** Linha mínima de aluno para a agregação de oferta. */
-export type StudentSkillsRow = {
+type StudentSkillsRow = {
   skills?: readonly string[] | null;
 };
 
@@ -351,7 +351,7 @@ export function skillSupplyCounts(
 }
 
 /** Linha do radar de competências (demanda × oferta). */
-export type SkillsRadarRow = {
+type SkillsRadarRow = {
   skill: string;
   /** Quantas vagas pedem a competência. */
   demand: number;
@@ -405,13 +405,13 @@ export function buildSkillsRadar(
 }
 
 /** Linha mínima de aluno para o termômetro de engajamento. */
-export type EngagementStudentRow = {
+type EngagementStudentRow = {
   status: string;
   skills?: readonly string[] | null;
   resumeData?: unknown;
 };
 
-export type EngagementMetrics = {
+type EngagementMetrics = {
   /** Alunos com vínculo elegíveis (R1: inativo nunca conta). */
   total: number;
   /** Perfil incompleto = sem competências registradas. */

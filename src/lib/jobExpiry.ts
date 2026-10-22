@@ -11,7 +11,7 @@ export const JOB_EXPIRY_DAYS = 30;
 const JOB_EXPIRY_MS = JOB_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
 
 /** Dias restantes que acionam o aviso de renovação na UI. */
-export const JOB_EXPIRY_WARNING_DAYS = 5;
+const JOB_EXPIRY_WARNING_DAYS = 5;
 
 export type JobLifecycleStatus =
   | "aberta"
@@ -44,7 +44,7 @@ export function isJobExpired(
   return job.expiresAt <= now;
 }
 
-export type RenewalResult =
+type RenewalResult =
   | { ok: true; expired: false; expiresAt: number; reopen?: boolean }
   | { ok: false; reason: "status_invalido" }
   | { ok: false; reason: "moderacao" }
@@ -74,7 +74,7 @@ export function renewJob(job: ExpirableJob, now: number): RenewalResult {
   };
 }
 
-export type RenewalWindow = {
+type RenewalWindow = {
   /** Dias restantes (negativo quando já vencida). */
   daysLeft: number;
   /** Dentro da janela de aviso (últimos 5 dias, vaga aberta). */

@@ -276,7 +276,6 @@ describe("pontos de entrada sem texto livre", () => {
   it("formulários de edição leem o dicionário (Combobox, sem input livre)", () => {
     for (const file of [
       "src/components/student/ResumeForm.tsx",
-      "src/components/student/StudentProfileForm.tsx",
     ]) {
       const src = read(file);
       // Os campos de dicionário são montados a partir da whitelist

@@ -36,7 +36,6 @@ vi.mock("../../convex/_generated/api", () => ({
 import { useMutation, useQuery } from "convex/react";
 import { KNOWN_LANGUAGES, SKILLS_DICTIONARY } from "../../src/lib/skills";
 import { ResumeForm } from "../../src/components/student/ResumeForm";
-import { StudentProfileForm } from "../../src/components/student/StudentProfileForm";
 import { TalentSearchPage } from "../../src/components/talent/TalentSearchPage";
 
 const mockedUseQuery = vi.mocked(useQuery);
@@ -102,109 +101,6 @@ async function pickComboTerm(combo: HTMLElement, term: string) {
     within(screen.getByRole("listbox")).getByRole("option", { name: term }),
   );
 }
-
-describe("StudentProfileForm — dicionário fechado", () => {
-  it("campo de competência é combobox do dicionário (sem texto livre)", async () => {
-    render(<StudentProfileForm />);
-
-    const combo = screen.getByRole("combobox", { name: "Nova competência" });
-    expect(combo.tagName).toBe("INPUT");
-    // Nenhuma caixa de texto permite digitar competência livre.
-    expect(
-      screen.queryByRole("textbox", { name: /nova competência/i }),
-    ).toBeNull();
-
-    const offered = await openComboOptions(combo);
-    expect(offered.length).toBeGreaterThan(0);
-    for (const skill of offered) {
-      expect(SKILLS_DICTIONARY).toContain(skill);
-    }
-    expect(offered).toContain("Unity");
-    expect(offered).toContain("Figma");
-  });
-
-  it("campo de idioma é combobox da whitelist (sem texto livre)", async () => {
-    render(<StudentProfileForm />);
-
-    const combo = screen.getByRole("combobox", { name: "Novo idioma" });
-    expect(combo.tagName).toBe("INPUT");
-    expect(screen.queryByRole("textbox", { name: /novo idioma/i })).toBeNull();
-
-    const offered = await openComboOptions(combo);
-    for (const language of offered) {
-      expect(KNOWN_LANGUAGES).toContain(language);
-    }
-    expect(offered).toContain("Coreano");
-    expect(offered).toContain("Russo");
-  });
-
-  it("texto fora do dicionário mostra 'Nenhum resultado' e desabilita Adicionar", async () => {
-    render(<StudentProfileForm />);
-
-    const skillsGroup = screen.getByRole("group", { name: /^competências/i });
-    const combo = within(skillsGroup).getByRole("combobox", {
-      name: "Nova competência",
-    });
-    await userEvent.click(combo);
-    await userEvent.clear(combo);
-    await userEvent.type(combo, "coxinha");
-
-    expect(screen.getByText(/nenhum resultado/i)).toBeInTheDocument();
-    expect(
-      within(skillsGroup).getByRole("button", { name: /adicionar/i }),
-    ).toBeDisabled();
-
-    // Nada foi adicionado — nenhum chip "coxinha" na lista de chips.
-    expect(
-      within(skillsGroup).queryByLabelText(/remover competência coxinha/i),
-    ).toBeNull();
-  });
-
-  it("só termos oficiais entram no envio (seleção + validação)", async () => {
-    render(<StudentProfileForm />);
-
-    const skillsGroup = screen.getByRole("group", { name: /^competências/i });
-    await pickComboTerm(
-      within(skillsGroup).getByRole("combobox", {
-        name: "Nova competência",
-      }),
-      "Unity",
-    );
-    await userEvent.click(
-      within(skillsGroup).getByRole("button", { name: /adicionar/i }),
-    );
-    expect(
-      within(skillsGroup).getByLabelText(/remover competência unity/i),
-    ).toBeInTheDocument();
-
-    const languagesGroup = screen.getByRole("group", { name: /^idiomas/i });
-    await pickComboTerm(
-      within(languagesGroup).getByRole("combobox", { name: "Novo idioma" }),
-      "Coreano",
-    );
-    await userEvent.click(
-      within(languagesGroup).getByRole("button", { name: /adicionar/i }),
-    );
-
-    await userEvent.click(
-      screen.getByRole("button", { name: /salvar perfil/i }),
-    );
-
-    expect(upsertProfile).toHaveBeenCalledTimes(1);
-    const payload = upsertProfile.mock.calls[0]?.[0] as {
-      skills: string[];
-      languages: { name: string }[];
-    };
-    expect(payload.skills).toEqual(["React", "Python", "Unity"]);
-    for (const skill of payload.skills) {
-      expect(SKILLS_DICTIONARY).toContain(skill);
-    }
-    expect(payload.languages.map((l) => l.name)).toEqual(["Inglês", "Coreano"]);
-    for (const language of payload.languages) {
-      expect(KNOWN_LANGUAGES).toContain(language.name);
-    }
-  });
-});
 
 describe("ResumeForm — dicionário fechado nos blocos 4 e 5", () => {
   it("bloco de competências abre como combobox do dicionário", async () => {

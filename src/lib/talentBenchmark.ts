@@ -106,7 +106,7 @@ function pick<T>(items: readonly T[], index: number): T {
 }
 
 /** Linha de seed do benchmark — consumida pela internalMutation do Convex. */
-export type BenchmarkSeedRow = {
+type BenchmarkSeedRow = {
   /** Índice global do registro (runId, lote) — usado no e-mail da conta. */
   benchmarkIndex: number;
   fullName: string;
@@ -185,7 +185,7 @@ export function buildBenchmarkBatch(args: {
   return { rows, generationMs: performance.now() - started };
 }
 
-export type TalentBenchmarkInput = {
+type TalentBenchmarkInput = {
   /** Cenário medido (ex.: "padrao", "disponibilidade+curso"). */
   scenario: string;
   /** Tamanho da base semeada (CA 1: ≥ 10k). */
@@ -198,7 +198,7 @@ export type TalentBenchmarkInput = {
   indexUsed: string;
 };
 
-export type TalentBenchmarkReport = {
+type TalentBenchmarkReport = {
   ok: boolean;
   scenario: string;
   seededRows: number;

@@ -63,7 +63,7 @@ export function isValidUrl(url: string | undefined): boolean {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-export type ProfileValidation =
+type ProfileValidation =
   | { ok: true; normalized: StudentProfileInput }
   | { ok: false; errors: string[] };
 

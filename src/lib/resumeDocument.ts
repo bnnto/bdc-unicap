@@ -24,12 +24,12 @@ export type ResumeDocStudent = {
   languages?: Array<{ name: string; level: string }>;
 };
 
-export type ResumeDocumentInput = {
+type ResumeDocumentInput = {
   student: ResumeDocStudent | null;
   resume: ResumeDataInput | null;
 };
 
-export type ResumeDocument =
+type ResumeDocument =
   | {
       ok: true;
       university: string;
@@ -48,9 +48,9 @@ export type ResumeDocument =
     }
   | { ok: false; reason: "perfil_inexistente" | "curriculo_inexistente" };
 
-export const RESUME_UNIVERSITY = "Universidade Católica de Pernambuco";
-export const RESUME_ACRONYM = "UNICAP";
-export const RESUME_DOC_TITLE = "Currículo Vitae — Banco de Currículos UNICAP";
+const RESUME_UNIVERSITY = "Universidade Católica de Pernambuco";
+const RESUME_ACRONYM = "UNICAP";
+const RESUME_DOC_TITLE = "Currículo Vitae — Banco de Currículos UNICAP";
 
 const STATUS_LABELS: Record<ResumeDocStudent["status"], string> = {
   ativo: "Aluno ativo",

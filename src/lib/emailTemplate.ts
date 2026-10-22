@@ -27,7 +27,7 @@ const BRAND = {
   border: "#E2E8F0",
 } as const;
 
-export type BrandCta = { label: string; url: string };
+type BrandCta = { label: string; url: string };
 
 type BrandedEmailArgs = {
   preheader: string;

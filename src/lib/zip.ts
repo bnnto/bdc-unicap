@@ -5,7 +5,7 @@
  */
 
 /** Entrada de camada base do ZIP (store = sem compressão). */
-export type ZipEntry = { name: string; data: Uint8Array };
+type ZipEntry = { name: string; data: Uint8Array };
 
 /** Passo do CRC32 IEEE (polinômio 0xEDB88320 refletido). */
 function crcStep(crc: number): number {

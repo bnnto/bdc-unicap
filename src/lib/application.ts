@@ -86,7 +86,7 @@ export type ApplicableJob = {
   expiresAt?: number;
 };
 
-export type ApplyDecision =
+type ApplyDecision =
   { ok: true } | { ok: false; reason: "vaga_nao_aberta" | "vaga_expirada" };
 
 /**
@@ -106,7 +106,7 @@ export function canApplyTo(job: ApplicableJob, now: number): ApplyDecision {
  * itens faltantes para o aviso claro na UI (CA 2). Opcional (não-marca-
  * dos) nunca bloqueiam — são insumo do matching, não critério de entrada.
  */
-export type PrerequisiteGate = {
+type PrerequisiteGate = {
   ok: boolean;
   missing: string[];
 };
@@ -152,7 +152,7 @@ export function formatMissingPrerequisites(missing: readonly string[]): string {
  * - mover para "aprovado" EXIGE `expectedStartDate` (data de início
  *   prevista da contratação).
  */
-export type MoveStageDecision =
+type MoveStageDecision =
   | {
       ok: true;
       nextStage: ApplicationStage;
@@ -303,7 +303,7 @@ export function isRejectionReason(value: unknown): value is RejectionReason {
   );
 }
 
-export type RejectionDecision =
+type RejectionDecision =
   { ok: true; nextStage: "reprovado" } | { ok: false; error: string }; /**
  * R5/CA 1 — Decisão de reprovação: exige motivo do enum fixo; falha
  * clara sem motivo, com motivo fora do catálogo ou em já-reprovado.
@@ -338,7 +338,7 @@ export function rejectionDecision(input: {
  * O aceite do termo LGPD (R7) é pré-condição de uso do portal — sozinho
  * NÃO libera contato; a liberação é sempre escolha do aluno.
  */
-export type ContactReleaseInput = {
+type ContactReleaseInput = {
   showContactToRecruiters: boolean;
   processAccepted: boolean;
   /** R7 — aceite vigente do termo (contexto; não libera sozinho). */
@@ -347,7 +347,7 @@ export type ContactReleaseInput = {
   phone?: string;
 };
 
-export type ContactReleaseDecision = {
+type ContactReleaseDecision = {
   contactReleased: boolean;
   reason: "autorizacao_geral" | "aceite_no_processo" | "sem_autorizacao";
 };
@@ -364,7 +364,7 @@ export function contactReleaseDecision(
   return { contactReleased: false, reason: "sem_autorizacao" };
 }
 
-export type ContactProjection = {
+type ContactProjection = {
   contactReleased: boolean;
   releaseReason: ContactReleaseDecision["reason"];
   email?: string;
@@ -392,7 +392,7 @@ export function contactProjectionForApplication(
 }
 
 /** Campos do perfil do aluno consumidos pelo algoritmo de matching. */
-export type ProfileMatchingFields = {
+type ProfileMatchingFields = {
   skills?: string[];
   languages?: Array<{ name: string; level: LanguageLevel }>;
   availability: Availability[];
@@ -422,7 +422,7 @@ export function buildMatchingCandidateInput(profile: ProfileMatchingFields): {
  */
 
 /** Candidatura como exibida na lista do aluno. */
-export type MyApplication = {
+type MyApplication = {
   applicationId: string;
   jobTitle: string;
   stage: ApplicationStage;
@@ -473,7 +473,7 @@ export function stageTimeline(current: ApplicationStage): TimelineStep[] {
   }));
 }
 
-export type MyApplicationsKpis = {
+type MyApplicationsKpis = {
   total: number;
   /** Ainda em andamento (não reprovadas). */
   active: number;
@@ -495,7 +495,7 @@ export function myApplicationsKpis(
 }
 
 /** Tom visual do badge por etapa (variantes do componente Badge). */
-export type StageBadgeVariant =
+type StageBadgeVariant =
   "aprovado" | "triagem" | "reprovado" | "andamento";
 
 export const STAGE_BADGE: Record<ApplicationStage, StageBadgeVariant> = {

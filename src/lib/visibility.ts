@@ -8,7 +8,7 @@
 export const VISIBILITY_OPTIONS = ["publico", "somente_candidaturas"] as const;
 export type StudentVisibility = (typeof VISIBILITY_OPTIONS)[number];
 
-export type VisibilitySubject = {
+type VisibilitySubject = {
   /** R1 — apenas ativos/egressos participam das buscas. */
   status: "ativo" | "egresso" | "inativo";
   visibility: StudentVisibility;
@@ -49,12 +49,12 @@ export function canRecruiterSeeContact(
 }
 
 /** Campos de contato — presentes apenas quando autorizado. */
-export type ContactFields = {
+type ContactFields = {
   email?: string;
   phone?: string;
 };
 
-export type RecruitableView = ContactFields & {
+type RecruitableView = ContactFields & {
   fullName: string;
   course: string;
   visibility: StudentVisibility;

@@ -142,11 +142,6 @@ describe("REGRA 2 — alinhamento Button ao lado de Input (forms)", () => {
         "mt-6 h-10 shrink-0",
       );
     }
-    // Formulário do aluno: botão junto de input/select sem label visível.
-    expect(
-      sources.get(join(SRC, "components/student/StudentProfileForm.tsx")),
-      "StudentProfileForm sem h-10 shrink-0 no botão alinhado",
-    ).toContain("h-10 shrink-0");
   });
 });
 

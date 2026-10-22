@@ -2,7 +2,7 @@
  * [MODERACAO_RECRUTADOR] Validação pura do LinkedIn exigido no cadastro
  * público do recrutador. Compartilhada entre a UI e o servidor.
  */
-export type LinkedinValidation =
+type LinkedinValidation =
   | { ok: true; normalized: string }
   | { ok: false; error: string };
 

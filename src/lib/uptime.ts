@@ -13,7 +13,7 @@ export const UPTIME_WINDOW_SIZE = 120;
 export const SLA_TARGET_PERCENT = 99;
 
 /** Uma batida de healthcheck consolidada (janela da monitoração). */
-export type Heartbeat = { up: boolean; at: number };
+type Heartbeat = { up: boolean; at: number };
 
 /** Lê a resposta do healthcheck e produz a batida consolidada. */
 export function buildHeartbeat(
@@ -34,7 +34,7 @@ export function uptimePercent(window: readonly Heartbeat[]): number {
 }
 
 /** Entradas da avaliação da monitoração do deploy. */
-export type DeployMonitoringInput = {
+type DeployMonitoringInput = {
   /** Última batida conhecida (healthcheck mais recente). */
   lastHeartbeat: Heartbeat | null;
   /** Janela deslizante das últimas batidas (máx. UPTIME_WINDOW_SIZE). */
@@ -43,7 +43,7 @@ export type DeployMonitoringInput = {
   production: { url: string; deployed: boolean };
 };
 
-export type DeployMonitoringStatus = {
+type DeployMonitoringStatus = {
   ok: boolean;
   slaMet: boolean;
   availabilityPercent: number;

@@ -5,15 +5,15 @@
  */
 import type { JobLifecycleStatus } from "./jobExpiry";
 
-export const MODERATION_HOLD_STATUSES = ["em_revisao", "suspensa"] as const;
-export type ModerationHoldStatus = (typeof MODERATION_HOLD_STATUSES)[number];
-export type LiveJobStatus = Exclude<JobLifecycleStatus, ModerationHoldStatus>;
+const MODERATION_HOLD_STATUSES = ["em_revisao", "suspensa"] as const;
+type ModerationHoldStatus = (typeof MODERATION_HOLD_STATUSES)[number];
+type LiveJobStatus = Exclude<JobLifecycleStatus, ModerationHoldStatus>;
 
 export function isModerationHold(status: string): status is ModerationHoldStatus {
   return (MODERATION_HOLD_STATUSES as readonly string[]).includes(status);
 }
 
-export function isLiveJobStatus(status: JobLifecycleStatus): status is LiveJobStatus {
+function isLiveJobStatus(status: JobLifecycleStatus): status is LiveJobStatus {
   return !isModerationHold(status);
 }
 
@@ -29,10 +29,10 @@ export function onlyLiveJobs<T extends { status: JobLifecycleStatus }>(
 export const HOLD_MESSAGE =
   "Esta vaga está em revisão ou suspensa pela coordenação e não pode ser alterada pelo recrutador.";
 
-export type ReviewVerdict = "ok" | "revisao" | "bloqueada";
-export type ContentReview = { verdict: ReviewVerdict; reasons: string[] };
+type ReviewVerdict = "ok" | "revisao" | "bloqueada";
+type ContentReview = { verdict: ReviewVerdict; reasons: string[] };
 
-export type ReviewInput = {
+type ReviewInput = {
   title: string;
   description: string;
   contractType: string;

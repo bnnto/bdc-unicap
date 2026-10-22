@@ -12,7 +12,7 @@ import { STAGE_LABELS, type ApplicationStage } from "./application";
 import { escapeHtml, renderBrandedEmail } from "./emailTemplate";
 
 /** Etapas que notificam o aluno por e-mail (spec do FINAL_UPGRADE). */
-export const NOTIFY_STAGES: readonly ApplicationStage[] = [
+const NOTIFY_STAGES: readonly ApplicationStage[] = [
   "entrevista",
   "aprovado",
 ];
@@ -42,7 +42,7 @@ export function shouldNotifyStageAdvance(
   return toIndex === fromIndex + 1;
 }
 
-export type StageNotificationEmail = {
+type StageNotificationEmail = {
   subject: string;
   text: string;
   html: string;

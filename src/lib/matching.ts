@@ -27,12 +27,12 @@ export const AVAILABILITY_BONUS = 4;
 /** Base dos pré-requisitos: 90 + 6 + 4 = 100. */
 export const BASE_MAX = 90;
 
-export type MatchingPrerequisite = {
+type MatchingPrerequisite = {
   item: string;
   required: boolean;
 };
 
-export type MatchingLanguageRequirement = {
+type MatchingLanguageRequirement = {
   name: string;
   level: LanguageLevel;
 };
@@ -116,7 +116,7 @@ export function computeMatchScore(
   return Math.round(Math.min(Math.max(raw, 0), 100));
 }
 
-export type MatchBand = "strong" | "medium" | "low";
+type MatchBand = "strong" | "medium" | "low";
 
 /** Faixas de exibição (CA 3): ≥85 Strong · 50–84 Medium · <50 Low. */
 export function matchBand(score: number): MatchBand {
