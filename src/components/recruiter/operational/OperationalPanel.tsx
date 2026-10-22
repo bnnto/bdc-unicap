@@ -11,22 +11,22 @@ import {
   X,
 } from "lucide-react";
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { Card } from "../ui/card";
-import { Button } from "../ui/button";
+import { api } from "../../../../convex/_generated/api";
+import { Card } from "../../ui/card";
+import { Button } from "../../ui/button";
 import {
   buildOperationalReport,
   formatEmployabilityRate,
-} from "../../lib/operationalPanel";
-import { downloadReport } from "../../lib/reportExport";
-import { printOperationalReport } from "../../lib/reportPrint";
-import type { FunnelStep } from "../../lib/funnel";
+} from "../../../lib/operationalPanel";
+import { downloadReport } from "../../../lib/reportExport";
+import { printOperationalReport } from "../../../lib/reportPrint";
+import type { FunnelStep } from "../../../lib/funnel";
 import {
   hasActiveFilters,
   normalizeDashboardFilters,
   type DashboardFilters,
-} from "../../lib/dashboardFilters";
-import { useStableQuery } from "../../lib/useStableQuery";
+} from "../../../lib/dashboardFilters";
+import { useStableQuery } from "../../../lib/useStableQuery";
 
 /**
  * Painel Operacional (issues [S5-1] a [S5-5]).

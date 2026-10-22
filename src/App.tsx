@@ -14,10 +14,10 @@ import { Kanban, LayoutDashboard, ShieldAlert, UserCheck, Users } from "lucide-r
 import { ManagerRecruitersPage } from "./components/manager/ManagerRecruitersPage";
 import { ManagerModerationPage } from "./components/manager/ManagerModerationPage";
 import { PendingRecruitersBadge } from "./components/manager/PendingRecruitersBadge";
-import { TalentSearchPage } from "./components/talent/TalentSearchPage";
+import { TalentSearchPage } from "./components/recruiter/talent/TalentSearchPage";
 import { RecruiterJobsPage } from "./components/recruiter/RecruiterJobsPage";
 import { CandidateProfilePage } from "./components/recruiter/CandidateProfilePage";
-import { OperationalPanel } from "./components/operational/OperationalPanel";
+import { OperationalPanel } from "./components/recruiter/operational/OperationalPanel";
 import { ManagerDashboard } from "./components/manager/ManagerDashboard";
 import { ROLE_LABELS } from "./lib/roles";
 import { RecruiterApprovalGate } from "./components/recruiter/RecruiterApprovalGate";

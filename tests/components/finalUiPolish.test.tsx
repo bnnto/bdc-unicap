@@ -44,8 +44,8 @@ vi.mock("../../convex/_generated/api", () => ({
 import { useQuery } from "convex/react";
 import App from "../../src/App";
 import { JobForm } from "../../src/components/recruiter/JobForm";
-import { OperationalPanel } from "../../src/components/operational/OperationalPanel";
-import { TalentSearchPage } from "../../src/components/talent/TalentSearchPage";
+import { OperationalPanel } from "../../src/components/recruiter/operational/OperationalPanel";
+import { TalentSearchPage } from "../../src/components/recruiter/talent/TalentSearchPage";
 import { EmptyState } from "../../src/components/ui/emptyState";
 import { Inbox } from "lucide-react";
 

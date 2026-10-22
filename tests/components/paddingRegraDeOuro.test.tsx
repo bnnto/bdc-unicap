@@ -40,8 +40,8 @@ import { useQuery, useMutation } from "convex/react";
 import { Card } from "../../src/components/ui/card";
 import { JobsPanel } from "../../src/components/recruiter/JobsPanel";
 import { JobForm } from "../../src/components/recruiter/JobForm";
-import { OperationalPanel } from "../../src/components/operational/OperationalPanel";
-import { TalentSearchPage } from "../../src/components/talent/TalentSearchPage";
+import { OperationalPanel } from "../../src/components/recruiter/operational/OperationalPanel";
+import { TalentSearchPage } from "../../src/components/recruiter/talent/TalentSearchPage";
 
 const mockedUseQuery = vi.mocked(useQuery);
 const mockedUseMutation = vi.mocked(useMutation);

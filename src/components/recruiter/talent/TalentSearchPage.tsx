@@ -2,26 +2,26 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
-import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
-import { Combobox } from "../ui/Combobox";
-import { AVAILABILITY, type Availability } from "../../lib/studentProfile";
+import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { Button } from "../../ui/button";
+import { Badge } from "../../ui/badge";
+import { Combobox } from "../../ui/Combobox";
+import { AVAILABILITY, type Availability } from "../../../lib/studentProfile";
 import {
   KNOWN_LANGUAGES,
   LANGUAGE_LEVELS,
   SKILLS_GROUPS,
   type LanguageLevel,
-} from "../../lib/skills";
+} from "../../../lib/skills";
 import {
   TALENT_PAGE_SIZE,
   type TalentSortOption,
-} from "../../lib/talentSearch";
-import { COURSES } from "../../lib/talentBenchmark";
-import { candidateProfilePath, navigateTo } from "../../lib/router";
-import { friendlyErrorMessage } from "../../lib/toastMessages";
-import { useStableQuery } from "../../lib/useStableQuery";
+} from "../../../lib/talentSearch";
+import { COURSES } from "../../../lib/talentBenchmark";
+import { candidateProfilePath, navigateTo } from "../../../lib/router";
+import { friendlyErrorMessage } from "../../../lib/toastMessages";
+import { useStableQuery } from "../../../lib/useStableQuery";
 import {
   ArrowUpDown,
   CalendarDays,

@@ -24,7 +24,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useQuery } from "convex/react";
-import { OperationalPanel } from "../../src/components/operational/OperationalPanel";
+import { OperationalPanel } from "../../src/components/recruiter/operational/OperationalPanel";
 import { clearReportPrintContainer } from "../../src/lib/reportPrint";
 
 const mockedUseQuery = vi.mocked(useQuery);

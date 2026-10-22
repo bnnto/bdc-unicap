@@ -30,7 +30,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useQuery } from "convex/react";
-import { TalentSearchPage } from "../../src/components/talent/TalentSearchPage";
+import { TalentSearchPage } from "../../src/components/recruiter/talent/TalentSearchPage";
 
 const mockedUseQuery = vi.mocked(useQuery);
 
