@@ -34,7 +34,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useMutation, useQuery } from "convex/react";
-import { KNOWN_LANGUAGES, SKILLS_DICTIONARY } from "../../src/lib/skills";
+import { SKILLS_DICTIONARY } from "../../src/lib/skills";
 import { ResumeForm } from "../../src/components/student/ResumeForm";
 import { TalentSearchPage } from "../../src/components/recruiter/talent/TalentSearchPage";
 
