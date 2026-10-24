@@ -24,6 +24,7 @@ export type StudentProfileInput = {
   location?: string;
   linkedinUrl?: string;
   portfolioUrl?: string;
+  phone?: string;
   /** [QUICK_WIN_MULTI] multi-seleção: uma ou mais opções oficiais. */
   availability: Availability[];
 };
@@ -59,6 +60,24 @@ export function isValidUrl(url: string | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+/** Normaliza telefone BR: só dígitos, sem o prefixo 55. */
+export function normalizePhone(phone: string): string {
+  let digits = phone.replace(/\D+/g, "");
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
+    digits = digits.slice(2);
+  }
+  return digits;
+}
+
+/** Opcional: vazio/undefined é válido. Aceita 10 (fixo) ou 11 (celular) dígitos com DDD. */
+export function isValidPhone(phone: string | undefined): boolean {
+  if (phone === undefined || phone.trim().length === 0) return true;
+  const digits = normalizePhone(phone);
+  if (digits.length === 11) return /^\d{2}9\d{8}$/.test(digits);
+  if (digits.length === 10) return /^\d{2}[2-9]\d{7}$/.test(digits);
+  return false;
 }
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -117,6 +136,9 @@ export function validateStudentProfile(
   if (!isValidUrl(input.portfolioUrl)) {
     errors.push("URL de GitHub/Portfólio deve usar https://.");
   }
+  if (!isValidPhone(input.phone)) {
+    errors.push("Telefone inválido: informe DDD + número (ex.: (81) 99999-9999).");
+  }
 
   // [QUICK_WIN_MULTI] multi-seleção: exige ao menos uma opção, todas da
   // whitelist e sem repetição (o normalizador preserva a ordem).
@@ -145,6 +167,10 @@ export function validateStudentProfile(
         location !== undefined && location.length > 0 ? location : undefined,
       linkedinUrl: emptyToUndefined(input.linkedinUrl),
       portfolioUrl: emptyToUndefined(input.portfolioUrl),
+      phone:
+        input.phone !== undefined && input.phone.trim().length > 0
+          ? normalizePhone(input.phone)
+          : undefined,
     },
   };
 }

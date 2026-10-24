@@ -181,6 +181,7 @@ export function ResumeForm() {
   const [graduationYear, setGraduationYear] = useState("");
   const [semester, setSemester] = useState("");
   const [location, setLocation] = useState("");
+  const [phone, setPhone] = useState("");
   const [availability, setAvailability] = useState<Availability[]>(["estagio"]);
 
   // Estados de controle do modo inline.
@@ -230,6 +231,7 @@ export function ResumeForm() {
           : "",
       );
       setLocation(profile.location ?? "");
+      setPhone(profile.phone ?? "");
       setAvailability(profile.availability);
     }
   }, [profile]);
@@ -370,6 +372,7 @@ export function ResumeForm() {
         graduationYear: Number.parseInt(graduationYear, 10),
         semester: semesterValue,
         location,
+        phone,
         availability,
       });
       if (!profileCheck.ok) {
@@ -553,6 +556,7 @@ export function ResumeForm() {
         : "",
     );
     setLocation(profile?.location ?? "");
+    setPhone(profile?.phone ?? "");
     setAvailability(profile?.availability ?? ["estagio"]);
     setErrors([]);
   }
@@ -718,6 +722,16 @@ export function ResumeForm() {
                             label="Cidade/UF (opcional)"
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
+                          />
+                          <Input
+                            label="Telefone de contato (opcional)"
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="(81) 99999-9999"
+                            hint="Utilizado na exportação de currículo"
                           />
                         </div>
                         <div className="flex flex-col gap-2">

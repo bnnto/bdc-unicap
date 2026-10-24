@@ -107,6 +107,7 @@ export default defineSchema({
     graduationYear: v.number(),
     semester: v.optional(v.number()),
     location: v.optional(v.string()),
+    phone: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
     website: v.optional(v.string()),
     portfolioUrl: v.optional(v.string()),
@@ -239,6 +240,7 @@ export default defineSchema({
     salaryMin: v.optional(v.number()),
     salaryMax: v.optional(v.number()),
     location: v.optional(v.string()),
+    phone: v.optional(v.string()),
     status: v.union(
       v.literal("aberta"),
       v.literal("fechada"),

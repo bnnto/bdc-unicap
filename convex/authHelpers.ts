@@ -141,7 +141,6 @@ export const createUser = internalMutation({
       email,
       name,
       role,
-      secret,
       consentTermVersion,
       publicSignup,
       linkedinUrl,

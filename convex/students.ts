@@ -115,6 +115,7 @@ export const upsertProfile = mutation({
     location: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
     portfolioUrl: v.optional(v.string()),
+    phone: v.optional(v.string()),
     /** [QUICK_WIN_MULTI] multi-seleção (validada por validateStudentProfile). */
     availability: v.array(
       v.union(
@@ -215,6 +216,7 @@ export const upsertProfile = mutation({
         location: profile.location,
         linkedinUrl: profile.linkedinUrl,
         portfolioUrl: profile.portfolioUrl,
+        phone: profile.phone,
         availability: profile.availability,
         skills,
         languages,
@@ -233,6 +235,7 @@ export const upsertProfile = mutation({
       location: profile.location,
       linkedinUrl: profile.linkedinUrl,
       portfolioUrl: profile.portfolioUrl,
+      phone: profile.phone,
       availability: profile.availability,
       skills,
       languages,
@@ -583,9 +586,6 @@ export const getCandidateProfile = query({
         (entry) => entry.application.processAccepted ?? false,
       ),
       email: owner?.email,
-      // [QUICK_WIN_RECRUITER] Telefone/WhatsApp projetado junto do
-      // e-mail — mesmo gate R6, para o botão de copiar da página.
-      phone: owner?.phone,
     });
     const released = contact.contactReleased;
 
@@ -607,7 +607,6 @@ export const getCandidateProfile = query({
       languages: student.languages ?? [],
       contactReleased: released,
       email: released ? contact.email : undefined,
-      phone: released ? contact.phone : undefined,
       linkedinUrl: released ? (student.linkedinUrl ?? undefined) : undefined,
       portfolioUrl: released ? (student.portfolioUrl ?? undefined) : undefined,
     };
