@@ -50,29 +50,40 @@ const VIEWS: Array<{ key: View; label: string; icon: typeof ShieldAlert }> = [
   { key: "historico", label: "Histórico", icon: History },
 ];
 
+function OutLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+    >
+      <ExternalLink className="h-4 w-4" aria-hidden="true" />
+      {label}
+      <span className="sr-only"> (abre em nova aba)</span>
+    </a>
+  );
+}
+
 function RecruiterLine({
   name,
   email,
   linkedin,
+  website,
 }: {
   name: string;
   email: string;
   linkedin: string | null;
+  website?: string | null;
 }) {
   return (
-    <p className="mt-2 text-sm text-slate-600">
-      {name} · {email}
-      {linkedin !== null ? (
-        <a
-          href={linkedin}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="ml-2 inline-flex items-center gap-1 font-semibold text-primary hover:underline"
-        >
-          <ExternalLink className="h-4 w-4" aria-hidden="true" />
-          LinkedIn
-          <span className="sr-only"> (abre em nova aba)</span>
-        </a>
+    <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
+      <span>
+        {name} · {email}
+      </span>
+      {linkedin !== null ? <OutLink href={linkedin} label="LinkedIn" /> : null}
+      {website != null && website.startsWith("https://") ? (
+        <OutLink href={website} label="Site" />
       ) : null}
     </p>
   );
@@ -262,7 +273,9 @@ export function ManagerModerationPage() {
                     </p>
                   </div>
                   <Badge
-                    variant={row.status === "em_revisao" ? "triagem" : "reprovado"}
+                    variant={
+                      row.status === "em_revisao" ? "triagem" : "reprovado"
+                    }
                   >
                     {row.status === "em_revisao" ? "Em revisão" : "Suspensa"}
                   </Badge>
@@ -272,6 +285,7 @@ export function ManagerModerationPage() {
                   name={row.recruiterName}
                   email={row.recruiterEmail}
                   linkedin={row.recruiterLinkedin}
+                  website={row.recruiterWebsite}
                 />
 
                 {row.reason !== null ? (
@@ -409,7 +423,10 @@ export function ManagerModerationPage() {
             description="Revisões, suspensões, aprovações e exclusões de vagas ficam registradas aqui, mesmo depois de a vaga ser apagada."
           />
         ) : (
-          <ul className="flex flex-col gap-3" aria-label="Histórico de moderação">
+          <ul
+            className="flex flex-col gap-3"
+            aria-label="Histórico de moderação"
+          >
             {history.map((row) => (
               <li
                 key={row.logId}

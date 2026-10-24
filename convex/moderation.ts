@@ -51,6 +51,7 @@ export const listRecruiters = query({
         name: recruiter.name ?? "—",
         email: recruiter.email ?? "—",
         linkedinUrl: recruiter.linkedinUrl ?? null,
+        website: recruiter.website ?? null,
         status: current,
         reason: recruiter.approvalReason ?? null,
         createdAt: recruiter._creationTime,
@@ -146,7 +147,7 @@ export const decideRecruiter = mutation({
     const now = Date.now();
     let suspended = 0;
     let restored = 0;
-        for (const job of jobs) {
+    for (const job of jobs) {
       if (decision === "recusado" && job.status === "aberta") {
         const why = "Cadastro do recrutador recusado ou revogado.";
         await ctx.db.patch(job._id, {
@@ -375,6 +376,7 @@ export const listJobsInModeration = query({
           recruiterName: recruiter?.name ?? "—",
           recruiterEmail: recruiter?.email ?? "—",
           recruiterLinkedin: recruiter?.linkedinUrl ?? null,
+          recruiterWebsite: recruiter?.website ?? null,
           reportsCount: reports.count,
           reportBreakdown: reports.breakdown,
           reportDetails: reports.details,
@@ -417,6 +419,7 @@ export const listLiveJobs = query({
         recruiterName: recruiter?.name ?? "—",
         recruiterEmail: recruiter?.email ?? "—",
         recruiterLinkedin: recruiter?.linkedinUrl ?? null,
+        recruiterWebsite: recruiter?.website ?? null,
         reportsCount: reports.count,
         reportBreakdown: reports.breakdown,
         reportDetails: reports.details,
@@ -528,7 +531,8 @@ export const decideJob = mutation({
       return { ok: true as const, status: "aberta" as const };
     }
 
-    if (job.status === "suspensa") throw new Error("Esta vaga já está suspensa.");
+    if (job.status === "suspensa")
+      throw new Error("Esta vaga já está suspensa.");
     if (job.status === "encerrada") {
       throw new Error("Vaga encerrada não pode ser suspensa.");
     }

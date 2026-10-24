@@ -377,6 +377,8 @@ export const getMyDataExport = query({
         active: user.active ?? true,
         image: user.image ?? null,
         notifyJobAlerts: user.notifyJobAlerts ?? true,
+        linkedinUrl: user.linkedinUrl ?? null,
+        website: user.website ?? null,
         notifyApplicationUpdates: user.notifyApplicationUpdates ?? true,
       },
       consentimentos: consents.map((consent) => ({

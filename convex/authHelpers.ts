@@ -1,7 +1,10 @@
 import { internalQuery, internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { validateRecruiterLinkedin } from "../src/lib/recruiterSignup";
+import {
+  validateRecruiterLinkedin,
+  validateRecruiterWebsite,
+} from "../src/lib/recruiterSignup";
 
 /**
  * Funções de suporte à autenticação e papéis (issue [S1-1]).
@@ -130,17 +133,32 @@ export const createUser = internalMutation({
     consentTermVersion: v.string(),
     publicSignup: v.optional(v.boolean()),
     linkedinUrl: v.optional(v.string()),
+    website: v.optional(v.string()),
   },
   handler: async (
     ctx,
-    { email, name, role, secret, consentTermVersion, publicSignup, linkedinUrl },
+    {
+      email,
+      name,
+      role,
+      secret,
+      consentTermVersion,
+      publicSignup,
+      linkedinUrl,
+      website,
+    },
   ) => {
     const moderate = publicSignup === true && role === "recrutador";
     let normalizedLinkedin: string | undefined;
+    let normalizedWebsite: string | undefined;
     if (moderate) {
       const check = validateRecruiterLinkedin(linkedinUrl);
       if (!check.ok) throw new Error(check.error);
       normalizedLinkedin = check.normalized;
+
+      const siteCheck = validateRecruiterWebsite(website);
+      if (!siteCheck.ok) throw new Error(siteCheck.error);
+      normalizedWebsite = siteCheck.normalized;
     }
 
     const userId = await ctx.db.insert("users", {
@@ -152,14 +170,11 @@ export const createUser = internalMutation({
         ? {
             approvalStatus: "pendente" as const,
             linkedinUrl: normalizedLinkedin,
+            ...(normalizedWebsite !== undefined
+              ? { website: normalizedWebsite }
+              : {}),
           }
         : {}),
-    });
-    await ctx.db.insert("authAccounts", {
-      userId,
-      provider: "credentials-email",
-      providerAccountId: email,
-      secret,
     });
     await ctx.db.insert("consents", {
       userId,

@@ -61,7 +61,9 @@ export function ManagerRecruitersPage() {
         decision: "recusado",
         reason,
       });
-      toast.success(refuse.wasApproved ? "Acesso revogado." : "Cadastro recusado.");
+      toast.success(
+        refuse.wasApproved ? "Acesso revogado." : "Cadastro recusado.",
+      );
       setRefuse(null);
       setReason("");
     } catch (err) {
@@ -78,7 +80,11 @@ export function ManagerRecruitersPage() {
         Recrutadores
       </h2>
 
-      <div role="group" aria-label="Filtrar por situação" className="flex flex-wrap gap-2">
+      <div
+        role="group"
+        aria-label="Filtrar por situação"
+        className="flex flex-wrap gap-2"
+      >
         {FILTERS.map((item) => (
           <button
             key={item.key}
@@ -121,28 +127,37 @@ export function ManagerRecruitersPage() {
                     <Badge variant={badge.variant}>{badge.label}</Badge>
                   </div>
                   <p className="truncate text-sm text-slate-600">{row.email}</p>
-                  {row.linkedinUrl !== null ? (
-                    <a
-                      href={row.linkedinUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                      Ver LinkedIn
-                      <span className="sr-only"> (abre em nova aba)</span>
-                    </a>
-                  ) : null}
-                  <p className="mt-1 text-xs text-slate-500">
-                    Cadastro em {new Date(row.createdAt).toLocaleDateString("pt-BR")}
-                    {" · "}
-                    {row.jobsCount} vaga(s), {row.openJobsCount} aberta(s)
+                  <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    {row.linkedinUrl !== null ? (
+                      <a
+                        href={row.linkedinUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                        Ver LinkedIn
+                        <span className="sr-only"> (abre em nova aba)</span>
+                      </a>
+                    ) : null}
+                    {row.website !== null &&
+                    row.website.startsWith("https://") ? (
+                      <a
+                        href={row.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                        Ver site
+                        <span className="sr-only"> (abre em nova aba)</span>
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-500">
+                        Site não informado
+                      </span>
+                    )}
                   </p>
-                  {row.status === "recusado" && row.reason !== null ? (
-                    <p className="mt-1 text-xs text-slate-600">
-                      Motivo: {row.reason}
-                    </p>
-                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -188,7 +203,10 @@ export function ManagerRecruitersPage() {
             setReason("");
           }}
         >
-          <h3 id={titleId} className="flex items-center gap-2 font-serif text-lg font-bold text-primary">
+          <h3
+            id={titleId}
+            className="flex items-center gap-2 font-serif text-lg font-bold text-primary"
+          >
             <UserX className="h-5 w-5" aria-hidden="true" />
             {refuse.wasApproved ? "Revogar acesso" : "Recusar cadastro"}
           </h3>

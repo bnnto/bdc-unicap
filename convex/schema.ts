@@ -66,6 +66,7 @@ export default defineSchema({
     ),
     /** LinkedIn do recrutador, exigido no cadastro público. */
     linkedinUrl: v.optional(v.string()),
+    website: v.optional(v.string()),
     /** Motivo mostrado ao recrutador quando recusado/revogado. */
     approvalReason: v.optional(v.string()),
     approvalReviewedAt: v.optional(v.number()),
@@ -107,6 +108,7 @@ export default defineSchema({
     semester: v.optional(v.number()),
     location: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
+    website: v.optional(v.string()),
     portfolioUrl: v.optional(v.string()),
     /** [QUICK_WIN_MULTI] multi-seleção de disponibilidades. */
     availability: v.array(
@@ -362,12 +364,11 @@ export default defineSchema({
      */
     .index("by_stage", ["stage"]),
 
-
   /**
-  * [CONVITES] Convites por e-mail de recrutador para aluno (Resend).
-  * Serve de auditoria LGPD (quem contatou quem, quando e com qual texto)
-  * e de base para o limite diário e o intervalo entre convites ao mesmo aluno.
-  */
+   * [CONVITES] Convites por e-mail de recrutador para aluno (Resend).
+   * Serve de auditoria LGPD (quem contatou quem, quando e com qual texto)
+   * e de base para o limite diário e o intervalo entre convites ao mesmo aluno.
+   */
   invitations: defineTable({
     recruiterId: v.id("users"),
     studentId: v.id("students"),
@@ -386,10 +387,10 @@ export default defineSchema({
     .index("by_student", ["studentId"]),
 
   /**
-  * Controle de tentativas de login por e-mail (anti força bruta).
-  * Conta tentativas numa janela; ao estourar, bloqueia até `lockedUntil`.
-  * É apagado quando o login dá certo ou a senha é redefinida.
-  */
+   * Controle de tentativas de login por e-mail (anti força bruta).
+   * Conta tentativas numa janela; ao estourar, bloqueia até `lockedUntil`.
+   * É apagado quando o login dá certo ou a senha é redefinida.
+   */
   loginAttempts: defineTable({
     email: v.string(),
     attempts: v.number(),
@@ -411,7 +412,7 @@ export default defineSchema({
     report: v.any(),
     createdAt: v.number(),
   }).index("by_actor", ["actorId"]),
-    /**
+  /**
    * [MODERACAO_VAGA] Denúncias de alunos. Uma por aluno por vaga. O aluno
    * nunca é exposto ao recrutador. `arquivada` = gestor analisou e zerou.
    */

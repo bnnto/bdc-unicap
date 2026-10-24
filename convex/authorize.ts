@@ -12,7 +12,10 @@ import {
 } from "../src/lib/auth";
 import { isPublicSignupRole } from "../src/lib/roles";
 import { CURRENT_TERM_VERSION } from "./consentTerms";
-import { validateRecruiterLinkedin } from "../src/lib/recruiterSignup";
+import {
+  validateRecruiterLinkedin,
+  validateRecruiterWebsite,
+} from "../src/lib/recruiterSignup";
 
 type AuthorizeCtx = GenericActionCtxWithAuthConfig<DataModel>;
 
@@ -26,6 +29,7 @@ interface Credentials {
   /** R7 (issue [S1-2]): versão do termo aceita no cadastro. */
   consentTermVersion?: string;
   linkedinUrl?: string;
+  website?: string;
 }
 
 function parseCredentials(raw: unknown): Credentials | null {
@@ -44,10 +48,8 @@ function parseCredentials(raw: unknown): Credentials | null {
       typeof c.consentTermVersion === "string"
         ? c.consentTermVersion
         : undefined,
-    linkedinUrl:
-      typeof c.linkedinUrl === "string" 
-      ? c.linkedinUrl 
-      : undefined,
+    linkedinUrl: typeof c.linkedinUrl === "string" ? c.linkedinUrl : undefined,
+    website: typeof c.website === "string" ? c.website : undefined,
   };
 }
 
@@ -131,10 +133,15 @@ export const authorizeConfig = {
       }
 
       let linkedinUrl: string | undefined;
+      let website: string | undefined;
       if (role === "recrutador") {
         const check = validateRecruiterLinkedin(credentials.linkedinUrl);
         if (!check.ok) throw new ConvexError(check.error);
         linkedinUrl = check.normalized;
+
+        const siteCheck = validateRecruiterWebsite(credentials.website);
+        if (!siteCheck.ok) throw new ConvexError(siteCheck.error);
+        website = siteCheck.normalized;
       }
 
       const existing = await ctx.runQuery(internal.authHelpers.lookupByEmail, {
@@ -153,6 +160,7 @@ export const authorizeConfig = {
         // O authorize só roda no cadastro público: recrutador nasce pendente.
         publicSignup: true,
         linkedinUrl,
+        website,
       });
       return { userId };
     }

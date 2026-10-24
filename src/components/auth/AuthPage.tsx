@@ -10,11 +10,11 @@ import { Input } from "../ui/input";
 import { Eye, EyeOff, KeyRound, LogIn } from "lucide-react";
 import { RoleSelect } from "./RoleSelect";
 import { type PublicSignupRole } from "../../lib/roles";
-import { validateRecruiterLinkedin } from "../../lib/recruiterSignup";
 import {
-  CONSENT_TERM,
-  CONSENT_TERM_VERSION,
-} from "../../lib/consentTerm";
+  validateRecruiterLinkedin,
+  validateRecruiterWebsite,
+} from "../../lib/recruiterSignup";
+import { CONSENT_TERM, CONSENT_TERM_VERSION } from "../../lib/consentTerm";
 
 /**
  * Página de autenticação (issue [S1-1]): entrada única com abas Entrar/Criar
@@ -39,6 +39,9 @@ export function AuthPage() {
   const isRecruiterSignUp = mode === "signUp" && role === "recrutador";
   const linkedinCheck = validateRecruiterLinkedin(linkedinUrl);
   const linkedinOk = !isRecruiterSignUp || linkedinCheck.ok;
+  const [website, setWebsite] = useState("");
+  const websiteCheck = validateRecruiterWebsite(website);
+  const websiteOk = !isRecruiterSignUp || websiteCheck.ok;
   /** [UX_QUICK_WIN] — olhinho alterna password/texto no campo senha. */
   const [showPassword, setShowPassword] = useState(false);
   const consentErrorId = useId();
@@ -61,6 +64,10 @@ export function AuthPage() {
       toast.error(linkedinCheck.error);
       return;
     }
+    if (isRecruiterSignUp && !websiteCheck.ok) {
+      toast.error(websiteCheck.error);
+      return;
+    }
     setPending(true);
     if (signIn === undefined) {
       toast.error("Autenticação indisponível nesta tela.");
@@ -79,7 +86,12 @@ export function AuthPage() {
           flow: "signUp",
           consentTermVersion: CONSENT_TERM_VERSION,
           ...(isRecruiterSignUp && linkedinCheck.ok
-            ? { linkedinUrl: linkedinCheck.normalized }
+            ? {
+                linkedinUrl: linkedinCheck.normalized,
+                ...(websiteCheck.ok && websiteCheck.normalized !== undefined
+                  ? { website: websiteCheck.normalized }
+                  : {}),
+              }
             : {}),
         });
       } else {
@@ -141,7 +153,9 @@ export function AuthPage() {
                 aria-controls="painel-auth"
                 onClick={() => setMode(m)}
                 className={`relative z-10 rounded px-3 py-2 text-sm font-semibold transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                  mode === m ? "text-white" : "text-slate-600 hover:text-primary"
+                  mode === m
+                    ? "text-white"
+                    : "text-slate-600 hover:text-primary"
                 }`}
               >
                 {m === "signIn" ? "Entrar" : "Criar conta"}
@@ -174,16 +188,35 @@ export function AuthPage() {
                   required={mode === "signUp"}
                 />
                 {role === "recrutador" ? (
-                  <Input
-                    label="LinkedIn"
-                    type="url"
-                    required={isRecruiterSignUp}
-                    value={linkedinUrl}
-                    onChange={(e) => setLinkedinUrl(e.target.value)}
-                    placeholder="https://www.linkedin.com/in/seu-perfil"
-                    autoComplete="url"
-                    tabIndex={isRecruiterSignUp ? 0 : -1}
-                  />
+                  <>
+                    <Input
+                      label="LinkedIn"
+                      type="url"
+                      required={isRecruiterSignUp}
+                      value={linkedinUrl}
+                      onChange={(e) => setLinkedinUrl(e.target.value)}
+                      placeholder="https://www.linkedin.com/in/seu-perfil"
+                      autoComplete="url"
+                      tabIndex={isRecruiterSignUp ? 0 : -1}
+                    />
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        label="Site (opcional)"
+                        type="text"
+                        inputMode="url"
+                        value={website}
+                        onChange={(e) => setWebsite(e.target.value)}
+                        placeholder="https://suaempresa.com.br"
+                        autoComplete="off"
+                        tabIndex={isRecruiterSignUp ? 0 : -1}
+                      />
+                      {website.trim().length > 0 && !websiteCheck.ok ? (
+                        <p role="alert" className="text-xs text-red-700">
+                          {websiteCheck.error}
+                        </p>
+                      ) : null}
+                    </div>
+                  </>
                 ) : null}
               </div>
             </Collapse>
@@ -205,7 +238,9 @@ export function AuthPage() {
                 maxLength={PASSWORD_MAX_LENGTH}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                autoComplete={mode === "signUp" ? "new-password" : "current-password"}
+                autoComplete={
+                  mode === "signUp" ? "new-password" : "current-password"
+                }
                 trailing={
                   <button
                     type="button"
@@ -266,14 +301,23 @@ export function AuthPage() {
               disabled={
                 pending ||
                 (mode === "signUp" &&
-                  (!consentAccepted || !passwordOk || !linkedinOk))
+                  (!consentAccepted ||
+                    !passwordOk ||
+                    !linkedinOk ||
+                    !websiteOk))
               }
               aria-describedby={
-                mode === "signUp" && !consentAccepted ? consentErrorId : undefined
+                mode === "signUp" && !consentAccepted
+                  ? consentErrorId
+                  : undefined
               }
             >
               <LogIn className="h-4 w-4" aria-hidden="true" />
-              {pending ? "Processando…" : mode === "signIn" ? "Entrar" : "Criar conta"}
+              {pending
+                ? "Processando…"
+                : mode === "signIn"
+                  ? "Entrar"
+                  : "Criar conta"}
             </Button>
 
             <Collapse open={mode === "signIn"}>
@@ -329,7 +373,12 @@ type ConsentCheckboxProps = {
  * Bloqueia o submit até o aceite e dá acesso ao texto integral do termo
  * vigente em <details> acessível (sem dependências externas).
  */
-function ConsentCheckbox({ checked, onChange, errorId, enabled }: ConsentCheckboxProps) {
+function ConsentCheckbox({
+  checked,
+  onChange,
+  errorId,
+  enabled,
+}: ConsentCheckboxProps) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 mt-1">
       <label className="flex cursor-pointer items-center gap-2 text-sm text-a11y-slate-700">
