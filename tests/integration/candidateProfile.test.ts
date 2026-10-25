@@ -318,7 +318,7 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
       .query(api.students.getCandidateProfile, { studentId });
     expect(semContato?.contactReleased).toBe(false);
     expect(semContato?.email).toBeUndefined();
-    expect(semContato?.phone).toBeUndefined();
+    expect(semContato).not.toHaveProperty("phone");
     expect(semContato?.linkedinUrl).toBeUndefined();
     expect(semContato?.portfolioUrl).toBeUndefined();
 
@@ -333,7 +333,7 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
     expect(comContato?.contactReleased).toBe(true);
     expect(comContato?.email).toBe("aluno@unicap.br");
     // [QUICK_WIN_RECRUITER] telefone projetado junto do e-mail (R6).
-    expect(comContato?.phone).toBe("81988887777");
+    expect(comContato).not.toHaveProperty("phone");
     expect(comContato?.linkedinUrl).toBe("https://www.linkedin.com/in/maria");
     expect(comContato?.portfolioUrl).toBe("https://maria.dev");
   });
@@ -387,5 +387,21 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
       .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
       .query(api.students.getCandidateProfile, { studentId: missing });
     expect(profile).toBeNull();
+  });
+  it("o telefone privado do aluno (students.phone) nunca chega ao recrutador", async () => {
+    const t = convexTest({ schema, modules });
+    const { recruiterId, studentId } = await seedWorld(t, {
+      visibility: "publico",
+      showContact: true,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(studentId, { phone: "81999990000" });
+    });
+    const profile = await t
+      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
+      .query(api.students.getCandidateProfile, { studentId });
+    expect(profile?.contactReleased).toBe(true);
+    expect(JSON.stringify(profile)).not.toContain("81999990000");
+    expect(JSON.stringify(profile)).not.toContain("81988887777");
   });
 });
