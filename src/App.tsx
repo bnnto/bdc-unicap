@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AuthPage } from "./components/auth/AuthPage";
 import { ResetPasswordPage } from "./components/auth/ResetPasswordPage";
 import { LandingPage } from "./components/landing/LandingPage";
@@ -10,7 +10,13 @@ import {
 } from "./lib/router";
 import { useAuthState } from "./components/auth/authContext";
 import { StudentShell } from "./components/student/StudentShell";
-import { Kanban, LayoutDashboard, ShieldAlert, UserCheck, Users } from "lucide-react";
+import {
+  Kanban,
+  LayoutDashboard,
+  ShieldAlert,
+  UserCheck,
+  Users,
+} from "lucide-react";
 import { ManagerRecruitersPage } from "./components/manager/ManagerRecruitersPage";
 import { ManagerModerationPage } from "./components/manager/ManagerModerationPage";
 import { PendingRecruitersBadge } from "./components/manager/PendingRecruitersBadge";
@@ -163,7 +169,9 @@ function RecruiterNavbar({
                 >
                   <tab.icon className="h-4 w-4" aria-hidden={true} />
                   {tab.label}
-                  {tab.key === "recrutadores" ? <PendingRecruitersBadge /> : null}
+                  {tab.key === "recrutadores" ? (
+                    <PendingRecruitersBadge />
+                  ) : null}
                   {tab.key === "moderacao" ? <PendingJobsBadge /> : null}
                 </button>
               </li>
@@ -211,8 +219,6 @@ function RecruiterNavbar({
 function AuthGate() {
   const { isLoading, isAuthenticated, user, role } = useAuthState();
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
-  // [UX_UPGRADE] Etapa 1 — roteamento público sem router: "/" mostra a
-  // Landing Page e "/login" a AuthPage; popstate cobre voltar/avançar.
   const [publicPath, setPublicPath] = useState(() =>
     typeof window === "undefined" ? "/" : window.location.pathname,
   );
@@ -221,6 +227,18 @@ function AuthGate() {
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  const sawGuest = useRef(false);
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) sawGuest.current = true;
+  }, [isLoading, isAuthenticated]);
+
+  useEffect(() => {
+    if (user === null || !sawGuest.current) return;
+    sawGuest.current = false;
+    setActiveTab("dashboard");
+    navigateTo("/");
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -301,14 +319,11 @@ function AuthGate() {
     );
   }
 
-  const isRecruiterSide = role === "recrutador" || role === "gestor";
-
   // [RECRUITER_VIEW_PROFILE] Rota dedicada `/recrutador/candidato/:id` —
   // só existe do lado do recrutador/gestor; o shell do aluno ignora a
   // rota (voltar ao currículo do próprio aluno).
-  const candidateStudentId = isRecruiterSide
-    ? parseCandidateProfilePath(publicPath)
-    : null;
+  const candidateStudentId =
+    role === "recrutador" ? parseCandidateProfilePath(publicPath) : null;
   if (candidateStudentId !== null) {
     return (
       <>
@@ -338,7 +353,11 @@ function AuthGate() {
           className="mx-auto w-full max-w-[1440px] px-8 py-8"
         >
           {activeTab === "dashboard" ? (
-            role === "gestor" ? <ManagerDashboard /> : <OperationalPanel />
+            role === "gestor" ? (
+              <ManagerDashboard />
+            ) : (
+              <OperationalPanel />
+            )
           ) : role === "gestor" && activeTab === "recrutadores" ? (
             <ManagerRecruitersPage />
           ) : role === "gestor" && activeTab === "moderacao" ? (
