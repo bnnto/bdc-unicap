@@ -19,6 +19,15 @@ O Banco de Currículos — UNICAP é uma plataforma institucional que conecta es
 
 A plataforma foi desenvolvida com foco em conformidade com a Lei Geral de Proteção de Dados (LGPD), acessibilidade digital segundo as diretrizes WCAG AA e controle rigoroso de visibilidade dos perfis, garantindo que a exposição de dados seja sempre uma escolha consciente do aluno.
 
+## Equipe
+
+- [Anna Beatriz dos Santos Silva](https://github.com/Anninhaxs) 
+- [Bento Guilherme Gomes Oliveira](https://github.com/bnnto) 
+- [João Victor Castelo Branco de Sena](https://github.com/joao0cb) 
+- [Lettycia Vitoria Melo de França](https://github.com/LettyciaDev) 
+- [Lorenna Meneses de Almeida](https://github.com/lorennam) 
+- [Lucas Fernandes Nunes Machado](https://github.com/Bye-bit) 
+
 ## Principais Funcionalidades
 
 **Para Alunos e Egressos**
