@@ -343,24 +343,6 @@ export function CandidateProfilePage({ studentId }: { studentId: string }) {
                         />
                       </li>
                     ) : null}
-                    {profile.phone !== undefined && profile.phone !== "" ? (
-                      <li className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2">
-                        <span className="min-w-0 break-all">
-                          <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Telefone/WhatsApp
-                          </span>
-                          <span className="font-medium text-slate-800">
-                            {profile.phone}
-                          </span>
-                        </span>
-                        <CopyIconButton
-                          ariaLabel="Copiar telefone"
-                          onClick={() =>
-                            void copiarDado(profile.phone ?? "", "Telefone")
-                          }
-                        />
-                      </li>
-                    ) : null}
                   </ul>
                   <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                     {profile.linkedinUrl !== undefined &&

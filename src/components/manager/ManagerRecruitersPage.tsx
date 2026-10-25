@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { Check, ExternalLink, UserCheck, UserX, X } from "lucide-react";
+import { Check, ExternalLink, History, UserCheck, UserX, X } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { friendlyErrorMessage } from "../../lib/toastMessages";
@@ -26,6 +26,15 @@ const STATUS_BADGE = {
 } as const;
 
 type RefuseTarget = { id: Id<"users">; name: string; wasApproved: boolean };
+
+const OCCURRENCE_LABELS: Record<string, string> = {
+  recusado: "Cadastro recusado",
+  revogado: "Acesso revogado",
+  conta_excluida: "Excluiu a conta após ser recusado",
+  em_revisao: "Vaga enviada para revisão",
+  suspensa: "Vaga suspensa",
+  excluida: "Vaga excluída",
+};
 
 /**
  * [MODERACAO_RECRUTADOR] Aba "Recrutadores" do gestor: aprovar, recusar
@@ -158,6 +167,30 @@ export function ManagerRecruitersPage() {
                       </span>
                     )}
                   </p>
+                  {row.previousCount > 0 ? (
+                    <div className="mt-2 w-fit max-w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                      <p className="flex items-center gap-1 font-semibold">
+                        <History className="h-3.5 w-3.5" aria-hidden="true" />
+                        Este e-mail tem {row.previousCount} ocorrência(s) em
+                        contas anteriores
+                      </p>
+                      <details className="mt-1">
+                        <summary className="w-fit cursor-pointer font-semibold">
+                          Ver detalhes
+                        </summary>
+                        <ul className="mt-1 list-disc pl-5">
+                          {row.previous.map((item, index) => (
+                            <li key={index}>
+                              {new Date(item.at).toLocaleDateString("pt-BR")} ·{" "}
+                              {OCCURRENCE_LABELS[item.action] ?? item.action}
+                              {item.subject !== null ? ` “${item.subject}”` : ""}
+                              : {item.reason}
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap gap-2">

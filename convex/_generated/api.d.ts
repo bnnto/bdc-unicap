@@ -23,6 +23,7 @@ import type * as jobs from "../jobs.js";
 import type * as lgpd from "../lgpd.js";
 import type * as lib_currentUser from "../lib/currentUser.js";
 import type * as lib_moderationLog from "../lib/moderationLog.js";
+import type * as lib_recruiterHistory from "../lib/recruiterHistory.js";
 import type * as manager from "../manager.js";
 import type * as moderation from "../moderation.js";
 import type * as operational from "../operational.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   lgpd: typeof lgpd;
   "lib/currentUser": typeof lib_currentUser;
   "lib/moderationLog": typeof lib_moderationLog;
+  "lib/recruiterHistory": typeof lib_recruiterHistory;
   manager: typeof manager;
   moderation: typeof moderation;
   operational: typeof operational;

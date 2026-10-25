@@ -9,6 +9,7 @@ import { getAuthSessionId } from "@convex-dev/auth/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { getCurrentUser } from "./lib/currentUser";
 import { logModeration } from "./lib/moderationLog";
+import { logRecruiterEvent } from "./lib/recruiterHistory";
 
 /**
  * [PERFIL_E_LGPD] Central de Perfil, Segurança e LGPD (convex/users.ts).
@@ -87,6 +88,15 @@ export const deleteMyAccount = mutation({
       throw new Error(
         "Contas de gestor não podem ser autoexcluídas — a exclusão é feita pela coordenação.",
       );
+    }
+
+    // Recrutador recusado que apaga a conta deixa rastro (reincidência).
+    if (user.role === "recrutador" && user.approvalStatus === "recusado") {
+      await logRecruiterEvent(ctx, {
+        user,
+        event: "conta_excluida",
+        reason: "Conta excluída pelo titular após cadastro recusado.",
+      });
     }
 
     const deleted = {

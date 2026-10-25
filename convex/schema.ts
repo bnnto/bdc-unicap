@@ -467,5 +467,20 @@ export default defineSchema({
     reportsCount: v.optional(v.number()),
   })
     .index("by_job", ["jobId"])
-    .index("by_recruiter", ["recruiterId"]),
+    .index("by_recruiter", ["recruiterId"])
+    .index("by_recruiter_email", ["recruiterEmail"]),
+  
+  recruiterEvents: defineTable({
+    recruiterId: v.string(),
+    email: v.string(),
+    name: v.string(),
+    event: v.union(
+      v.literal("recusado"),
+      v.literal("revogado"),
+      v.literal("conta_excluida"),
+    ),
+    reason: v.string(),
+    actorId: v.optional(v.string()),
+  }).index("by_email", ["email"]),
+  
 });

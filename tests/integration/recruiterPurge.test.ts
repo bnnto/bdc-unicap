@@ -49,7 +49,7 @@ describe("Retenção de recrutadores", () => {
         contractType: "estagio",
         status: "encerrada",
       });
-    });
+    }); 
 
     const result = await t.mutation(internal.moderation.purgeStaleRecruiters, {});
     expect(result.refused).toBe(1);
@@ -59,14 +59,18 @@ describe("Retenção de recrutadores", () => {
       old: await ctx.db.get(oldRefused),
       recent: await ctx.db.get(recentRefused),
       job: await ctx.db.get(withJob),
-      accounts: await ctx.db.query("authAccounts").collect(),
+      users: await ctx.db.query("users").collect(),
       consents: await ctx.db.query("consents").collect(),
     }));
     expect(left.old).toBeNull();
     expect(left.recent).not.toBeNull();
     expect(left.job).not.toBeNull();
-    // Sobraram só as contas/consentimentos dos 2 recrutadores mantidos.
-    expect(left.accounts).toHaveLength(2);
+    // Sobraram só os 2 recrutadores mantidos (o antigo foi apagado).
+    expect(left.users.map((u) => u.email).sort()).toEqual([
+      "b@x.com",
+      "c@x.com",
+    ]);
+    // O consentimento do apagado também saiu: sobram 2.
     expect(left.consents).toHaveLength(2);
   });
 

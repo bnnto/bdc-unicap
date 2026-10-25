@@ -8,6 +8,7 @@ import { internal } from "./_generated/api";
 import { isRecruiterApproved, requireGestorUser } from "./lib/currentUser";
 import { computeExpiresAt } from "../src/lib/jobExpiry";
 import { isModerationHold } from "../src/lib/jobModeration";
+import { logRecruiterEvent, priorOccurrences } from "./lib/recruiterHistory";
 
 const DAY = 24 * 60 * 60 * 1000;
 export const REFUSED_RETENTION_DAYS = 180;
@@ -46,6 +47,7 @@ export const listRecruiters = query({
         .query("jobs")
         .withIndex("by_recruiter", (q) => q.eq("recruiterId", recruiter._id))
         .collect();
+      const prior = await priorOccurrences(ctx, recruiter);
       rows.push({
         userId: recruiter._id,
         name: recruiter.name ?? "—",
@@ -58,6 +60,8 @@ export const listRecruiters = query({
         reviewedAt: recruiter.approvalReviewedAt ?? null,
         jobsCount: jobs.length,
         openJobsCount: jobs.filter((job) => job.status === "aberta").length,
+        previousCount: prior.count,
+        previous: prior.items,
       });
     }
 
@@ -125,6 +129,15 @@ export const decideRecruiter = mutation({
       approvalReviewedAt: Date.now(),
       approvalReviewedBy: gestor._id,
     });
+
+    if (decision === "recusado") {
+      await logRecruiterEvent(ctx, {
+        user: target,
+        event: current === "aprovado" ? "revogado" : "recusado",
+        reason: cleanReason,
+        actorId: gestor._id,
+      });
+    }
 
     if (target.email !== undefined) {
       await ctx.scheduler.runAfter(
@@ -554,5 +567,29 @@ export const decideJob = mutation({
       actorId: gestor._id,
     });
     return { ok: true as const, status: "suspensa" as const };
+  },
+});
+
+/** Retenção do registro de moderação e dos eventos de conta (LGPD). */
+export const MODERATION_RETENTION_DAYS = 730;
+
+/** Cron diário: apaga registros com mais de 2 anos (lotes de 100). */
+export const purgeOldModerationRecords = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - MODERATION_RETENTION_DAYS * DAY;
+    const logs = await ctx.db
+      .query("moderationLogs")
+      .withIndex("by_creation_time", (q) => q.lt("_creationTime", cutoff))
+      .take(PURGE_BATCH);
+    for (const log of logs) await ctx.db.delete(log._id);
+
+    const events = await ctx.db
+      .query("recruiterEvents")
+      .withIndex("by_creation_time", (q) => q.lt("_creationTime", cutoff))
+      .take(PURGE_BATCH);
+    for (const event of events) await ctx.db.delete(event._id);
+
+    return { logs: logs.length, events: events.length };
   },
 });

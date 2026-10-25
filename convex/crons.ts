@@ -22,4 +22,10 @@ crons.daily(
   internal.moderation.purgeStaleRecruiters,
 );
 
+crons.daily(
+  "purge old moderation records",
+  { hourUTC: 7, minuteUTC: 0 },
+  internal.moderation.purgeOldModerationRecords,
+);
+
 export default crons;
