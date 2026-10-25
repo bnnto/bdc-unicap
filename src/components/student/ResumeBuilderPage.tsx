@@ -17,6 +17,7 @@ import { ResumeDownload } from "./ResumeDownload";
 import { CheckCircle2, Eye, FileDown, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { friendlyErrorMessage } from "../../lib/toastMessages";
+import { useAuthState } from "../auth/authContext";
 
 /** Âncoras dos 7 blocos do formulário (navegação rápida da sidebar). */
 const SECTION_LINKS: Array<{ href: string; label: string; index: number }> = [
@@ -115,6 +116,8 @@ export function ResumeBuilderPage() {
     }
   }
 
+  const { user } = useAuthState();
+
   return (
     <div className="mx-auto w-full max-w-[1440px] px-6 py-6">
       {/* Cabeçalho da página (h1 único da tela). */}
@@ -135,13 +138,18 @@ export function ResumeBuilderPage() {
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-level1">
             <div className="h-16 bg-gradient-to-r from-primary via-[#8a1c31] to-primary" />
             <div className="relative -mt-8 flex flex-col items-center px-6 pb-6 text-center">
-              <span
-                aria-hidden="true"
-                className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-[#FDF2F4] font-serif text-2xl font-bold text-primary shadow-level1"
-              >
-                {profile === undefined || profile === null
-                  ? "…"
-                  : initialsOf(profile.fullName)}
+              <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#FDF2F4] font-serif text-2xl font-bold text-primary shadow-level1">
+                {user?.image ? (
+                  <img
+                    src={user.image}
+                    alt="Sua foto de perfil"
+                    className="h-full w-full object-cover"
+                  />
+                ) : profile === undefined || profile === null ? (
+                  "…"
+                ) : (
+                  initialsOf(profile.fullName)
+                )}
               </span>
               {profile === undefined ? (
                 <p
