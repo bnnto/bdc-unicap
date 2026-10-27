@@ -18,6 +18,12 @@ import { Briefcase, FileText, Send, type LucideIcon } from "lucide-react";
  *
  * [S8-2] — as abas usam role=tablist/tab/tabpanel com aria-controls;
  * o landmark main continua único no App.
+ *
+ * [REFACTOR_ALUNO visual] — barra plana (borda, sem sombra), abas como
+ * sublinhado de 2px sobre uma régua full-width: a navegação recua e o
+ * estado ativo é a única cor de marca na linha. Movimento só como
+ * feedback (cor em 150ms), com `motion-safe` para quem pede menos
+ * movimento.
  */
 
 export type StudentTab = "curriculo" | "oportunidades" | "candidaturas";
@@ -48,17 +54,17 @@ export function StudentShell() {
 
   return (
     <>
-      <header className="border-b border-slate-200 bg-white shadow-level1">
+      <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-3 px-6 py-3">
           {/* Esquerda: logo institucional UNICAP. */}
           <div className="flex items-center gap-3">
             <span
               aria-hidden="true"
-              className="flex h-9 w-9 items-center justify-center rounded bg-primary font-serif text-sm font-bold text-white"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-primary font-serif text-sm font-bold text-white"
             >
               UC
             </span>
-            <div>
+            <div className="min-w-0">
               <p className="font-serif text-lg font-bold leading-tight text-primary">
                 Banco de Currículos — UNICAP
               </p>
@@ -66,11 +72,15 @@ export function StudentShell() {
             </div>
           </div>
 
-          {/* Centro: abas de navegação (padrão ARIA tabs). */}
+          {/* Centro: abas de navegação (padrão ARIA tabs) sobre uma
+              régua full-width — sublinhado de 2px marca o ativo. */}
           <nav aria-label="Seções do portal" className="order-3 lg:order-2">
-            <ul className="flex flex-wrap items-center gap-1" role="tablist">
+            <ul
+              className="flex flex-wrap items-center gap-1 border-b border-slate-200"
+              role="tablist"
+            >
               {TABS.map((tab) => (
-                <li key={tab.key} role="presentation">
+                <li key={tab.key} role="presentation" className="flex">
                   <button
                     type="button"
                     role="tab"
@@ -78,15 +88,17 @@ export function StudentShell() {
                     aria-controls={`panel-${tab.key}`}
                     id={`tab-${tab.key}`}
                     onClick={() => selectTab(tab.key)}
-                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                    className={`-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors duration-150 ease-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                       active === tab.key
-                        ? "border-b-2 border-secondary bg-[#FDF2F4] text-primary"
-                        : "border-b-2 border-transparent text-slate-600 hover:bg-[#FDF2F4] hover:text-primary dark:hover:text-white"
+                        ? "border-primary font-semibold text-primary"
+                        : "border-transparent font-medium text-slate-500 hover:text-primary"
                     }`}
                   >
                     {(() => {
                       const Icon = tab.icon;
-                      return <Icon className="h-4 w-4" aria-hidden="true" />;
+                      return (
+                        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      );
                     })()}
                     {tab.label}
                   </button>
@@ -97,15 +109,17 @@ export function StudentShell() {
 
           {/* Direita: avatar + nome como um único botão que leva à
               central de configurações /perfil ([UX_REFINEMENT] Etapa 3 —
-              sem dropdown; o "Sair" está dentro de /perfil). */}
+              sem dropdown; o "Sair" está dentro de /perfil). O nome
+              truncado guarda o valor completo em `title` (resiliência). */}
           <div className="order-2 flex items-center gap-2 lg:order-3">
             <button
               type="button"
               aria-label="Meu perfil e configurações"
+              title={userName}
               onClick={() => navigateTo("/perfil")}
-              className="flex items-center gap-2 rounded-full p-0.5 pr-3 transition-all duration-200 ease-in-out hover:bg-[#FDF2F4] hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="flex max-w-[14rem] items-center gap-2 rounded-full p-0.5 pr-3 transition-colors duration-150 ease-soft hover:bg-[#FDF2F4] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
-              <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white">
                 {user?.image ? (
                   <img
                     src={user.image}
@@ -116,7 +130,7 @@ export function StudentShell() {
                   initialsOf(userName)
                 )}
               </span>
-              <span className="hidden text-sm font-semibold text-slate-700 sm:block">
+              <span className="hidden truncate text-sm font-semibold text-slate-700 sm:block">
                 {userName}
               </span>
             </button>

@@ -34,6 +34,7 @@ import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
 import { Banknote, FilterX, MapPin, Search, Send, Flag, X } from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
 import { Modal } from "../ui/modal";
+import { Select } from "../ui/select";
 
 /** Vaga do mural — `matchScore` chega calculado no servidor (R8). */
 type OpenJob = Doc<"jobs"> & { matchScore?: number | null };
@@ -47,7 +48,7 @@ function MatchBadge({ score }: { score: number }) {
     <span
       role="img"
       aria-label={`Compatibilidade de ${score}%`}
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1 text-sm font-bold ${
+      className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${
         band === "strong"
           ? "border-emerald-300 bg-emerald-50 text-emerald-800"
           : band === "medium"
@@ -187,11 +188,11 @@ export function JobOpportunities() {
       aria-label="Oportunidades"
       className="mx-auto w-full max-w-[1440px] px-6 py-6"
     >
-      <div className="mb-5 border-b border-slate-200 pb-4">
-        <h1 className="font-serif text-3xl font-bold text-primary">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
           Oportunidades
         </h1>
-        <p className="mt-1 max-w-3xl text-sm text-slate-600">
+        <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-slate-600">
           Vagas abertas de empresas, filtre por contrato,
           localidade e salário; o percentual de compatibilidade é calculado a
           partir do seu currículo.
@@ -199,7 +200,7 @@ export function JobOpportunities() {
       </div>
 
       {/* Barra de busca + filtros (estilo LinkedIn). */}
-      <div className="mb-5 rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
+      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-3">
           
           {/* 1. BUSCAR VAGAS */}
@@ -220,7 +221,7 @@ export function JobOpportunities() {
                 value={filters.query}
                 onChange={(e) => update("query", e.target.value)}
                 placeholder="Cargo, skill ou palavra-chave…"
-                className="w-full h-10 rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 transition-all duration-200 placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1"
+                className="h-10 w-full rounded-xl border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 transition-colors duration-150 ease-soft placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1"
               />
             </div>
           </div>
@@ -230,12 +231,12 @@ export function JobOpportunities() {
             <label htmlFor="mural-contrato" className="text-sm font-semibold text-slate-700">
               Tipo de contrato
             </label>
-            <select
+            <Select
               id="mural-contrato"
               aria-label="Tipo de contrato"
               value={filters.contract}
               onChange={(e) => update("contract", e.target.value as ContractType | "todos")}
-              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-44"
+              className="w-full lg:w-44"
             >
               <option value="todos">Todos</option>
               {(Object.keys(CONTRACT_LABELS) as ContractType[]).map((type) => (
@@ -243,7 +244,7 @@ export function JobOpportunities() {
                   {CONTRACT_LABELS[type]}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* 3. LOCALIDADE */}
@@ -251,12 +252,12 @@ export function JobOpportunities() {
             <label htmlFor="mural-localidade" className="text-sm font-semibold text-slate-700">
               Localidade
             </label>
-            <select
+            <Select
               id="mural-localidade"
               aria-label="Localidade"
               value={filters.location}
               onChange={(e) => update("location", e.target.value)}
-              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-40"
+              className="w-full lg:w-40"
             >
               <option value="">Todas</option>
               {locationOptions.map((location) => (
@@ -264,7 +265,7 @@ export function JobOpportunities() {
                   {location}
                 </option> 
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* 4. SALÁRIO */}
@@ -272,7 +273,7 @@ export function JobOpportunities() {
             <label htmlFor="mural-salario" className="text-sm font-semibold text-slate-700">
               Salário mínimo
             </label>
-            <select
+            <Select
               id="mural-salario"
               aria-label="Salário mínimo"
               value={filters.minSalary === null ? "" : String(filters.minSalary)}
@@ -282,7 +283,7 @@ export function JobOpportunities() {
                   e.target.value.length === 0 ? null : Number.parseInt(e.target.value, 10),
                 )
               }
-              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-40"
+              className="w-full lg:w-40"
             >
               <option value="">Qualquer</option>
               {SALARY_STEPS.map((step) => (
@@ -290,7 +291,7 @@ export function JobOpportunities() {
                   R$ {step.toLocaleString("pt-BR")}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* 5. ORDENAR POR */}
@@ -298,16 +299,16 @@ export function JobOpportunities() {
             <label htmlFor="mural-ordem" className="text-sm font-semibold text-slate-700">
               Ordenar por
             </label>
-            <select
+            <Select
               id="mural-ordem"
               aria-label="Ordenar por"
               value={order}
               onChange={(e) => setOrder(e.target.value as JobSortOrder)}
-              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 lg:w-44"
+              className="w-full lg:w-44"
             >
               <option value="compatibilidade">Compatibilidade</option>
               <option value="recentes">Mais recentes</option>
-            </select>
+            </Select>
           </div>
 
         </div>
@@ -331,7 +332,7 @@ export function JobOpportunities() {
       {notice !== null ? (
         <p
           role="status"
-          className="mb-4 rounded border border-success bg-white px-3 py-2 text-sm font-medium text-success"
+          className="mb-6 rounded-md border border-success bg-white px-4 py-3 text-sm font-medium text-success"
         >
           {notice}
         </p>
@@ -354,7 +355,7 @@ export function JobOpportunities() {
       ) : (
         <ul
           aria-label="Vagas encontradas"
-          className="grid grid-cols-1 gap-4 xl:grid-cols-2"
+          className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2"
         >
           {visibleJobs.map((job) => {
             const applied = appliedJobIds.has(String(job._id));
@@ -368,19 +369,19 @@ export function JobOpportunities() {
             return (
               <li
                 key={job._id}
-                className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-6 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-1 hover:scale-[1.02] hover:border-primary/40 hover:shadow-level2"
+                className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-6"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="font-serif text-lg font-bold text-primary">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="break-words text-base font-semibold text-slate-900">
                       {job.title}
                     </h2>
-                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-semibold text-slate-700">
+                    <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                      <span className="inline-flex shrink-0 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">
                         {CONTRACT_LABELS[job.contractType]}
                       </span>
                       <span aria-hidden="true">·</span>
-                      <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap tabular-nums">
                         <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
                         {formatSalaryRange(
                           job.salaryMin ?? null,
@@ -390,7 +391,7 @@ export function JobOpportunities() {
                       {job.location !== undefined && job.location !== null ? (
                         <>
                           <span aria-hidden="true">·</span>
-                          <span className="inline-flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap">
                             <MapPin
                               className="h-3.5 w-3.5"
                               aria-hidden="true"
@@ -404,7 +405,10 @@ export function JobOpportunities() {
                   {score !== null ? <MatchBadge score={score} /> : null}
                 </div>
 
-                <p className="line-clamp-3 text-sm text-slate-600">
+                <p
+                  className="line-clamp-3 break-words text-sm leading-relaxed text-slate-600"
+                  title={job.description}
+                >
                   {job.description}
                 </p>
 
@@ -415,10 +419,10 @@ export function JobOpportunities() {
                   {job.prerequisites.map((p, i) => (
                     <li key={`${p.item}-${i}`}>
                       <span
-                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+                        className={`inline-flex shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium ${
                           p.required
-                            ? "border-primary bg-[#FDF2F4] text-primary"
-                            : "border-secondary bg-white text-slate-700"
+                            ? "border-primary/30 bg-[#FDF2F4] text-primary"
+                            : "border-slate-200 bg-slate-50 text-slate-600"
                         }`}
                       >
                         {p.item}
@@ -431,7 +435,7 @@ export function JobOpportunities() {
                 {blocked ? (
                   <p
                     role="alert"
-                    className="rounded border border-warning bg-white px-3 py-2 text-xs font-medium text-warning"
+                    className="rounded-md border border-warning bg-white px-4 py-3 text-sm font-medium text-warning"
                   >
                     {missing.length === 1
                       ? `Requisito obrigatório não atendido: ${missing[0]}.`
@@ -576,7 +580,7 @@ export function JobOpportunities() {
               onClick={() => void submitReport()}
             >
               <Flag className="h-4 w-4" aria-hidden="true" />
-              Enviar denúncia
+              {reporting ? "Enviando…" : "Enviar denúncia"}
             </Button>
           </div>
         </Modal>

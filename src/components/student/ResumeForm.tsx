@@ -7,6 +7,7 @@ import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Combobox, type ComboboxGroup } from "../ui/Combobox";
+import { Select } from "../ui/select";
 import {
   MAX_ACADEMIC,
   MAX_CERTIFICATIONS,
@@ -613,38 +614,39 @@ export function ResumeForm() {
           <section
             key={block.index}
             id={`bloco-${BLOCO_IDS[block.index]}`}
-            className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8 shadow-level1 transition-all duration-300 ease-in-out hover:shadow-level2"
+            className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8"
           >
             {/* Cabeçalho do bloco: título + ícone de lápis. */}
             <div className="space-y-8">
               <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-start gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"
-                  >
+                <div className="min-w-0">
+                  <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
                     {(() => {
                       const Icon = BLOCK_ICONS[block.index]!;
-                      return <Icon className="h-5 w-5" strokeWidth={2} />;
+                      return (
+                        <Icon
+                          className="h-4 w-4 shrink-0 text-primary"
+                          strokeWidth={2}
+                          aria-hidden="true"
+                        />
+                      );
                     })()}
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="font-serif text-lg font-bold text-primary">
+                    <span>
                       {block.index + 1}. {block.heading}
-                    </h2>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {BLOCK_DESCRIPTIONS[block.index]} — clique no lápis para
-                      editar neste local.
-                    </p>
-                  </div>
+                    </span>
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {BLOCK_DESCRIPTIONS[block.index]} — clique no lápis para
+                    editar neste local.
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => toggleEdit(block.index)}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md motion-safe:transition-[color,background-color,transform] motion-safe:duration-150 motion-safe:ease-soft motion-safe:active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                     isEditing
                       ? "bg-primary text-white"
-                      : "bg-primary/5 text-primary hover:bg-primary hover:text-white"
+                      : "text-slate-500 hover:bg-slate-100 hover:text-primary"
                   }`}
                   aria-label={
                     isEditing
@@ -827,7 +829,7 @@ export function ResumeForm() {
                           placeholder="Quem você é, o que você faz e o que procura…"
                           maxLength={SUMMARY_MAX}
                           aria-describedby="resume-summary-count-edit"
-                          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                         />
                         <p
                           id="resume-summary-count-edit"
@@ -848,7 +850,7 @@ export function ResumeForm() {
                       {academicHistory.map((entry, index) => (
                         <div
                           key={index}
-                          className="rounded border border-slate-200 bg-slate-50 p-6"
+                          className="rounded-lg bg-slate-50 p-4"
                         >
                           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
                             <div className="min-w-0">
@@ -989,7 +991,7 @@ export function ResumeForm() {
                         {skills.map((skill) => (
                           <span
                             key={skill}
-                            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
                           >
                             {skill}
                             <button
@@ -998,7 +1000,7 @@ export function ResumeForm() {
                               onClick={() =>
                                 setSkills((list) => removeSkill(list, skill))
                               }
-                              className="text-slate-400 transition-colors hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              className="-mr-1 flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition-colors duration-150 ease-soft hover:bg-danger/10 hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             >
                               ×
                             </button>
@@ -1012,7 +1014,7 @@ export function ResumeForm() {
                       {languages.map((language, index) => (
                         <div
                           key={index}
-                          className="flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-slate-50 p-6"
+                          className="flex flex-wrap items-start gap-3 rounded-lg bg-slate-50 p-4"
                         >
                           <div className="flex min-w-0 flex-1 flex-col gap-1">
                             <label
@@ -1045,23 +1047,23 @@ export function ResumeForm() {
                             >
                               Nível
                             </label>
-                            <select
+                            <Select
                               id={`language-level-${index}`}
                               value={language.level}
                               onChange={(e) =>
                                 updateLanguage(index, "level", e.target.value)
                               }
-                              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                              className="w-full"
                             >
                               {LANGUAGE_LEVELS.map((level) => (
                                 <option key={level} value={level}>
                                   {LEVEL_LABELS[level]}
                                 </option>
                               ))}
-                            </select>
+                            </Select>
                           </div>
 
-                          <div className="shrink-0">
+                          <div className="shrink-0 self-end">
                             <Button
                               className="h-10"
                               variant="secondary"
@@ -1098,7 +1100,7 @@ export function ResumeForm() {
                         {experiences.map((exp, index) => (
                           <div
                             key={index}
-                            className="flex flex-col gap-2 rounded border border-slate-200 bg-slate-50 p-3"
+                            className="flex flex-col gap-3 rounded-lg bg-slate-50 p-4"
                           >
                             <div className="grid gap-2 sm:grid-cols-3">
                               <Input
@@ -1153,7 +1155,7 @@ export function ResumeForm() {
                                     e.target.value,
                                   )
                                 }
-                                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                               />
                             </label>
                             <Button
@@ -1199,7 +1201,7 @@ export function ResumeForm() {
                           maxLength={PROJECTS_TEXT_MAX}
                           onChange={(e) => setProjectsText(e.target.value)}
                           placeholder="Ex.: Monitoria de Banco de Dados I (2024.2); Feira de Ciências — oficina de Python…"
-                          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                         />
                         <p className="text-xs text-slate-500">
                           {projectsText.trim().length}/{PROJECTS_TEXT_MAX}{" "}
@@ -1216,7 +1218,7 @@ export function ResumeForm() {
                       {certifications.map((item, index) => (
                         <div
                           key={index}
-                          className="flex flex-col gap-2 rounded border border-slate-200 bg-slate-50 p-3"
+                          className="flex flex-col gap-3 rounded-lg bg-slate-50 p-4"
                         >
                           <div className="flex-1">
                             <Input
@@ -1266,7 +1268,7 @@ export function ResumeForm() {
                   {errors.length > 0 ? (
                     <div
                       role="alert"
-                      className="rounded border border-danger bg-white px-3 py-2"
+                      className="rounded-md border border-danger bg-white px-4 py-3"
                     >
                       <p className="text-sm font-semibold text-danger">
                         Corrija os pontos abaixo:

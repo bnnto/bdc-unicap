@@ -29,6 +29,13 @@ export default {
         serif: ["Merriweather", "Georgia", "serif"],
         sans: ["'Plus Jakarta Sans'", "system-ui", "sans-serif"],
       },
+      // [REFACTOR_ALUNO] Curvas de movimento: as easings nativas do CSS
+      // são fracas demais para UI (Emil Kowalski). `ease-soft` para
+      // entrada/resposta, `ease-glide` para movimento em tela.
+      transitionTimingFunction: {
+        soft: "cubic-bezier(0.23, 1, 0.32, 1)",
+        glide: "cubic-bezier(0.77, 0, 0.175, 1)",
+      },
       borderRadius: {
         DEFAULT: "0.25rem",
         md: "0.375rem",

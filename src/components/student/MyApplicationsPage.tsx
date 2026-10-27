@@ -2,7 +2,6 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "../ui/badge";
-import { Card } from "../ui/card";
 import { Button } from "../ui/button";
 import {
   REJECTION_REASON_LABELS,
@@ -19,8 +18,18 @@ import {
   type TimelineStep,
 } from "../../lib/application";
 import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
-import { Activity, Handshake, Inbox, Target, TrendingUp } from "lucide-react";
+import { Handshake, Inbox, TrendingUp } from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
+
+/**
+ * [REFACTOR_ALUNO Etapa 4] + visual:
+ * KPIs como UMA faixa dividida por 1px (rótulo acima, valor em
+ * algarismos tabulares) em vez de três cartões com ícone — cor vai só
+ * nos dados e na ação; superfícies planas (borda sem sombra); ações de
+ * linha em botão secundário (o dourado não aparece repetido em cada
+ * card); o motivo de reprovação vira bloco de atenção com borda
+ * semântica (legível também no modo escuro).
+ */
 
 const MATCH_CHIP: Record<
   ReturnType<typeof matchBand>,
@@ -82,100 +91,97 @@ export function MyApplicationsPage() {
       className="mx-auto w-full max-w-[1440px] px-6 py-6"
     >
       {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
-      <div className="mb-5 border-b border-slate-200 pb-4">
-        <h1 className="font-serif text-3xl font-bold text-primary">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
           Minhas candidaturas
         </h1>
-        <p className="mt-1 max-w-3xl text-sm text-slate-600">
+        <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-slate-600">
           A etapa de cada candidatura e o % de compatibilidade, atualizados em
           tempo real com o painel do recrutador, com feedback claro do que aconteceu
           em cada processo.
         </p>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="group rounded-xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
-          <span className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
-            <Inbox className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <p className="text-3xl font-bold text-primary">{kpis.total}</p>
-          <p className="text-sm text-slate-500">Candidaturas</p>
+      {/* Faixa de visão geral: uma superfície dividida por 1px — o rótulo
+          fica acima do valor (lista semântica <dl>). */}
+      <dl className="mb-6 grid grid-cols-1 overflow-hidden rounded-xl border border-slate-200 bg-white sm:grid-cols-3">
+        <div className="flex flex-col gap-1 p-6">
+          <dt className="text-sm text-slate-500">Candidaturas</dt>
+          <dd className="text-3xl font-semibold tabular-nums text-slate-900">
+            {kpis.total}
+          </dd>
         </div>
-        <div className="group rounded-xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
-          <span className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
-            <Activity className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <p className="text-3xl font-bold text-primary">{kpis.active}</p>
-          <p className="text-sm text-slate-500">Em andamento</p>
+        <div className="flex flex-col gap-1 border-t border-slate-200 p-6 sm:border-l sm:border-t-0">
+          <dt className="text-sm text-slate-500">Em andamento</dt>
+          <dd className="text-3xl font-semibold tabular-nums text-slate-900">
+            {kpis.active}
+          </dd>
         </div>
-        <div className="group rounded-xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
-          <span className="mx-auto mb-1 flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/15 text-a11y-secondary ring-1 ring-secondary/25">
-            <Target className="h-5 w-5" aria-hidden="true" />
-          </span>
-          <p className="text-3xl font-bold text-primary">
+        <div className="flex flex-col gap-1 border-t border-slate-200 p-6 sm:border-l sm:border-t-0">
+          <dt className="text-sm text-slate-500">Melhor match</dt>
+          <dd className="text-3xl font-semibold tabular-nums text-slate-900">
             {kpis.bestMatch !== null ? `${kpis.bestMatch}%` : "—"}
-          </p>
-          <p className="text-sm text-slate-500">Melhor match</p>
+          </dd>
         </div>
-      </div>
+      </dl>
 
-      {/* [FINAL_UPGRADE Etapa 3] — Estatísticas do Meu Perfil: cards
-          estilo SaaS com a Taxa de Sucesso e os números do aluno
-          (dados calculados no backend via applications.myStats). */}
+      {/* [FINAL_UPGRADE Etapa 3] — Estatísticas do Meu Perfil: números do
+          aluno calculados no backend (applications.myStats), em tom menor
+          que a faixa acima para a hierarquia ficar clara. */}
       <section
-        aria-label="Estatísticas do meu perfil"
-        className="mb-5 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
+        aria-label="Estatísticas do Meu Perfil"
+        className="mb-6 rounded-xl border border-slate-200 bg-white p-6"
       >
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="flex items-center gap-2 font-serif text-base font-bold text-primary">
-            <TrendingUp className="h-4 w-4" aria-hidden="true" />
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+            <TrendingUp className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
             Estatísticas do Meu Perfil
           </h2>
           <p className="text-xs text-slate-500">
             Taxa de sucesso = (Entrevista + Aprovado) / Total × 100
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="rounded border border-primary/20 bg-[#FDF2F4] p-3 text-center">
-            <p className="text-2xl font-bold text-primary">
+        <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-slate-100 sm:grid-cols-4">
+          <div className="bg-white px-4 py-3">
+            <dt className="text-xs text-slate-500">Taxa de Sucesso</dt>
+            <dd className="mt-0.5 text-xl font-semibold tabular-nums text-slate-900">
               {myStats !== undefined && myStats !== null
                 ? `${myStats.successRate}%`
                 : "—"}
-            </p>
-            <p className="text-xs text-slate-500">Taxa de Sucesso</p>
+            </dd>
           </div>
-          <div className="rounded border border-slate-200 bg-slate-50 p-3 text-center">
-            <p className="text-2xl font-bold text-primary">
+          <div className="bg-white px-4 py-3">
+            <dt className="text-xs text-slate-500">Total de Candidaturas</dt>
+            <dd className="mt-0.5 text-xl font-semibold tabular-nums text-slate-900">
               {myStats !== undefined && myStats !== null ? myStats.total : "—"}
-            </p>
-            <p className="text-xs text-slate-500">Total de Candidaturas</p>
+            </dd>
           </div>
-          <div className="rounded border border-slate-200 bg-slate-50 p-3 text-center">
-            <p className="text-2xl font-bold text-primary">
+          <div className="bg-white px-4 py-3">
+            <dt className="text-xs text-slate-500">Visualizações do Perfil</dt>
+            <dd className="mt-0.5 text-xl font-semibold tabular-nums text-slate-900">
               {myStats !== undefined && myStats !== null
                 ? myStats.profileViews
                 : "—"}
-            </p>
-            <p className="text-xs text-slate-500">Visualizações do Perfil</p>
+            </dd>
           </div>
-          <div className="rounded border border-slate-200 bg-slate-50 p-3 text-center">
-            <p className="text-2xl font-bold text-primary">
+          <div className="bg-white px-4 py-3">
+            <dt className="text-xs text-slate-500">Média de Match</dt>
+            <dd className="mt-0.5 text-xl font-semibold tabular-nums text-slate-900">
               {myStats !== undefined && myStats !== null
                 ? `${myStats.averageMatch}%`
                 : "—"}
-            </p>
-            <p className="text-xs text-slate-500">Média de Match</p>
+            </dd>
           </div>
-        </div>
+        </dl>
         {myStats !== undefined && myStats !== null ? (
           <div
-            className="mt-3 flex flex-wrap gap-2"
+            className="mt-4 flex flex-wrap gap-2"
             aria-label="Distribuição por etapa"
           >
             {Object.entries(myStats.byStage).map(([stage, count]) => (
               <span
                 key={stage}
-                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                className="shrink-0 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium tabular-nums text-slate-700"
               >
                 {STAGE_LABELS[stage as ApplicationStage]}: {count}
               </span>
@@ -184,49 +190,54 @@ export function MyApplicationsPage() {
         ) : null}
       </section>
 
-      <Card title="Todas as candidaturas" accent="primary">
-        {myApplications === undefined ? (
-          <p
-            className="text-sm text-slate-500"
-            role="status"
-            aria-live="polite"
-          >
-            Carregando candidaturas…
-          </p>
-        ) : sorted.length === 0 ? (
-          <EmptyState
-            icon={Inbox}
-            title="Nenhuma candidatura ainda"
-            description="Você ainda não se candidatou a nenhuma vaga. Explore o mural de Oportunidades e candidate-se com um clique."
-          />
-        ) : (
-          <ul
-            aria-label="Todas as candidaturas"
-            className="flex flex-col gap-4 pt-2"
-          >
-            {sorted.map((application) => {
-              const rejected = application.stage === "reprovado";
-              const reason = isRejectionReason(application.rejectionReason)
-                ? application.rejectionReason
-                : null;
-              const feedback =
-                reason !== null
-                  ? rejectionFeedback(reason)
-                  : {
-                      headline: "Processo encerrado",
-                      advice: stageFeedback("reprovado"),
-                    };
-              return (
-                <li
-                  key={application.applicationId}
-                  className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <h2 className="font-serif text-base font-bold text-primary">
+      <section className="rounded-xl border border-slate-200 bg-white p-6">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+          <Inbox className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+          Todas as candidaturas
+        </h2>
+
+        <div className="mt-4">
+          {myApplications === undefined ? (
+            <p
+              className="text-sm text-slate-500"
+              role="status"
+              aria-live="polite"
+            >
+              Carregando candidaturas…
+            </p>
+          ) : sorted.length === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              title="Nenhuma candidatura ainda"
+              description="Você ainda não se candidatou a nenhuma vaga. Explore o mural de Oportunidades e candidate-se com um clique."
+            />
+          ) : (
+            <ul
+              aria-label="Todas as candidaturas"
+              className="flex flex-col gap-4"
+            >
+              {sorted.map((application) => {
+                const rejected = application.stage === "reprovado";
+                const reason = isRejectionReason(application.rejectionReason)
+                  ? application.rejectionReason
+                  : null;
+                const feedback =
+                  reason !== null
+                    ? rejectionFeedback(reason)
+                    : {
+                        headline: "Processo encerrado",
+                        advice: stageFeedback("reprovado"),
+                      };
+                return (
+                  <li
+                    key={application.applicationId}
+                    className="rounded-xl border border-slate-200 bg-white p-6"
+                  >
+                    <div className="min-w-0">
+                      <h3 className="break-words text-base font-semibold text-slate-900">
                         {application.jobTitle}
-                      </h2>
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                      </h3>
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <Badge variant={STAGE_BADGE[application.stage]}>
                           {STAGE_LABELS[application.stage]}
                         </Badge>
@@ -240,100 +251,98 @@ export function MyApplicationsPage() {
                         </Badge>
                       </div>
                     </div>
-                  </div>
 
-                  <p className="sr-only" aria-live="polite">
-                    {formatApplicationStatusLabel({
-                      jobTitle: application.jobTitle,
-                      stage: application.stage,
-                      appliedAt: application.appliedAt,
-                    })}
-                  </p>
-
-                  <ol
-                    className="mt-3 flex flex-wrap items-center gap-1"
-                    aria-label={`Etapa atual: ${STAGE_LABELS[application.stage]}`}
-                  >
-                    {stageTimeline(application.stage).map((step, index) => (
-                      <li key={step.stage} className="flex items-center gap-1">
-                        {index > 0 ? (
-                          <span aria-hidden="true" className="text-slate-300">
-                            →
-                          </span>
-                        ) : null}
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-xs ${STEP_CLASSES[step.state]}`}
-                          aria-current={
-                            step.state === "current" ? "step" : undefined
-                          }
-                        >
-                          {STAGE_LABELS[step.stage]}
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-
-                  {/* [Etapa 4.2] feedback claro por candidatura. */}
-                  <p className="mt-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                    {stageFeedback(application.stage)}
-                  </p>
-
-                  {/* [Etapa 4.3] reprovação amigável com conselho. */}
-                  {rejected ? (
-                    <div className="mt-3 rounded border border-danger bg-white px-3 py-2">
-                      <p className="text-sm font-bold text-danger">
-                        {feedback.headline}
-                      </p>
-                      {reason !== null ? (
-                        <p className="mt-0.5 text-xs text-slate-600">
-                          Motivo (padronizado):{" "}
-                          <strong>{REJECTION_REASON_LABELS[reason]}</strong>
-                        </p>
-                      ) : null}
-                      <p className="mt-1 text-xs text-slate-600">
-                        {feedback.advice}
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {/* [R6] controle de contato por candidatura (LGPD). */}
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
-                    <p className="text-xs text-slate-600">
-                      {application.processAccepted
-                        ? "Contato liberado para esta vaga (aceite no processo)."
-                        : "Contato ainda não liberado para esta vaga."}
+                    <p className="sr-only" aria-live="polite">
+                      {formatApplicationStatusLabel({
+                        jobTitle: application.jobTitle,
+                        stage: application.stage,
+                        appliedAt: application.appliedAt,
+                      })}
                     </p>
-                    <Button
-                      variant={
-                        application.processAccepted ? "secondary" : "accent"
-                      }
-                      aria-label={
-                        application.processAccepted
-                          ? `Revogar contato de ${application.jobTitle}`
-                          : `Liberar contato para ${application.jobTitle}`
-                      }
-                      onClick={() => {
-                        void (application.processAccepted
-                          ? revokeProcessAcceptance({
-                              applicationId: application.applicationId,
-                            })
-                          : acceptProcess({
-                              applicationId: application.applicationId,
-                            }));
-                      }}
+
+                    <ol
+                      className="mt-4 flex flex-wrap items-center gap-1"
+                      aria-label={`Etapa atual: ${STAGE_LABELS[application.stage]}`}
                     >
-                      <Handshake className="h-4 w-4" aria-hidden="true" />
-                      {application.processAccepted
-                        ? "Revogar contato"
-                        : "Liberar contato"}
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </Card>
+                      {stageTimeline(application.stage).map((step, index) => (
+                        <li key={step.stage} className="flex items-center gap-1">
+                          {index > 0 ? (
+                            <span aria-hidden="true" className="text-slate-300">
+                              →
+                            </span>
+                          ) : null}
+                          <span
+                            className={`shrink-0 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs ${STEP_CLASSES[step.state]}`}
+                            aria-current={
+                              step.state === "current" ? "step" : undefined
+                            }
+                          >
+                            {STAGE_LABELS[step.stage]}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+
+                    {/* [Etapa 4.2] feedback claro por candidatura. */}
+                    <p className="mt-4 rounded-md bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700">
+                      {stageFeedback(application.stage)}
+                    </p>
+
+                    {/* [Etapa 4.3] reprovação amigável com conselho. */}
+                    {rejected ? (
+                      <div className="mt-3 rounded-md border border-danger bg-white px-4 py-3">
+                        <p className="text-sm font-semibold text-danger">
+                          {feedback.headline}
+                        </p>
+                        {reason !== null ? (
+                          <p className="mt-1 text-sm text-slate-600">
+                            Motivo (padronizado):{" "}
+                            <strong>{REJECTION_REASON_LABELS[reason]}</strong>
+                          </p>
+                        ) : null}
+                        <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                          {feedback.advice}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {/* [R6] controle de contato por candidatura (LGPD). */}
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                      <p className="text-xs text-slate-600">
+                        {application.processAccepted
+                          ? "Contato liberado para esta vaga (aceite no processo)."
+                          : "Contato ainda não liberado para esta vaga."}
+                      </p>
+                      <Button
+                        variant="secondary"
+                        aria-label={
+                          application.processAccepted
+                            ? `Revogar contato de ${application.jobTitle}`
+                            : `Liberar contato para ${application.jobTitle}`
+                        }
+                        onClick={() => {
+                          void (application.processAccepted
+                            ? revokeProcessAcceptance({
+                                applicationId: application.applicationId,
+                              })
+                            : acceptProcess({
+                                applicationId: application.applicationId,
+                              }));
+                        }}
+                      >
+                        <Handshake className="h-4 w-4" aria-hidden="true" />
+                        {application.processAccepted
+                          ? "Revogar contato"
+                          : "Liberar contato"}
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

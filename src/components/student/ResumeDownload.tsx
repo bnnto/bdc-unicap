@@ -96,13 +96,13 @@ export function ResumeDownload() {
   return (
     <div className="flex flex-col gap-5">
       {/* Bloco de instrução amigável e destacado */}
-      <div className="rounded-xl border border-primary/30 bg-primary/5 p-6 text-sm text-slate-800 dark:bg-primary/10 dark:text-slate-300">
+      <div className="rounded-xl bg-[#FDF2F4] p-6 text-sm leading-relaxed text-slate-700">
         O seu currículo já está formatado no{" "}
-        <strong className="font-semibold text-primary dark:text-white">
+        <strong className="font-semibold text-primary">
           padrão oficial da UNICAP
         </strong>
         . Ao clicar no botão de download, escolha a opção{" "}
-        <strong className="font-bold text-primary dark:text-white">
+        <strong className="font-semibold text-primary">
           "Salvar como PDF"
         </strong>{" "}
         na janela de impressão do seu navegador.
@@ -140,7 +140,7 @@ export function ResumeDownload() {
 
       {showPreview ? (
         <div
-          className="mt-4 overflow-x-auto rounded-xl border border-slate-200 shadow-inner lg:p-8"
+          className="overflow-x-auto rounded-xl border border-slate-200 lg:p-8"
           style={{ backgroundColor: 'white', color: 'black' }}
           data-testid="resume-preview"
           dangerouslySetInnerHTML={{ __html: markup ?? "" }}
