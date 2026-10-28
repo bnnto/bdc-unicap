@@ -10,10 +10,14 @@ type BadgeProps = {
  * todos com contraste AA auditado pelos testes de contraste (S0-4).
  */
 const VARIANT_CLASSES: Record<BadgeVariant, string> = {
-  aprovado: "bg-emerald-50 text-emerald-800 border-emerald-200",
-  triagem: "bg-amber-50 text-amber-800 border-amber-200",
-  reprovado: "bg-red-50 text-red-800 border-red-200",
-  andamento: "bg-blue-50 text-blue-800 border-blue-200",
+  aprovado:
+    "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-200 dark:border-emerald-800",
+  triagem:
+    "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800",
+  reprovado:
+    "bg-red-50 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-800",
+  andamento:
+    "bg-blue-50 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800",
 };
 
 /**

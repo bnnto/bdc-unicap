@@ -129,7 +129,7 @@ export function ResumeDownload() {
 
       <p className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
         Nome sugerido para o arquivo:
-        <code className="rounded-md border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-slate-600">
+        <code className="min-w-0 max-w-full break-all rounded-md border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-slate-600">
           {formatResumeFileName(
             doc.student.fullName,
             doc.student.course,
@@ -140,7 +140,7 @@ export function ResumeDownload() {
 
       {showPreview ? (
         <div
-          className="overflow-x-auto rounded-xl border border-slate-200 lg:p-8"
+          className="max-w-full overflow-x-auto rounded-xl border border-slate-200 lg:p-8"
           style={{ backgroundColor: 'white', color: 'black' }}
           data-testid="resume-preview"
           dangerouslySetInnerHTML={{ __html: markup ?? "" }}

@@ -124,29 +124,32 @@ export function ResumeBuilderPage() {
   const { user } = useAuthState();
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-6 py-6">
-      {/* Cabeçalho da página (h1 único da tela): substantivo, 24px,
-          tinta cheia; a segunda linha explica o escopo em 14px cinza. */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
-          Meu Currículo
-        </h1>
-        <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-slate-600">
-          Mantenha seus dados acadêmicos, técnicos e projetos atualizados. O PDF
-          gerado é o espelho exato desta tela, cores, colunas e identidade
-          UNICAP preservadas na impressão.
-        </p>
-      </div>
+    <div className="mx-auto w-full max-w-[1440px] min-w-0">
+      <section className="mb-7 flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end dark:border-slate-700">
+        <div className="max-w-3xl">
+          <h1 className="font-serif text-3xl font-bold tracking-[-0.025em] text-slate-900 sm:text-4xl">
+            Meu currículo
+          </h1>
+          <p className="mt-3 max-w-2xl break-words text-sm leading-relaxed text-slate-600 sm:text-base">
+            Mantenha seus dados acadêmicos, técnicos e projetos atualizados. O PDF
+            gerado reproduz o currículo com a identidade UNICAP preservada na impressão.
+          </p>
+        </div>
+        <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#FDF2F4] px-3 py-1.5 text-xs font-semibold text-primary dark:bg-[#35232a] dark:text-[#f0b7c3]">
+          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-primary dark:bg-[#f0b7c3]" />
+          Edição do currículo
+        </span>
+      </section>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12 lg:gap-8">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-5 lg:grid-cols-12 lg:gap-7">
         {/* SIDEBAR — fixa/sticky na rolagem (Etapa 2.1). */}
-        <aside className="space-y-4 lg:col-span-4 lg:sticky lg:top-24">
+        <aside className="min-w-0 space-y-4 lg:col-span-4 lg:sticky lg:top-6">
           {/* Identidade: campo bordô chapado (sem gradiente) com o
               avatar sobreposto — a única cor de marca do painel. */}
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
             <div className="h-16 bg-primary" />
             <div className="relative -mt-8 flex flex-col items-center px-6 pb-6 text-center">
-              <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#FDF2F4] font-serif text-2xl font-bold text-primary">
+              <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#FDF2F4] font-serif text-2xl font-bold text-primary dark:border-[#171b22] dark:bg-[#35232a]">
                 {user?.image ? (
                   <img
                     src={user.image}
@@ -176,19 +179,19 @@ export function ResumeBuilderPage() {
                 </p>
               ) : (
                 <>
-                  <h2 className="mt-3 break-words text-base font-semibold text-slate-900">
+                  <h2 className="mt-3 break-words text-base font-semibold text-slate-900 [overflow-wrap:anywhere]">
                     {profile.fullName}
                   </h2>
-                  <p className="mt-0.5 break-words text-sm text-slate-600">
+                  <p className="mt-0.5 break-words text-sm text-slate-600 [overflow-wrap:anywhere]">
                     {profile.course}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="break-words text-xs text-slate-500 [overflow-wrap:anywhere]">
                     {profile.semester !== undefined && profile.semester !== null
                       ? `${profile.semester}º semestre · `
                       : ""}
                     Conclusão {profile.graduationYear}
                   </p>
-                  <p className="mt-2 rounded bg-slate-100 px-2 py-1 font-mono text-xs tabular-nums text-slate-600">
+                  <p className="mt-2 max-w-full break-all rounded bg-slate-100 px-2 py-1 font-mono text-xs tabular-nums text-slate-600">
                     Matrícula {profile.enrollment}
                   </p>
                 </>
@@ -197,11 +200,11 @@ export function ResumeBuilderPage() {
           </section>
 
           {/* Toggle de visibilidade (R2) — Público vs Privado. */}
-          <section className="rounded-xl border border-slate-200 bg-white p-6">
+          <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
             <label className="flex cursor-pointer items-center justify-between gap-3">
               <span
                 id="visibility-switch-label"
-                className="text-sm font-semibold text-slate-700"
+                className="min-w-0 text-sm font-semibold text-slate-700"
               >
                 Visibilidade no Banco de Talentos
               </span>
@@ -238,7 +241,7 @@ export function ResumeBuilderPage() {
             <label className="flex cursor-pointer items-center justify-between gap-3">
               <span
                 id="contact-switch-label"
-                className="text-sm font-semibold text-slate-700"
+                className="min-w-0 text-sm font-semibold text-slate-700"
               >
                 Permitir contato de recrutadores
               </span>
@@ -270,7 +273,7 @@ export function ResumeBuilderPage() {
           {/* Navegação rápida por âncoras (menu do formulário com indicadores). */}
           <nav
             aria-label="Navegação rápida do currículo"
-            className="rounded-xl border border-slate-200 bg-white p-6"
+            className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
           >
             <p className="mb-3 text-xs font-semibold text-slate-500">
               Navegação rápida do currículo
@@ -282,7 +285,7 @@ export function ResumeBuilderPage() {
                   <li key={link.href}>
                     <a
                       href={link.href}
-                      className="flex items-center justify-between gap-2 rounded-md px-3 py-2 text-slate-600 transition-colors duration-150 ease-soft hover:bg-slate-100 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-300 dark:hover:text-white"
+                      className="flex min-w-0 items-center justify-between gap-2 rounded-md px-3 py-2 text-slate-600 transition-colors duration-150 ease-soft hover:bg-slate-100 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:text-slate-300 dark:hover:text-white"
                     >
                       <span className="min-w-0 truncate" title={link.label}>
                         {link.label}
@@ -303,11 +306,11 @@ export function ResumeBuilderPage() {
         </aside>
 
         {/* CONTEÚDO — os 7 blocos + exportação (Etapa 2.2/2.3). */}
-        <div className="space-y-6 lg:col-span-8">
+        <div className="min-w-0 space-y-6 lg:col-span-8">
           <ResumeForm />
           <section
             id="bloco-exportar"
-            className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8"
+            className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 sm:p-6 lg:p-8"
           >
             <div className="min-w-0">
               <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">

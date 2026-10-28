@@ -41,9 +41,11 @@ const MATCH_CHIP: Record<
 };
 
 const STEP_CLASSES: Record<TimelineStep["state"], string> = {
-  done: "border-success bg-white text-success",
-  current: "border-primary bg-[#FDF2F4] font-semibold text-primary",
-  upcoming: "border-slate-200 bg-white text-a11y-slate-500",
+  done: "border-success bg-white text-success dark:bg-[#171b22]",
+  current:
+    "border-primary bg-[#FDF2F4] font-semibold text-primary dark:border-[#f0b7c3] dark:bg-[#35232a] dark:text-[#f0b7c3]",
+  upcoming:
+    "border-slate-200 bg-white text-a11y-slate-500 dark:border-slate-600 dark:bg-[#171b22] dark:text-slate-300",
 };
 
 type ApplicationRow = {
@@ -88,11 +90,11 @@ export function MyApplicationsPage() {
     <div
       role="region"
       aria-label="Minhas candidaturas"
-      className="mx-auto w-full max-w-[1440px] px-6 py-6"
+      className="mx-auto w-full max-w-[1440px] min-w-0"
     >
       {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
+      <div className="mb-7 border-b border-slate-200 pb-6 dark:border-slate-700">
+        <h1 className="font-serif text-3xl font-bold tracking-[-0.025em] text-slate-900 sm:text-4xl">
           Minhas candidaturas
         </h1>
         <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-slate-600">
@@ -130,7 +132,7 @@ export function MyApplicationsPage() {
           que a faixa acima para a hierarquia ficar clara. */}
       <section
         aria-label="Estatísticas do Meu Perfil"
-        className="mb-6 rounded-xl border border-slate-200 bg-white p-6"
+        className="mb-6 min-w-0 rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
       >
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
@@ -190,7 +192,7 @@ export function MyApplicationsPage() {
         ) : null}
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
+      <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
         <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
           <Inbox className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
           Todas as candidaturas
@@ -231,10 +233,10 @@ export function MyApplicationsPage() {
                 return (
                   <li
                     key={application.applicationId}
-                    className="rounded-xl border border-slate-200 bg-white p-6"
+                    className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
                   >
                     <div className="min-w-0">
-                      <h3 className="break-words text-base font-semibold text-slate-900">
+                      <h3 className="break-words text-base font-semibold text-slate-900 [overflow-wrap:anywhere]">
                         {application.jobTitle}
                       </h3>
                       <div className="mt-2 flex flex-wrap gap-2">
@@ -261,7 +263,7 @@ export function MyApplicationsPage() {
                     </p>
 
                     <ol
-                      className="mt-4 flex flex-wrap items-center gap-1"
+                      className="mt-4 flex min-w-0 flex-wrap items-center gap-1"
                       aria-label={`Etapa atual: ${STAGE_LABELS[application.stage]}`}
                     >
                       {stageTimeline(application.stage).map((step, index) => (
@@ -284,7 +286,7 @@ export function MyApplicationsPage() {
                     </ol>
 
                     {/* [Etapa 4.2] feedback claro por candidatura. */}
-                    <p className="mt-4 rounded-md bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700">
+                    <p className="mt-4 break-words rounded-md bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700 [overflow-wrap:anywhere]">
                       {stageFeedback(application.stage)}
                     </p>
 
@@ -295,12 +297,12 @@ export function MyApplicationsPage() {
                           {feedback.headline}
                         </p>
                         {reason !== null ? (
-                          <p className="mt-1 text-sm text-slate-600">
+                          <p className="mt-1 break-words text-sm text-slate-600 [overflow-wrap:anywhere]">
                             Motivo (padronizado):{" "}
                             <strong>{REJECTION_REASON_LABELS[reason]}</strong>
                           </p>
                         ) : null}
-                        <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                        <p className="mt-1 break-words text-sm leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
                           {feedback.advice}
                         </p>
                       </div>
@@ -308,7 +310,7 @@ export function MyApplicationsPage() {
 
                     {/* [R6] controle de contato por candidatura (LGPD). */}
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                      <p className="text-xs text-slate-600">
+                      <p className="min-w-0 break-words text-xs text-slate-600 [overflow-wrap:anywhere]">
                         {application.processAccepted
                           ? "Contato liberado para esta vaga (aceite no processo)."
                           : "Contato ainda não liberado para esta vaga."}

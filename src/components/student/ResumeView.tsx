@@ -15,8 +15,8 @@
  *
  * [REFACTOR_ALUNO visual] — pares rótulo/valor em tom de fundo (sem
  * caixa com borda), rótulos em caixa de frase (sem caixa alta espaçada),
- * URLs quebram só quando precisam (`break-words`) e chips nunca
- * encolhem (`whitespace-nowrap`).
+ * URLs e textos longos quebram sem transbordo; chips respeitam a largura
+ * disponível para continuar utilizáveis em telas estreitas.
  */
 import {
   BLOCK_LABELS,
@@ -44,7 +44,7 @@ function FieldValue({
 }) {
   return (
     <span
-      className={`mt-0.5 block break-words text-sm font-medium text-slate-800 ${className}`}
+      className={`mt-0.5 block break-words text-sm font-medium text-slate-800 [overflow-wrap:anywhere] ${className}`}
     >
       {children}
     </span>
@@ -54,7 +54,7 @@ function FieldValue({
 /** Caixa de conteúdo em tom de fundo (superfície separada por tom, não por linha). */
 function FieldBox({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-lg bg-slate-50 px-4 py-3 text-sm">{children}</p>
+    <div className="min-w-0 rounded-lg bg-slate-50 px-4 py-3 text-sm">{children}</div>
   );
 }
 
@@ -72,7 +72,7 @@ export function ResumeBlockContent({
 }) {
   const contactBlocked = data.contactBlocked === true;
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       {blockIndex === 0 && (
         <>
           <FieldBox>
@@ -99,13 +99,13 @@ export function ResumeBlockContent({
               Nenhum item no histórico acadêmico ainda.
             </p>
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul className="flex min-w-0 flex-col gap-2">
               {data.academicHistory.map((entry, index) => (
                 <li
                   key={index}
-                  className="flex items-start justify-between gap-3 rounded-lg bg-slate-50 px-4 py-3 text-sm"
+                  className="flex min-w-0 items-start justify-between gap-3 rounded-lg bg-slate-50 px-4 py-3 text-sm"
                 >
-                  <span className="min-w-0 break-words text-slate-800">
+                  <span className="min-w-0 break-words text-slate-800 [overflow-wrap:anywhere]">
                     {entry.item}
                   </span>
                   <span className="shrink-0 text-xs tabular-nums text-slate-500">
@@ -119,7 +119,7 @@ export function ResumeBlockContent({
       )}
 
       {blockIndex === 2 && (
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           <FieldBox>
             <FieldLabel>LinkedIn</FieldLabel>
             <FieldValue>
@@ -160,7 +160,7 @@ export function ResumeBlockContent({
             data.skills.map((skill) => (
               <span
                 key={skill}
-                className="inline-flex shrink-0 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
+                className="inline-flex max-w-full shrink-0 break-words rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 [overflow-wrap:anywhere]"
               >
                 {skill}
               </span>
@@ -170,7 +170,7 @@ export function ResumeBlockContent({
       )}
 
       {blockIndex === 4 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex min-w-0 flex-col gap-2">
           {data.languages.length === 0 ? (
             <li className="text-sm text-slate-500">
               Nenhum idioma cadastrado ainda.
@@ -179,9 +179,9 @@ export function ResumeBlockContent({
             data.languages.map((language, index) => (
               <li
                 key={index}
-                className="rounded-lg bg-slate-50 px-4 py-3 text-sm"
+                className="min-w-0 rounded-lg bg-slate-50 px-4 py-3 text-sm"
               >
-                <span className="block break-words text-slate-800">
+                <span className="block break-words text-slate-800 [overflow-wrap:anywhere]">
                   {language.name} — {LEVEL_LABELS[language.level]}
                 </span>
               </li>
@@ -191,7 +191,7 @@ export function ResumeBlockContent({
       )}
 
       {blockIndex === 5 && (
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           {data.experiences.length === 0 && !data.projectsText ? (
             <p className="text-sm text-slate-500">
               Nenhum projeto de extensão ou experiência registada.
@@ -201,27 +201,27 @@ export function ResumeBlockContent({
               {data.experiences.map((exp, index) => (
                 <div
                   key={index}
-                  className="rounded-lg bg-slate-50 px-4 py-3 text-sm"
+                  className="min-w-0 rounded-lg bg-slate-50 px-4 py-3 text-sm"
                 >
-                  <p className="break-words font-semibold text-slate-800">
+                  <p className="break-words font-semibold text-slate-800 [overflow-wrap:anywhere]">
                     {exp.company} — {exp.role}
                   </p>
-                  <p className="mt-0.5 text-xs tabular-nums text-slate-500">
+                  <p className="mt-0.5 break-words text-xs tabular-nums text-slate-500 [overflow-wrap:anywhere]">
                     {exp.period}
                   </p>
                   {exp.description ? (
-                    <p className="mt-2 leading-relaxed text-slate-600">
+                    <p className="mt-2 break-words leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
                       {exp.description}
                     </p>
                   ) : null}
                 </div>
               ))}
               {data.projectsText ? (
-                <div className="rounded-lg bg-slate-50 px-4 py-3 text-sm">
+                <div className="min-w-0 rounded-lg bg-slate-50 px-4 py-3 text-sm">
                   <span className="block text-xs font-medium text-slate-500">
                     Projetos de Extensão
                   </span>
-                  <p className="mt-1 leading-relaxed text-slate-600">
+                  <p className="mt-1 break-words leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
                     {data.projectsText}
                   </p>
                 </div>
@@ -232,7 +232,7 @@ export function ResumeBlockContent({
       )}
 
       {blockIndex === 6 && (
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           {data.certifications.length === 0 ? (
             <p className="text-sm text-slate-500">
               Nenhuma certificação registrada.
@@ -240,7 +240,7 @@ export function ResumeBlockContent({
           ) : (
             <ul className="flex flex-col gap-1.5">
               {data.certifications.map((item, index) => (
-                <li key={index} className="break-words text-sm text-slate-700">
+                <li key={index} className="break-words text-sm text-slate-700 [overflow-wrap:anywhere]">
                   {item}
                 </li>
               ))}
@@ -260,20 +260,20 @@ export function ResumeBlockContent({
 export function ResumeView({ data }: { data: ResumeBlockData }) {
   return (
     <div
-      className="flex flex-col gap-6"
+      className="flex min-w-0 flex-col gap-6"
       aria-label="Currículo (somente leitura)"
     >
       {BLOCK_LABELS.map((block) => (
         <section
           key={block.index}
           id={`bloco-${BLOCO_IDS[block.index]}`}
-          className="space-y-4 rounded-xl border border-slate-200 bg-white p-6"
+          className="min-w-0 space-y-4 rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
         >
           <div>
-            <h2 className="text-base font-semibold text-slate-900">
+            <h2 className="break-words text-base font-semibold text-slate-900 [overflow-wrap:anywhere]">
               {block.index + 1}. {block.heading}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="mt-1 break-words text-sm text-slate-500">
               Dados fornecidos pelo próprio candidato — somente leitura.
             </p>
           </div>

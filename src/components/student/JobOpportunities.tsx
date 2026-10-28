@@ -50,10 +50,10 @@ function MatchBadge({ score }: { score: number }) {
       aria-label={`Compatibilidade de ${score}%`}
       className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-semibold ${
         band === "strong"
-          ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+          ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
           : band === "medium"
-            ? "border-amber-300 bg-amber-50 text-amber-800"
-            : "border-slate-300 bg-slate-100 text-slate-700"
+            ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+            : "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
       }`}
       title={MATCH_BAND_LABELS[band]}
     >
@@ -174,7 +174,7 @@ export function JobOpportunities() {
 
   if (openJobs === undefined || myApplications === undefined) {
     return (
-      <div className="mx-auto w-full max-w-[1440px] px-6 py-6">
+      <div className="mx-auto w-full max-w-[1440px] min-w-0">
         <p className="text-sm text-slate-500" role="status" aria-live="polite">
           Carregando oportunidades…
         </p>
@@ -186,10 +186,10 @@ export function JobOpportunities() {
     <div
       role="region"
       aria-label="Oportunidades"
-      className="mx-auto w-full max-w-[1440px] px-6 py-6"
+      className="mx-auto w-full max-w-[1440px] min-w-0"
     >
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-[-0.02em] text-slate-900">
+      <div className="mb-7 border-b border-slate-200 pb-6 dark:border-slate-700">
+        <h1 className="font-serif text-3xl font-bold tracking-[-0.025em] text-slate-900 sm:text-4xl">
           Oportunidades
         </h1>
         <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-slate-600">
@@ -200,7 +200,7 @@ export function JobOpportunities() {
       </div>
 
       {/* Barra de busca + filtros (estilo LinkedIn). */}
-      <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6">
+      <div className="mb-6 min-w-0 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:gap-3">
           
           {/* 1. BUSCAR VAGAS */}
@@ -208,7 +208,7 @@ export function JobOpportunities() {
             <label htmlFor="mural-busca" className="text-sm font-semibold text-slate-700">
               Buscar vagas
             </label>
-            <div className="relative">
+            <div className="relative min-w-0">
               <Search
                 aria-hidden="true"
                 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
@@ -332,7 +332,7 @@ export function JobOpportunities() {
       {notice !== null ? (
         <p
           role="status"
-          className="mb-6 rounded-md border border-success bg-white px-4 py-3 text-sm font-medium text-success"
+          className="mb-6 break-words rounded-md border border-success bg-white px-4 py-3 text-sm font-medium text-success [overflow-wrap:anywhere]"
         >
           {notice}
         </p>
@@ -369,11 +369,11 @@ export function JobOpportunities() {
             return (
               <li
                 key={job._id}
-                className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-6"
+                className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    <h2 className="break-words text-base font-semibold text-slate-900">
+                    <h2 className="break-words text-base font-semibold text-slate-900 [overflow-wrap:anywhere]">
                       {job.title}
                     </h2>
                     <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
@@ -382,7 +382,7 @@ export function JobOpportunities() {
                       </span>
                       <span aria-hidden="true">·</span>
                       <span className="inline-flex items-center gap-1 whitespace-nowrap tabular-nums">
-                        <Banknote className="h-3.5 w-3.5" aria-hidden="true" />
+                        <Banknote className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                         {formatSalaryRange(
                           job.salaryMin ?? null,
                           job.salaryMax ?? null,
@@ -391,9 +391,9 @@ export function JobOpportunities() {
                       {job.location !== undefined && job.location !== null ? (
                         <>
                           <span aria-hidden="true">·</span>
-                          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                          <span className="inline-flex min-w-0 items-center gap-1 break-words [overflow-wrap:anywhere]">
                             <MapPin
-                              className="h-3.5 w-3.5"
+                              className="h-3.5 w-3.5 shrink-0"
                               aria-hidden="true"
                             />
                             {job.location}
@@ -406,7 +406,7 @@ export function JobOpportunities() {
                 </div>
 
                 <p
-                  className="line-clamp-3 break-words text-sm leading-relaxed text-slate-600"
+                  className="line-clamp-3 break-words text-sm leading-relaxed text-slate-600 [overflow-wrap:anywhere]"
                   title={job.description}
                 >
                   {job.description}
@@ -419,7 +419,7 @@ export function JobOpportunities() {
                   {job.prerequisites.map((p, i) => (
                     <li key={`${p.item}-${i}`}>
                       <span
-                        className={`inline-flex shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium ${
+                        className={`inline-flex max-w-full break-words rounded-full border px-2.5 py-1 text-xs font-medium [overflow-wrap:anywhere] ${
                           p.required
                             ? "border-primary/30 bg-[#FDF2F4] text-primary"
                             : "border-slate-200 bg-slate-50 text-slate-600"
@@ -435,7 +435,7 @@ export function JobOpportunities() {
                 {blocked ? (
                   <p
                     role="alert"
-                    className="rounded-md border border-warning bg-white px-4 py-3 text-sm font-medium text-warning"
+                    className="break-words rounded-md border border-warning bg-white px-4 py-3 text-sm font-medium text-warning [overflow-wrap:anywhere]"
                   >
                     {missing.length === 1
                       ? `Requisito obrigatório não atendido: ${missing[0]}.`
@@ -506,7 +506,7 @@ export function JobOpportunities() {
                   </div>
                 </div>
                 {error !== undefined ? (
-                  <span className="text-xs text-danger" role="alert">
+                  <span className="break-words text-xs text-danger [overflow-wrap:anywhere]" role="alert">
                     {error}
                   </span>
                 ) : null}
@@ -524,7 +524,7 @@ export function JobOpportunities() {
             <Flag className="h-5 w-5" aria-hidden="true" />
             Denunciar vaga
           </h2>
-          <p className="mt-1 text-sm text-slate-600">“{reportTarget.title}”</p>
+          <p className="mt-1 break-words text-sm text-slate-600 [overflow-wrap:anywhere]">“{reportTarget.title}”</p>
 
           <fieldset className="mt-4 flex flex-col gap-2">
             <legend className="text-sm font-semibold text-slate-700">

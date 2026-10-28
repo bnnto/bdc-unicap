@@ -53,34 +53,54 @@ export function StudentShell() {
   }
 
   return (
-    <>
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-3 px-6 py-3">
-          {/* Esquerda: logo institucional UNICAP. */}
-          <div className="flex items-center gap-3">
+    <div className="student-app min-h-screen bg-[#F6F4F0] dark:bg-[#101318]">
+      <header className="border-b border-slate-200 bg-[#F6F4F0] dark:border-slate-700 dark:bg-[#171b22]">
+        <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
             <span
               aria-hidden="true"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-primary font-serif text-sm font-bold text-white"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary font-serif text-sm font-bold text-white"
             >
               UC
             </span>
             <div className="min-w-0">
-              <p className="font-serif text-lg font-bold leading-tight text-primary">
+              <p className="truncate font-serif text-sm font-bold leading-tight text-primary sm:text-base">
                 Banco de Currículos — UNICAP
               </p>
               <p className="text-xs text-slate-500">Portal do Aluno</p>
             </div>
           </div>
 
-          {/* Centro: abas de navegação (padrão ARIA tabs) sobre uma
-              régua full-width — sublinhado de 2px marca o ativo. */}
-          <nav aria-label="Seções do portal" className="order-3 lg:order-2">
-            <ul
-              className="flex flex-wrap items-center gap-1 border-b border-slate-200"
-              role="tablist"
-            >
+          <button
+            type="button"
+            aria-label="Meu perfil e configurações"
+            title={userName}
+            onClick={() => navigateTo("/perfil")}
+            className="flex max-w-[12rem] shrink-0 items-center gap-2 rounded-full p-1 pr-2 transition-colors duration-150 ease-soft hover:bg-[#FDF2F4] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:max-w-[14rem] sm:pr-3"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white">
+              {user?.image ? (
+                <img src={user.image} alt="" className="h-9 w-9 object-cover" />
+              ) : (
+                initialsOf(userName)
+              )}
+            </span>
+            <span className="hidden min-w-0 truncate text-sm font-semibold text-slate-700 sm:block">
+              {userName}
+            </span>
+          </button>
+        </div>
+      </header>
+
+      <div className="mx-auto grid w-full max-w-[1600px] grid-cols-1 lg:grid-cols-[15rem_minmax(0,1fr)]">
+        <aside className="border-b border-slate-200 bg-[#F6F4F0] px-4 py-3 sm:px-6 lg:min-h-[calc(100vh-65px)] lg:border-b-0 lg:border-r lg:px-4 lg:py-7 dark:border-slate-700 dark:bg-[#151a21]">
+          <nav aria-label="Seções do portal">
+            <p className="mb-3 hidden px-3 text-xs font-semibold text-slate-500 lg:block">
+              Área do estudante
+            </p>
+            <ul className="grid grid-cols-3 gap-1 lg:flex lg:flex-col" role="tablist">
               {TABS.map((tab) => (
-                <li key={tab.key} role="presentation" className="flex">
+                <li key={tab.key} role="presentation" className="min-w-0">
                   <button
                     type="button"
                     role="tab"
@@ -88,95 +108,48 @@ export function StudentShell() {
                     aria-controls={`panel-${tab.key}`}
                     id={`tab-${tab.key}`}
                     onClick={() => selectTab(tab.key)}
-                    className={`-mb-px inline-flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors duration-150 ease-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                    className={`relative flex min-h-12 w-full min-w-0 items-center justify-center gap-1.5 rounded-md px-2 py-2 text-center text-[11px] leading-tight transition-colors duration-150 ease-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:gap-2 sm:text-xs lg:justify-start lg:px-3 lg:text-sm ${
                       active === tab.key
-                        ? "border-primary font-semibold text-primary"
-                        : "border-transparent font-medium text-slate-500 hover:text-primary"
+                        ? "bg-white/70 font-semibold text-primary after:absolute after:bottom-0 after:left-2 after:right-2 after:h-0.5 after:bg-primary dark:bg-[#252b34]/70 dark:text-[#f0b7c3] dark:after:bg-[#f0b7c3] lg:bg-transparent lg:after:bottom-2 lg:after:left-0 lg:after:right-auto lg:after:top-2 lg:after:h-auto lg:after:w-0.5"
+                        : "font-medium text-slate-600 hover:bg-white/70 hover:text-primary dark:text-slate-300 dark:hover:bg-[#202630] dark:hover:text-[#f0b7c3]"
                     }`}
                   >
                     {(() => {
                       const Icon = tab.icon;
-                      return (
-                        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      );
+                      return <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />;
                     })()}
-                    {tab.label}
+                    <span className="min-w-0 break-words">{tab.label}</span>
                   </button>
                 </li>
               ))}
             </ul>
           </nav>
+        </aside>
 
-          {/* Direita: avatar + nome como um único botão que leva à
-              central de configurações /perfil ([UX_REFINEMENT] Etapa 3 —
-              sem dropdown; o "Sair" está dentro de /perfil). O nome
-              truncado guarda o valor completo em `title` (resiliência). */}
-          <div className="order-2 flex items-center gap-2 lg:order-3">
-            <button
-              type="button"
-              aria-label="Meu perfil e configurações"
-              title={userName}
-              onClick={() => navigateTo("/perfil")}
-              className="flex max-w-[14rem] items-center gap-2 rounded-full p-0.5 pr-3 transition-colors duration-150 ease-soft hover:bg-[#FDF2F4] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white">
-                {user?.image ? (
-                  <img
-                    src={user.image}
-                    alt=""
-                    className="h-9 w-9 object-cover"
-                  />
-                ) : (
-                  initialsOf(userName)
-                )}
-              </span>
-              <span className="hidden truncate text-sm font-semibold text-slate-700 sm:block">
-                {userName}
-              </span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Painéis: uma tela visível por vez (renderização condicional).
-          [S8-2] landmark main único do fluxo do aluno (#conteudo). */}
-      <main
-        id="conteudo"
-        tabIndex={-1}
-        aria-label="Conteúdo principal"
-        className="outline-none"
-      >
-        {active === "curriculo" ? (
-          <div
-            role="tabpanel"
-            id="panel-curriculo"
-            aria-labelledby="tab-curriculo"
-            tabIndex={-1}
-          >
-            <ResumeBuilderPage />
-          </div>
-        ) : null}
-        {active === "oportunidades" ? (
-          <div
-            role="tabpanel"
-            id="panel-oportunidades"
-            aria-labelledby="tab-oportunidades"
-            tabIndex={-1}
-          >
-            <JobOpportunities />
-          </div>
-        ) : null}
-        {active === "candidaturas" ? (
-          <div
-            role="tabpanel"
-            id="panel-candidaturas"
-            aria-labelledby="tab-candidaturas"
-            tabIndex={-1}
-          >
-            <MyApplicationsPage />
-          </div>
-        ) : null}
-      </main>
-    </>
+        {/* Painéis: uma tela visível por vez; o landmark main permanece único. */}
+        <main
+          id="conteudo"
+          tabIndex={-1}
+          aria-label="Conteúdo principal"
+          className="min-w-0 bg-white px-4 py-5 outline-none sm:px-6 sm:py-6 lg:my-2 lg:mr-2 lg:rounded-2xl lg:border lg:border-slate-200 lg:px-8 lg:py-7 dark:bg-[#171b22] dark:lg:border-slate-700"
+        >
+          {active === "curriculo" ? (
+            <div role="tabpanel" id="panel-curriculo" aria-labelledby="tab-curriculo" tabIndex={-1}>
+              <ResumeBuilderPage />
+            </div>
+          ) : null}
+          {active === "oportunidades" ? (
+            <div role="tabpanel" id="panel-oportunidades" aria-labelledby="tab-oportunidades" tabIndex={-1}>
+              <JobOpportunities />
+            </div>
+          ) : null}
+          {active === "candidaturas" ? (
+            <div role="tabpanel" id="panel-candidaturas" aria-labelledby="tab-candidaturas" tabIndex={-1}>
+              <MyApplicationsPage />
+            </div>
+          ) : null}
+        </main>
+      </div>
+    </div>
   );
 }

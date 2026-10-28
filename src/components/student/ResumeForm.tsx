@@ -605,7 +605,7 @@ export function ResumeForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-6"
+      className="flex min-w-0 flex-col gap-6"
       aria-label="Formulário de currículo vitae"
     >
       {BLOCK_LABELS.map((block) => {
@@ -614,13 +614,13 @@ export function ResumeForm() {
           <section
             key={block.index}
             id={`bloco-${BLOCO_IDS[block.index]}`}
-            className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8"
+            className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 sm:p-6 lg:p-8"
           >
             {/* Cabeçalho do bloco: título + ícone de lápis. */}
             <div className="space-y-8">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900">
+                  <h2 className="flex min-w-0 items-start gap-2 text-base font-semibold text-slate-900">
                     {(() => {
                       const Icon = BLOCK_ICONS[block.index]!;
                       return (
@@ -631,11 +631,11 @@ export function ResumeForm() {
                         />
                       );
                     })()}
-                    <span>
+                    <span className="min-w-0 break-words [overflow-wrap:anywhere]">
                       {block.index + 1}. {block.heading}
                     </span>
                   </h2>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="mt-1 break-words text-sm text-slate-500">
                     {BLOCK_DESCRIPTIONS[block.index]} — clique no lápis para
                     editar neste local.
                   </p>
@@ -829,7 +829,7 @@ export function ResumeForm() {
                           placeholder="Quem você é, o que você faz e o que procura…"
                           maxLength={SUMMARY_MAX}
                           aria-describedby="resume-summary-count-edit"
-                          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                          className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                         />
                         <p
                           id="resume-summary-count-edit"
@@ -850,7 +850,7 @@ export function ResumeForm() {
                       {academicHistory.map((entry, index) => (
                         <div
                           key={index}
-                          className="rounded-lg bg-slate-50 p-4"
+                          className="min-w-0 rounded-lg bg-slate-50 p-4"
                         >
                           <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
                             <div className="min-w-0">
@@ -991,7 +991,7 @@ export function ResumeForm() {
                         {skills.map((skill) => (
                           <span
                             key={skill}
-                            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
+                            className="inline-flex max-w-full items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 [overflow-wrap:anywhere]"
                           >
                             {skill}
                             <button
@@ -1014,7 +1014,7 @@ export function ResumeForm() {
                       {languages.map((language, index) => (
                         <div
                           key={index}
-                          className="flex flex-wrap items-start gap-3 rounded-lg bg-slate-50 p-4"
+                          className="flex min-w-0 flex-wrap items-start gap-3 rounded-lg bg-slate-50 p-4"
                         >
                           <div className="flex min-w-0 flex-1 flex-col gap-1">
                             <label
@@ -1100,7 +1100,7 @@ export function ResumeForm() {
                         {experiences.map((exp, index) => (
                           <div
                             key={index}
-                            className="flex flex-col gap-3 rounded-lg bg-slate-50 p-4"
+                            className="flex min-w-0 flex-col gap-3 rounded-lg bg-slate-50 p-4"
                           >
                             <div className="grid gap-2 sm:grid-cols-3">
                               <Input
@@ -1155,7 +1155,7 @@ export function ResumeForm() {
                                     e.target.value,
                                   )
                                 }
-                                className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                                className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                               />
                             </label>
                             <Button
@@ -1201,7 +1201,7 @@ export function ResumeForm() {
                           maxLength={PROJECTS_TEXT_MAX}
                           onChange={(e) => setProjectsText(e.target.value)}
                           placeholder="Ex.: Monitoria de Banco de Dados I (2024.2); Feira de Ciências — oficina de Python…"
-                          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                          className="w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                         />
                         <p className="text-xs text-slate-500">
                           {projectsText.trim().length}/{PROJECTS_TEXT_MAX}{" "}
@@ -1218,7 +1218,7 @@ export function ResumeForm() {
                       {certifications.map((item, index) => (
                         <div
                           key={index}
-                          className="flex flex-col gap-3 rounded-lg bg-slate-50 p-4"
+                          className="flex min-w-0 flex-col gap-3 rounded-lg bg-slate-50 p-4"
                         >
                           <div className="flex-1">
                             <Input
