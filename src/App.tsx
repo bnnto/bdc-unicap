@@ -247,7 +247,22 @@ function AuthGate() {
     return (
       <>
         <SkipLink />
-        <CandidateProfilePage studentId={candidateStudentId} />
+        <CandidateProfilePage
+          studentId={candidateStudentId}
+          navbar={
+            <PillNavbar
+              navLabel="Seções do portal"
+              tabs={RECRUITER_TABS.map(({ key, label }) => ({ key, label }))}
+              active={activeTab}
+              onChange={(tab) => {
+                setActiveTab(tab);
+                navigateTo("/");
+              }}
+              userName={user.name ?? user.email ?? "usuário"}
+              userImage={user.image ?? undefined}
+            />
+          }
+        />
       </>
     );
   }

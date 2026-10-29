@@ -173,6 +173,12 @@ export const deleteMyAccount = mutation({
         .collect();
       for (const report of studentReports) await ctx.db.delete(report._id);
 
+      if (student.bannerStorageId !== undefined) {
+        await ctx.storage.delete(student.bannerStorageId);
+      }
+      if (user.imageStorageId !== undefined) {
+        await ctx.storage.delete(user.imageStorageId);
+      }
       await ctx.db.delete(student._id);
       deleted.students += 1;
     }
@@ -414,6 +420,10 @@ export const getMyDataExport = query({
               skills: student.skills ?? [],
               languages: student.languages ?? [],
               resumeData: student.resumeData,
+              bannerUrl:
+                student.bannerStorageId !== undefined
+                  ? await ctx.storage.getUrl(student.bannerStorageId)
+                  : null,
             },
       candidaturas,
       vagasPublicadas: jobs.map((job) => ({
@@ -453,6 +463,59 @@ export const updateMyProfile = mutation({
     }
     await ctx.db.patch(user._id, { image });
     return { image };
+  },
+});
+
+const AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+
+export const generateAvatarUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireUser(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const saveAvatar = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    const user = await requireUser(ctx);
+    const meta = await ctx.db.system.get("_storage", storageId);
+    if (
+      meta === null ||
+      !AVATAR_TYPES.includes(meta.contentType ?? "") ||
+      meta.size > MAX_AVATAR_BYTES
+    ) {
+      await ctx.storage.delete(storageId);
+      return {
+        ok: false as const,
+        error: "Imagem inválida: envie PNG, JPEG ou WebP de até 400KB.",
+      };
+    }
+    if (user.imageStorageId !== undefined) {
+      await ctx.storage.delete(user.imageStorageId);
+    }
+    const url = await ctx.storage.getUrl(storageId);
+    await ctx.db.patch(user._id, {
+      imageStorageId: storageId,
+      image: url ?? undefined,
+    });
+    return { ok: true as const };
+  },
+});
+
+export const removeAvatar = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await requireUser(ctx);
+    if (user.imageStorageId !== undefined) {
+      await ctx.storage.delete(user.imageStorageId);
+    }
+    await ctx.db.patch(user._id, {
+      imageStorageId: undefined,
+      image: undefined,
+    });
   },
 });
 

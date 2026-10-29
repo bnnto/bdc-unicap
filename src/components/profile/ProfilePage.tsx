@@ -42,11 +42,16 @@ import {
   User,
   X,
   ZoomIn,
+  ImagePlus,
   type LucideIcon,
 } from "lucide-react";
 import { flushSync } from "react-dom";
+import type { Id } from "../../../convex/_generated/dataModel";
 
-const MAX_IMAGE_BYTES = 400 * 1024;
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+
+const MAX_BANNER_BYTES = 5 * 1024 * 1024;
+const BANNER_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
 /**
  * Configurações — variante "menu lateral" (estilo Ajustes do sistema):
@@ -384,22 +389,6 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Lê o arquivo como data URL (Promise). */
-function readAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("Falha ao ler o arquivo."));
-      }
-    };
-    reader.onerror = () => reject(new Error("Falha ao ler o arquivo."));
-    reader.readAsDataURL(file);
-  });
-}
-
 export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
   const { user, role } = useAuthState();
   const userName = user?.name ?? user?.email ?? "—";
@@ -513,6 +502,9 @@ export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
 
   // ---- Etapa 1: foto de avatar (upload direto + visualização) ----
   const updateProfile = useMutation(api.users.updateMyProfile);
+  const generateAvatarUploadUrl = useMutation(api.users.generateAvatarUploadUrl);
+  const saveAvatar = useMutation(api.users.saveAvatar);
+  const removeAvatar = useMutation(api.users.removeAvatar);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   async function handleImageFile(event: ChangeEvent<HTMLInputElement>) {
@@ -520,7 +512,7 @@ export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
     event.target.value = ""; // permite escolher o mesmo arquivo de novo
     if (file === undefined) return;
     if (file.size > MAX_IMAGE_BYTES) {
-      toast.error("Imagem muito grande — o limite é 400KB.");
+      toast.error("Imagem muito grande — o limite é 2MB.");
       return;
     }
     if (!file.type.startsWith("image/")) {
@@ -530,9 +522,19 @@ export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
       return;
     }
     try {
-      const image = await readAsDataURL(file);
-      await updateProfile({ image });
-      toast.success("Foto de perfil atualizada.");
+      const uploadUrl = await generateAvatarUploadUrl({});
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!response.ok) throw new Error("Falha no envio da foto.");
+      const { storageId } = (await response.json()) as {
+        storageId: Id<"_storage">;
+      };
+      const result = await saveAvatar({ storageId });
+      if (result.ok) toast.success("Foto de perfil atualizada.");
+      else toast.error(result.error);
     } catch (err) {
       toast.error(friendlyErrorMessage(err));
     }
@@ -540,10 +542,64 @@ export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
 
   async function handleRemoveImage() {
     try {
-      await updateProfile({ image: undefined });
+      await removeAvatar({});
       toast.success("Foto de perfil removida.");
     } catch (err) {
       toast.error(friendlyErrorMessage(err));
+    }
+  }
+
+  // ---- Banner do perfil (só aluno) ----
+  const isStudent = role === "aluno";
+  const bannerUrl = useQuery(api.students.myBannerUrl, isStudent ? {} : "skip");
+  const generateBannerUploadUrl = useMutation(api.students.generateBannerUploadUrl);
+  const saveBanner = useMutation(api.students.saveBanner);
+  const removeBanner = useMutation(api.students.removeBanner);
+  const [bannerBusy, setBannerBusy] = useState(false);
+
+  async function handleBannerFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (file === undefined) return;
+    if (!BANNER_TYPES.includes(file.type)) {
+      toast.error("Imagem inválida — envie PNG, JPEG ou WebP.");
+      return;
+    }
+    if (file.size > MAX_BANNER_BYTES) {
+      toast.error("Imagem muito grande — o limite é 5MB.");
+      return;
+    }
+    setBannerBusy(true);
+    try {
+      const uploadUrl = await generateBannerUploadUrl({});
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!response.ok) throw new Error("Falha no envio do banner.");
+      const { storageId } = (await response.json()) as {
+        storageId: Id<"_storage">;
+      };
+      const result = await saveBanner({ storageId });
+      if (result.ok) toast.success("Banner atualizado.");
+      else toast.error(result.error);
+    } catch (err) {
+      toast.error(friendlyErrorMessage(err));
+    } finally {
+      setBannerBusy(false);
+    }
+  }
+
+  async function handleRemoveBanner() {
+    setBannerBusy(true);
+    try {
+      await removeBanner({});
+      toast.success("Banner removido.");
+    } catch (err) {
+      toast.error(friendlyErrorMessage(err));
+    } finally {
+      setBannerBusy(false);
     }
   }
 
@@ -841,7 +897,7 @@ export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
                       <SignOutButton />
                     </div>
                     <p className="mt-3 text-xs text-slate-500">
-                      Foto em PNG, JPEG ou WebP, até 400KB.
+                      Foto em PNG, JPEG ou WebP, até 2MB.
                     </p>
                   </div>
                 </div>
@@ -860,6 +916,59 @@ export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
                     value={`${FONT_SCALE_STEPS[prefs.fontScale] ?? 100}%`}
                   />
                 </div>
+                {isStudent ? (
+                  <div className="mt-10">
+                    <p className="text-sm font-semibold text-slate-900">
+                      Banner do perfil
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Aparece no topo do seu perfil para recrutadores. Ideal:
+                      1600×400px, PNG, JPEG ou WebP, até 5MB.
+                    </p>
+                    <div className="relative mt-4 h-32 overflow-hidden rounded-2xl bg-[linear-gradient(120deg,#4f0d1c,#6b1426_45%,#8f2238)] sm:h-40">
+                      {bannerUrl ? (
+                        <img
+                          src={bannerUrl}
+                          alt="Prévia do seu banner"
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <label
+                        className={`inline-flex h-11 cursor-pointer items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white shadow-sm hover:bg-primary-hover focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 ${PRESS} ${
+                          bannerBusy ? "pointer-events-none opacity-60" : ""
+                        }`}
+                      >
+                        <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                        <span>
+                          {bannerBusy
+                            ? "Enviando…"
+                            : bannerUrl
+                              ? "Trocar banner"
+                              : "Adicionar banner"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="sr-only"
+                          disabled={bannerBusy}
+                          onChange={(event) => void handleBannerFile(event)}
+                        />
+                      </label>
+                      {bannerUrl ? (
+                        <Button
+                          variant="secondary"
+                          disabled={bannerBusy}
+                          onClick={() => void handleRemoveBanner()}
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                          Remover
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
               </>
             ) : null}
 

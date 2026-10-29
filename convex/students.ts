@@ -3,6 +3,7 @@ import {
   mutation,
   internalQuery,
   internalMutation,
+  type MutationCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -485,6 +486,93 @@ export const saveSkillsAndLanguages = mutation({
   },
 });
 
+/** [BANNER] Limites e tipos aceitos. */
+const MAX_BANNER_BYTES = 5 * 1024 * 1024;
+const BANNER_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+async function requireStudentForBanner(ctx: MutationCtx) {
+  const consent = await requireActiveConsentUser(ctx);
+  if (!consent.ok) {
+    throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
+  }
+  if (consent.role !== "aluno") {
+    throw new Error("Apenas alunos têm banner de perfil.");
+  }
+  const student = await ctx.db
+    .query("students")
+    .withIndex("by_user", (q) => q.eq("userId", consent.userId))
+    .unique();
+  if (student === null) {
+    throw new Error("Complete o cadastro do perfil antes de adicionar um banner.");
+  }
+  return student;
+}
+
+export const generateBannerUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireStudentForBanner(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const saveBanner = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    const student = await requireStudentForBanner(ctx);
+    const meta = await ctx.db.system.get(storageId);
+    if (meta === null) {
+      return { ok: false as const, error: "Arquivo não encontrado. Tente de novo." };
+    }
+    if (
+      !BANNER_TYPES.includes(meta.contentType ?? "") ||
+      meta.size > MAX_BANNER_BYTES
+    ) {
+      // Retorna (não lança) para o delete não ser desfeito pelo rollback.
+      await ctx.storage.delete(storageId);
+      return {
+        ok: false as const,
+        error: "Banner inválido — use PNG, JPEG ou WebP de até 5MB.",
+      };
+    }
+    if (
+      student.bannerStorageId !== undefined &&
+      student.bannerStorageId !== storageId
+    ) {
+      await ctx.storage.delete(student.bannerStorageId);
+    }
+    await ctx.db.patch(student._id, { bannerStorageId: storageId });
+    return { ok: true as const };
+  },
+});
+
+export const removeBanner = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const student = await requireStudentForBanner(ctx);
+    if (student.bannerStorageId !== undefined) {
+      await ctx.storage.delete(student.bannerStorageId);
+      await ctx.db.patch(student._id, { bannerStorageId: undefined });
+    }
+    return { ok: true as const };
+  },
+});
+
+/** URL do banner do próprio aluno (null se não houver). */
+export const myBannerUrl = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (user === null) return null;
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    if (student === null || student.bannerStorageId === undefined) return null;
+    return await ctx.storage.getUrl(student.bannerStorageId);
+  },
+});
+
 /**
  * Perfil público (R2) — o que um recrutador/visitante pode ver de um aluno.
  * Projeção no SERVIDOR: contato (R6) omitido quando não autorizado e perfil
@@ -589,6 +677,11 @@ export const getCandidateProfile = query({
     });
     const released = contact.contactReleased;
 
+    const bannerUrl =
+      student.bannerStorageId !== undefined
+        ? await ctx.storage.getUrl(student.bannerStorageId)
+        : null;
+
     return {
       studentId: student._id,
       fullName: student.fullName,
@@ -601,6 +694,8 @@ export const getCandidateProfile = query({
       graduationYear: student.graduationYear,
       semester: student.semester ?? null,
       location: student.location ?? null,
+      bannerUrl,
+      imageUrl: released ? (owner?.image ?? null) : null,
       headline: student.resumeData?.headline ?? null,
       resume: student.resumeData ?? null,
       skills: student.skills ?? [],
@@ -905,6 +1000,9 @@ export const deleteMyProfile = mutation({
       for (const report of reports) await ctx.db.delete(report._id);
       
       await ctx.db.delete(student._id);
+      if (student.bannerStorageId !== undefined) {
+        await ctx.storage.delete(student.bannerStorageId);
+      }
     }
 
     for (const consent of consents) {

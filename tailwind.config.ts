@@ -26,7 +26,7 @@ export default {
         "a11y-primary": "#6B1426",
       },
       fontFamily: {
-        serif: ["Merriweather", "Georgia", "serif"],
+        serif: ['"Literata"', "Georgia", "serif"],
         sans: ["'Plus Jakarta Sans'", "system-ui", "sans-serif"],
       },
       borderRadius: {
