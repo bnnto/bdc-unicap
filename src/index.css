@@ -2,6 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
+.transition,
+.transition-all,
+.transition-colors,
+.transition-opacity,
+.transition-shadow,
+.transition-transform {
+  transition-duration: 450ms;
+  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transition,
+  .transition-all,
+  .transition-colors,
+  .transition-opacity,
+  .transition-shadow,
+  .transition-transform {
+    transition-property: color, background-color, border-color, opacity;
+  }
+}
+
 :root {
   color-scheme: light;
 
@@ -261,4 +282,32 @@ body {
 .dark.high-contrast :focus-visible {
   outline-width: 4px;
   outline-color: #ffffff;
+}
+
+/* Conteúdo entra suavemente ao trocar de visão. */
+@keyframes view-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.view-enter { animation: view-enter 350ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+
+@keyframes view-enter-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.view-enter { animation: view-enter 600ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .view-enter { animation-name: view-enter-fade; }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
 }

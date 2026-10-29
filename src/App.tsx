@@ -9,17 +9,10 @@ import {
   parseCandidateProfilePath,
 } from "./lib/router";
 import { useAuthState } from "./components/auth/authContext";
-import { StudentShell } from "./components/student/StudentShell";
-import {
-  Kanban,
-  LayoutDashboard,
-  ShieldAlert,
-  UserCheck,
-  Users,
-} from "lucide-react";
+import { Kanban, LayoutDashboard, Users } from "lucide-react";
 import { ManagerRecruitersPage } from "./components/manager/ManagerRecruitersPage";
 import { ManagerModerationPage } from "./components/manager/ManagerModerationPage";
-import { PendingRecruitersBadge } from "./components/manager/PendingRecruitersBadge";
+import { ManagerNavbar } from "./components/manager/ManagerNavbar";
 import { TalentSearchPage } from "./components/recruiter/talent/TalentSearchPage";
 import { RecruiterJobsPage } from "./components/recruiter/RecruiterJobsPage";
 import { CandidateProfilePage } from "./components/recruiter/CandidateProfilePage";
@@ -27,7 +20,8 @@ import { OperationalPanel } from "./components/recruiter/operational/Operational
 import { ManagerDashboard } from "./components/manager/ManagerDashboard";
 import { ROLE_LABELS } from "./lib/roles";
 import { RecruiterApprovalGate } from "./components/recruiter/RecruiterApprovalGate";
-import { PendingJobsBadge } from "./components/manager/PendingJobsBadge";
+import { PillNavbar } from "./components/nav/PillNavbar";
+import { StudentShell, STUDENT_TABS, type StudentTab } from "./components/student/StudentShell";
 
 /**
  * Shell da aplicação (issue [S1-1]): usuários autenticados veem o painel
@@ -98,127 +92,16 @@ const RECRUITER_TABS: TabDef[] = [
   { key: "vagas", label: "Vagas & Pipeline", icon: Kanban },
 ];
 
-/** [MODERACAO_RECRUTADOR] O gestor modera; não vê banco de talentos nem pipeline. */
-const MANAGER_TABS: TabDef[] = [
-  { key: "dashboard", label: "Dashboard de Métricas", icon: LayoutDashboard },
-  { key: "recrutadores", label: "Recrutadores", icon: UserCheck },
-  { key: "moderacao", label: "Moderação", icon: ShieldAlert },
-];
-
 /**
- * Navbar com abas acessíveis (REFACTOR_UI Etapa 2): logo à esquerda, abas
- * ao centro (padrão ARIA tabs — o conteúdo troca por clique) e avatar do
- * perfil à direita. Cada aba controla um painel embaixo (aria-controls).
- *
- * [UX_REFINEMENT Etapa 3] — sem menu dropdown: clicar no avatar/nome
- * leva direto à central de configurações (/perfil), onde também mora o
- * "Sair".
+ * [MODERACAO_RECRUTADOR] O gestor modera; não vê banco de talentos nem
+ * pipeline. As abas e a navbar do gestor vivem em
+ * `components/manager/ManagerNavbar.tsx`.
  */
-function RecruiterNavbar({
-  tabs,
-  active,
-  onChange,
-  userName,
-  userImage,
-}: {
-  tabs: TabDef[];
-  active: TabKey;
-  onChange: (tab: TabKey) => void;
-  userName: string;
-  /** [PERFIL_E_LGPD] foto de avatar (data URL) quando definida. */
-  userImage?: string;
-}) {
-  return (
-    <header className="border-b border-slate-200 bg-white shadow-level1">
-      <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-3 px-6 py-3">
-        {/* Esquerda: logo institucional. */}
-        <div className="flex items-center gap-3">
-          <span
-            aria-hidden="true"
-            className="flex h-9 w-9 items-center justify-center rounded bg-primary font-serif text-sm font-bold text-white"
-          >
-            UC
-          </span>
-          <div>
-            <p className="font-serif text-lg font-bold leading-tight text-primary">
-              Banco de Currículos — UNICAP
-            </p>
-            <p className="text-xs text-slate-500">
-              Autenticado como {userName}
-            </p>
-          </div>
-        </div>
-
-        {/* Centro: abas de navegação (padrão ARIA tabs). */}
-        <nav aria-label="Seções do portal" className="order-3 lg:order-2">
-          <ul className="flex flex-wrap items-center gap-1" role="tablist">
-            {tabs.map((tab) => (
-              <li key={tab.key} role="presentation">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={active === tab.key}
-                  aria-controls={`panel-${tab.key}`}
-                  id={`tab-${tab.key}`}
-                  onClick={() => onChange(tab.key)}
-                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                    active === tab.key
-                      ? "border-b-2 border-secondary bg-[#FDF2F4] text-primary"
-                      : "border-b-2 border-transparent text-slate-600 hover:bg-[#FDF2F4] hover:text-primary dark:hover:text-white"
-                  }`}
-                >
-                  <tab.icon className="h-4 w-4" aria-hidden={true} />
-                  {tab.label}
-                  {tab.key === "recrutadores" ? (
-                    <PendingRecruitersBadge />
-                  ) : null}
-                  {tab.key === "moderacao" ? <PendingJobsBadge /> : null}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        {/* Direita: avatar + nome como um único botão para /perfil
-            ([UX_REFINEMENT] Etapa 3 — o "Sair" vive em /perfil). */}
-        <div className="order-2 flex items-center gap-3 lg:order-3">
-          <button
-            type="button"
-            aria-label="Meu perfil e configurações"
-            onClick={() => navigateTo("/perfil")}
-            className="flex items-center gap-2 rounded-full p-1 pr-2 transition-colors hover:bg-[#FDF2F4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            {userImage ? (
-              <img
-                src={userImage}
-                alt=""
-                className="h-8 w-8 rounded-full object-cover"
-              />
-            ) : (
-              <span
-                aria-hidden="true"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FDF2F4] text-xs font-bold text-primary"
-              >
-                {userName
-                  .split(" ")
-                  .slice(0, 2)
-                  .map((part) => part.charAt(0).toUpperCase())
-                  .join("")}
-              </span>
-            )}
-            <span className="hidden text-sm font-semibold text-slate-600 sm:block">
-              {userName}
-            </span>
-          </button>
-        </div>
-      </div>
-    </header>
-  );
-}
 
 function AuthGate() {
   const { isLoading, isAuthenticated, user, role } = useAuthState();
   const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
+  const [studentTab, setStudentTab] = useState<StudentTab>("curriculo");
   const [publicPath, setPublicPath] = useState(() =>
     typeof window === "undefined" ? "/" : window.location.pathname,
   );
@@ -237,6 +120,7 @@ function AuthGate() {
     if (user === null || !sawGuest.current) return;
     sawGuest.current = false;
     setActiveTab("dashboard");
+    setStudentTab("curriculo");
     navigateTo("/");
   }, [user]);
 
@@ -281,14 +165,49 @@ function AuthGate() {
   }
 
   if (publicPath === "/perfil") {
-    // [PERFIL_E_LGPD] rota autenticada da central de configurações e
-    // segurança — vale para qualquer papel (aluno, recrutador, gestor).
-    // A exclusão da conta derruba `me` no servidor reativo e o AuthGate
-    // volta a cair na vitrine.
+    const name = user.name ?? user.email ?? "usuário";
+    const image = user.image ?? undefined;
+    const goTab = (tab: TabKey) => {
+      setActiveTab(tab);
+      navigateTo("/");
+    };
+    const navbar =
+      role === "gestor" ? (
+        <ManagerNavbar
+          active={null}
+          userActive
+          onChange={goTab}
+          userName={name}
+          userImage={image}
+        />
+      ) : role === "aluno" ? (
+        <PillNavbar<StudentTab>
+          navLabel="Seções do portal"
+          tabs={STUDENT_TABS.map(({ key, label }) => ({ key, label }))}
+          active={null}
+          userActive
+          onChange={(tab) => {
+            setStudentTab(tab);
+            navigateTo("/");
+          }}
+          userName={name}
+          userImage={image}
+        />
+      ) : (
+        <PillNavbar
+          navLabel="Seções do portal"
+          tabs={RECRUITER_TABS.map(({ key, label }) => ({ key, label }))}
+          active={null}
+          userActive
+          onChange={goTab}
+          userName={name}
+          userImage={image}
+        />
+      );
     return (
       <>
         <SkipLink />
-        <ProfilePage />
+        <ProfilePage navbar={navbar} />
       </>
     );
   }
@@ -300,7 +219,7 @@ function AuthGate() {
     return (
       <div className="min-h-screen bg-canvas">
         <SkipLink />
-        <StudentShell />
+        <StudentShell tab={studentTab} onTabChange={setStudentTab} />
       </div>
     );
   }
@@ -336,13 +255,23 @@ function AuthGate() {
   return (
     <div className="min-h-screen bg-canvas">
       <SkipLink />
-      <RecruiterNavbar
-        tabs={role === "gestor" ? MANAGER_TABS : RECRUITER_TABS}
-        active={activeTab}
-        onChange={setActiveTab}
-        userName={user.name ?? user.email ?? "usuário"}
-        userImage={user.image ?? undefined}
-      />
+      {role === "gestor" ? (
+        <ManagerNavbar
+          active={activeTab}
+          onChange={setActiveTab}
+          userName={user.name ?? user.email ?? "usuário"}
+          userImage={user.image ?? undefined}
+        />
+      ) : (
+        <PillNavbar
+          navLabel="Seções do portal"
+          tabs={RECRUITER_TABS.map(({ key, label }) => ({ key, label }))}
+          active={activeTab}
+          onChange={setActiveTab}
+          userName={user.name ?? user.email ?? "usuário"}
+          userImage={user.image ?? undefined}
+        />
+      )}
       <MainLandmark>
         {/* [REFACTOR_UI] Renderização condicional por aba — uma tela por vez. */}
         <div

@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Briefcase,
   Building2,
+  ChevronDown,
   ClipboardList,
   Download,
   Filter,
   GraduationCap,
-  LayoutDashboard,
   Radar,
   RefreshCw,
   Thermometer,
@@ -24,23 +24,19 @@ import { printOperationalReport } from "../../lib/reportPrint";
 import { normalizeDashboardFilters } from "../../lib/dashboardFilters";
 
 /**
- * [REFACTOR_GESTOR] Etapa 4 — Painel Estratégico de Carreiras &
- * Empregabilidade (papel gestor), em CSS Grid de largura total.
+ * Painel Estratégico de Carreiras & Empregabilidade (papel gestor).
  *
- * Fontes de dados:
- * - REAIS: `operational.operationalSummary` (vagas/empregabilidade),
- *   `operational.timeToHireStats`, `operational.pipelineFunnel`
- *   (funil de conversão) e `students.talentPoolCount`;
- * - [GESTOR_BACKEND] REAIS: motivos de reprovação (R5), radar de
- *   competências (demanda×oferta) e termômetro de engajamento — queries
- *   gestor-only de convex/manager.ts (`getRejectionInsights`,
- *   `getSkillsRadar`, `getEngagementMetrics`);
- * - [GESTOR_BACKEND_PT2] REAIS: empregabilidade por curso
- *   (`getEmployabilityByCourse`) e empresas parceiras
- *   (`getPartnerCompanies`) — o painel é 100% real, sem mocks.
+ * Refatoração visual (UI/UX) — a lógica de dados, as queries, as exportações
+ * e os `data-testid` continuam os mesmos. Princípios aplicados:
  *
- * As exportações (CSV/XLSX/PDF) usam os dados REAIS carregados, igual ao
- * painel operacional do recrutador.
+ * - Superfícies com anel semitransparente no lugar de borda sólida, cantos
+ *   grandes (3xl) e muito respiro — hierarquia por espaço, não por caixas;
+ * - KPIs numa única faixa, número grande em serifa, sem "azulejo" de ícone;
+ * - Barras finas e arredondadas que crescem uma única vez ao entrar e
+ *   continuam interruptíveis ao trocar o filtro (motion-reduce respeitado);
+ * - Rótulos em sentence case (sem CAIXA ALTA espaçada) e números tabulares;
+ * - Só utilidades já remapeadas pelo index.css, então claro, escuro e alto
+ *   contraste continuam funcionando.
  */
 
 const COURSE_OPTIONS = [
@@ -72,7 +68,111 @@ const PARTNER_STATUS_LABELS: Record<
   },
 };
 
-function KpiCard({
+/** Superfície: anel semitransparente + sombra longa e suave (no alto
+ *  contraste, volta uma borda sólida para manter a separação). */
+const SURFACE =
+  "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+
+const FIELD =
+  "h-10 w-full appearance-none rounded-xl border border-slate-300 bg-white pl-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
+
+/** Barra que cresce ao montar e re-anima a partir do valor atual quando o
+ *  percentual muda (transição CSS: interruptível, sem salto). */
+function GrowBar({
+  percent,
+  className,
+  testId,
+}: {
+  percent: number;
+  className: string;
+  testId?: string;
+}) {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setProgress(percent));
+    return () => cancelAnimationFrame(id);
+  }, [percent]);
+  return (
+    <div
+      data-testid={testId}
+      data-percent={percent}
+      className={`h-full w-full rounded-full will-change-transform transition-transform !duration-[900ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${className}`}
+      style={{ transform: `translateX(${progress - 100}%)` }}
+    />
+  );
+}
+
+function Track({ children, height = "h-2" }: { children: ReactNode; height?: string }) {
+  return (
+    <div
+      className={`${height} overflow-hidden rounded-full bg-slate-100`}
+      aria-hidden="true"
+    >
+      {children}
+    </div>
+  );
+}
+
+function Panel({
+  testId,
+  label,
+  title,
+  icon,
+  aside,
+  description,
+  footnote,
+  className = "",
+  children,
+}: {
+  testId?: string;
+  label: string;
+  title: string;
+  icon: ReactNode;
+  aside?: ReactNode;
+  description?: string;
+  footnote?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      data-testid={testId}
+      aria-label={label}
+      className={`${SURFACE} p-7 ${className}`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="flex items-center gap-2.5 font-serif text-xl font-bold tracking-tight text-slate-900">
+          <span aria-hidden="true" className="text-primary">
+            {icon}
+          </span>
+          {title}
+        </h3>
+        {aside}
+      </div>
+      {description !== undefined ? (
+        <p className="mt-2 max-w-prose text-sm leading-relaxed text-slate-500">
+          {description}
+        </p>
+      ) : null}
+      <div className="mt-6">{children}</div>
+      {footnote !== undefined ? (
+        <p className="mt-5 text-xs leading-relaxed text-a11y-slate-500">
+          {footnote}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function Empty({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+      {children}
+    </p>
+  );
+}
+
+function KpiCell({
   kpi,
   testId,
   unit,
@@ -86,69 +186,152 @@ function KpiCard({
   };
   testId: string;
   unit?: string;
-  /** [RECRUITER_UX_UPGRADE] Ícone lucide que ancora a métrica. */
-  icon?: React.ReactNode;
+  icon: ReactNode;
 }) {
+  const empty = kpi.hasData === false;
   return (
     <div
       data-testid={testId}
-      className="rounded-2xl border border-slate-200 bg-white p-8 shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2"
+      className="flex flex-col border-t border-slate-100 p-7 first:border-t-0 sm:even:border-l sm:[&:nth-child(2)]:border-t-0 xl:border-l xl:border-t-0 xl:first:border-l-0"
     >
-      {icon !== undefined ? (
-        <span
-          aria-hidden="true"
-          className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF2F4] text-primary ring-1 ring-primary/20"
-        >
+      <p className="flex items-center gap-2 text-sm font-medium text-slate-600">
+        <span aria-hidden="true" className="text-slate-400">
           {icon}
         </span>
-      ) : null}
-      <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">
         {kpi.label}
       </p>
-      <p className="mt-2 font-serif text-4xl font-bold text-primary">
+      <p
+        className={`mt-4 font-serif text-5xl font-bold leading-none tracking-tight tabular-nums ${
+          empty ? "text-slate-300" : "text-primary"
+        }`}
+      >
         {kpi.value}
-        {unit !== undefined && kpi.hasData !== false ? (
-          <span className="ml-1 text-base font-semibold text-slate-500">
+        {empty ? <span className="sr-only"> sem dados ainda</span> : null}
+        {unit !== undefined && !empty ? (
+          <span className="ml-1.5 text-base font-semibold tracking-normal text-slate-500">
             {unit}
           </span>
         ) : null}
       </p>
       {kpi.hint !== undefined ? (
-        <p className="mt-1 text-xs text-a11y-slate-500">{kpi.hint}</p>
+        <p className="mt-3 text-xs leading-relaxed text-a11y-slate-500">
+          {kpi.hint}
+        </p>
       ) : null}
     </div>
   );
 }
 
+function SelectField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  options,
+  className,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  options: { value: string; label: string }[];
+  className: string;
+}) {
+  return (
+    <label className={`flex flex-col gap-1.5 ${className}`}>
+      <span className="text-xs font-medium text-slate-500">{label}</span>
+      <span className="relative block">
+        <select
+          aria-label={label}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={FIELD}
+        >
+          <option value="">{placeholder}</option>
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          aria-hidden="true"
+          className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+        />
+      </span>
+    </label>
+  );
+}
+
+/** Linha "rótulo + barra + percentual" usada por curso e reprovações. */
+function BarRow({
+  label,
+  percent,
+  scale,
+  tone,
+  testId,
+}: {
+  label: string;
+  percent: number;
+  scale: number;
+  tone: string;
+  testId?: string;
+}) {
+  return (
+    <li>
+      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+        <span className="truncate text-sm text-slate-700">{label}</span>
+        <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-900">
+          {percent}%
+        </span>
+      </div>
+      <Track>
+        <GrowBar
+          testId={testId}
+          percent={(percent / scale) * 100}
+          className={tone}
+        />
+      </Track>
+    </li>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div role="status" aria-live="polite" className="animate-pulse space-y-6">
+      <span className="sr-only">Carregando o Painel Estratégico…</span>
+      <div className="h-10 w-2/3 rounded-xl bg-slate-100" />
+      <div className="h-4 w-1/2 rounded-full bg-slate-100" />
+      <div className="h-24 rounded-3xl bg-slate-100" />
+      <div className="h-48 rounded-3xl bg-slate-100" />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <div className="h-72 rounded-3xl bg-slate-100" />
+        <div className="h-72 rounded-3xl bg-slate-100" />
+      </div>
+    </div>
+  );
+}
+
 export function ManagerDashboard() {
-  // Filtros: o curso alimenta TODAS as queries reais do servidor
-  // (agregações gestor + painel operacional).
+  // Filtros: o curso alimenta TODAS as queries reais do servidor.
   const [draftCourse, setDraftCourse] = useState("");
   const [draftSemester, setDraftSemester] = useState("");
   const [applied, setApplied] = useState({ course: "", semester: "" });
 
-  const filters = normalizeDashboardFilters({
-    course: applied.course,
-  });
-
-  // [GESTOR_BACKEND] As queries de insights aceitam apenas `course` —
-  // os demais filtros do dashboard não se aplicam a estas agregações.
+  const filters = normalizeDashboardFilters({ course: applied.course });
+  // As queries de insights aceitam apenas `course`.
   const managerFilters = { course: filters.course };
 
   const summary = useQuery(api.operational.operationalSummary, filters);
   const tth = useQuery(api.operational.timeToHireStats, filters);
   const funnel = useQuery(api.operational.pipelineFunnel, filters);
   const talentPool = useQuery(api.students.talentPoolCount, {});
-  // Insights Estratégicos — agregações reais (exclusivas do gestor).
   const rejectionsData = useQuery(
     api.manager.getRejectionInsights,
     managerFilters,
   );
   const skillsRadar = useQuery(api.manager.getSkillsRadar, managerFilters);
   const engagement = useQuery(api.manager.getEngagementMetrics, managerFilters);
-  // [GESTOR_BACKEND_PT2] Empregabilidade por curso e empresas parceiras
-  // (a tabela de parceiras não é recortada por curso — empresas não têm
-  // curso; a regra de status fica na regra pura `partnerStatus`).
   const courseEmployability = useQuery(
     api.manager.getEmployabilityByCourse,
     managerFilters,
@@ -166,17 +349,7 @@ export function ManagerDashboard() {
     courseEmployability === undefined ||
     partnerCompanies === undefined
   ) {
-    return (
-      <div
-        className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-        role="status"
-        aria-live="polite"
-      >
-        <p className="text-sm text-slate-500">
-          Carregando o Painel Estratégico…
-        </p>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const kpis = buildManagerKpis({
@@ -196,8 +369,6 @@ export function ManagerDashboard() {
   const funnelSteps = funnel.steps;
   const maxFunnel = Math.max(1, ...funnelSteps.map((s) => s.count));
 
-  // Exportações com os dados REAIS carregados (mesma bateria do painel
-  // operacional — CSV/Excel/PDF institucional).
   const report = buildOperationalReport({
     summary: {
       jobs: summary.jobs,
@@ -222,26 +393,21 @@ export function ManagerDashboard() {
       data-testid="manager-dashboard"
       role="region"
       aria-label="Painel estratégico"
-      className="px-1"
+      className="space-y-8 px-1 pb-16 pt-6"
     >
-      {/* 1 — Header do dashboard. */}
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
-            Gestão
-          </p>
-          <h2 className="font-serif text-3xl font-bold text-primary flex items-center gap-2">
-            <LayoutDashboard className="h-6 w-6" aria-hidden="true" />
-            Painel Estratégico de Carreiras &amp; Empregabilidade
+      {/* Cabeçalho: título grande, subtítulo curto, exportações à direita. */}
+      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+        <div className="min-w-0 max-w-3xl">
+          <h2 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
+            Painel estratégico
           </h2>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Visão executiva das oportunidades, da empregabilidade dos alunos e
-            do desempenho dos parceiros — atualizado em tempo real com o banco
-            do portal.
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600">
+            Oportunidades, empregabilidade dos alunos e desempenho dos
+            parceiros, com os dados do portal em tempo real.
           </p>
         </div>
         <div
-          className="flex gap-2"
+          className="flex flex-wrap gap-2"
           role="group"
           aria-label="Exportações do painel"
         >
@@ -251,7 +417,7 @@ export function ManagerDashboard() {
             title="Planilha CSV com os indicadores filtrados"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
-            Exportar Planilha (CSV)
+            Planilha (CSV)
           </Button>
           <Button
             variant="secondary"
@@ -259,7 +425,7 @@ export function ManagerDashboard() {
             title="Pasta de trabalho Excel (.xlsx) com os indicadores filtrados"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
-            Exportar Excel
+            Excel
           </Button>
           <Button
             variant="accent"
@@ -267,55 +433,38 @@ export function ManagerDashboard() {
             title="Relatório em PDF com o template institucional UNICAP"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
-            Exportar Relatório PDF
+            Relatório PDF
           </Button>
         </div>
-      </div>
+      </header>
 
-      {/* 2 — Barra de filtros. */}
+      {/* Filtros: barra compacta, os campos ficam lado a lado com a ação. */}
       <div
-        className="mb-6 flex flex-wrap items-start gap-4 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
+        className={`${SURFACE} flex flex-wrap items-end gap-4 p-5`}
         role="group"
         aria-label="Filtros do painel estratégico"
       >
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Curso
-          </span>
-          <select
-            aria-label="Curso"
-            value={draftCourse}
-            onChange={(e) => setDraftCourse(e.target.value)}
-            className="w-56 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-          >
-            <option value="">Todos os Cursos</option>
-            {COURSE_OPTIONS.map((course) => (
-              <option key={course} value={course}>
-                {course}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Semestre
-          </span>
-          <select
-            aria-label="Semestre"
-            value={draftSemester}
-            onChange={(e) => setDraftSemester(e.target.value)}
-            className="w-48 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-          >
-            <option value="">Todos os semestres</option>
-            {SEMESTER_OPTIONS.map((semester) => (
-              <option key={semester} value={semester}>
-                {semester}º semestre
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label="Curso"
+          value={draftCourse}
+          onChange={setDraftCourse}
+          placeholder="Todos os cursos"
+          options={COURSE_OPTIONS.map((c) => ({ value: c, label: c }))}
+          className="w-full sm:w-64"
+        />
+        <SelectField
+          label="Semestre"
+          value={draftSemester}
+          onChange={setDraftSemester}
+          placeholder="Todos os semestres"
+          options={SEMESTER_OPTIONS.map((s) => ({
+            value: s,
+            label: `${s}º semestre`,
+          }))}
+          className="w-full sm:w-52"
+        />
         <Button
-          className="mt-6 h-10 shrink-0"
+          className="h-10 shrink-0"
           variant="primary"
           onClick={() =>
             setApplied({ course: draftCourse, semester: draftSemester })
@@ -325,364 +474,302 @@ export function ManagerDashboard() {
           Atualizar
         </Button>
         {applied.semester !== "" ? (
-          <p className="text-xs text-a11y-slate-500">
-            Filtro de semestre disponível para recortes futuros do backend.
+          <p className="basis-full text-xs text-a11y-slate-500">
+            O filtro de semestre ainda não recorta os dados; ele fica pronto
+            para quando o backend suportar.
           </p>
         ) : null}
       </div>
 
-      {/* 3 — KPIs (4 colunas). */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
+      {/* KPIs: uma única faixa, números grandes. */}
+      <div
+        className={`${SURFACE} grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4`}
+      >
+        <KpiCell
           kpi={kpis.oportunidades}
           testId="kpi-oportunidades"
-          icon={<Briefcase className="h-5 w-5" />}
+          icon={<Briefcase className="h-4 w-4" />}
         />
-        <KpiCard
+        <KpiCell
           kpi={{
             value: kpis.empregabilidade.value,
-            label: "Taxa de Empregabilidade",
+            label: "Taxa de empregabilidade",
             hint: "Aprovados sobre finalizados",
             hasData: kpis.empregabilidade.hasData,
           }}
           testId="kpi-empregabilidade"
-          icon={<TrendingUp className="h-5 w-5" />}
+          icon={<TrendingUp className="h-4 w-4" />}
         />
-        <KpiCard
+        <KpiCell
           kpi={{
             value: kpis.tempoContratacao.value,
-            label: "Tempo Médio de Contratação",
+            label: "Tempo médio de contratação",
             hint: "Da candidatura ao preenchimento da vaga",
             hasData: kpis.tempoContratacao.hasData,
           }}
           testId="kpi-tempo-contratacao"
           unit={kpis.tempoContratacao.hasData ? "dias" : undefined}
-          icon={<Timer className="h-5 w-5" />}
+          icon={<Timer className="h-4 w-4" />}
         />
-        <KpiCard
+        <KpiCell
           kpi={kpis.talentos}
           testId="kpi-talentos"
-          icon={<Users className="h-5 w-5" />}
+          icon={<Users className="h-4 w-4" />}
         />
       </div>
 
-      {/* 4 — Sessão central: funil + empregabilidade por curso (reais). */}
-      <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <section
-          data-testid="manager-funnel"
-          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-          aria-label="Funil de conversão"
-        >
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
-              <Filter className="h-4 w-4" aria-hidden="true" />
-              Funil de Conversão
-            </h3>
-            <span className="text-xs text-slate-500">
+      {/* Funil + empregabilidade por curso. */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <Panel
+          testId="manager-funnel"
+          label="Funil de conversão"
+          title="Funil de conversão"
+          icon={<Filter className="h-5 w-5" />}
+          aside={
+            <span className="text-sm tabular-nums text-slate-500">
               {funnel.totalApplications} candidaturas
             </span>
-          </div>
-          <ul className="flex flex-col gap-3">
+          }
+          footnote="O percentual de cada etapa é relativo à etapa anterior."
+        >
+          <ul className="flex flex-col gap-5">
             {funnelSteps.map((step) => (
-              <li key={step.stage} className="flex items-center gap-3">
-                <span className="w-28 shrink-0 text-sm font-semibold text-slate-700">
-                  {step.label}
-                </span>
-                <div
-                  className="h-8 flex-1 overflow-hidden rounded bg-slate-100"
-                  aria-hidden="true"
-                >
-                  <div
-                    data-testid={`funnel-bar-${step.stage}`}
-                    className="flex h-full items-center justify-end rounded bg-primary px-2 text-xs font-semibold text-white"
-                    style={{
-                      width: `${Math.max(
-                        step.count === 0 ? 0 : 8,
-                        (step.count / maxFunnel) * 100,
-                      )}%`,
-                    }}
-                  >
-                    {step.count > 0 ? step.count : ""}
-                  </div>
+              <li key={step.stage}>
+                <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                  <span className="text-sm font-semibold text-slate-800">
+                    {step.label}
+                  </span>
+                  <span className="flex items-baseline gap-2">
+                    <span className="font-serif text-lg font-bold tabular-nums text-slate-900">
+                      {step.count}
+                    </span>
+                    {step.conversionFromPrevious !== null ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-600">
+                        {step.conversionFromPrevious}%
+                      </span>
+                    ) : null}
+                  </span>
                 </div>
-                <span className="w-16 shrink-0 text-right text-xs text-slate-500">
-                  {step.conversionFromPrevious === null
-                    ? "—"
-                    : `${step.conversionFromPrevious}%`}
-                </span>
+                <Track height="h-2.5">
+                  <GrowBar
+                    testId={`funnel-bar-${step.stage}`}
+                    className="bg-primary"
+                    percent={Math.max(
+                      step.count === 0 ? 0 : 8,
+                      (step.count / maxFunnel) * 100,
+                    )}
+                  />
+                </Track>
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-a11y-slate-500">
-            Conversão % em relação à etapa anterior — dados reais do portal.
-          </p>
-        </section>
+        </Panel>
 
-        <section
-          data-testid="manager-course-employability"
-          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-          aria-label="Empregabilidade por curso"
+        <Panel
+          testId="manager-course-employability"
+          label="Empregabilidade por curso"
+          title="Empregabilidade por curso"
+          icon={<GraduationCap className="h-5 w-5" />}
+          footnote="Taxa = alunos do curso com ao menos uma aprovação ÷ alunos do curso."
         >
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
-              <GraduationCap className="h-4 w-4" aria-hidden="true" />
-              Empregabilidade por Curso
-            </h3>
-          </div>
           {courseEmployability.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              Ainda não há alunos elegíveis para calcular a taxa de
-              empregabilidade.
-            </p>
+            <Empty>
+              Ainda não há alunos elegíveis para calcular a empregabilidade.
+            </Empty>
           ) : (
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-5">
               {courseEmployability.map((row, index) => (
-                <li key={row.course} className="flex items-center gap-3">
-                  <span className="w-52 shrink-0 truncate text-sm text-slate-700">
-                    {row.course}
-                  </span>
-                  <div
-                    className="h-6 flex-1 overflow-hidden rounded bg-slate-100"
-                    aria-hidden="true"
-                  >
-                    <div
-                      data-testid={`course-bar-${index}`}
-                      className="h-full rounded bg-secondary"
-                      style={{ width: `${(row.percent / maxCourse) * 100}%` }}
-                    />
-                  </div>
-                  <span className="w-12 shrink-0 text-right text-sm font-bold text-primary">
-                    {row.percent}%
-                  </span>
-                </li>
+                <BarRow
+                  key={row.course}
+                  label={row.course}
+                  percent={row.percent}
+                  scale={maxCourse}
+                  tone="bg-secondary"
+                  testId={`course-bar-${index}`}
+                />
               ))}
             </ul>
           )}
-          <p className="mt-3 text-xs text-a11y-slate-500">
-            Taxa = alunos do curso com pelo menos uma aprovação ÷ alunos do
-            curso — dados reais do portal.
-          </p>
-        </section>
+        </Panel>
       </div>
 
-      {/* 5 — Tabela de empresas parceiras (dados reais). */}
-      <section
-        className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-        aria-label="Empresas parceiras"
+      {/* Empresas parceiras. */}
+      <Panel
+        label="Empresas parceiras"
+        title="Empresas parceiras"
+        icon={<Building2 className="h-5 w-5" />}
       >
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
-            <Building2 className="h-4 w-4" aria-hidden="true" />
-            Empresas Parceiras
-          </h3>
-        </div>
         {partnerCompanies.length === 0 ? (
-          <p className="text-sm text-slate-500">
-            Ainda não há empresas parceiras no portal.
-          </p>
+          <Empty>Ainda não há empresas parceiras no portal.</Empty>
         ) : (
-          <table className="w-full text-left text-sm">
-            <caption className="sr-only">
-              Empresas parceiras com vagas publicadas, contratados e status
-            </caption>
-            <thead>
-              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                <th scope="col" className="py-2 pr-4 font-semibold">
-                  Empresa
-                </th>
-                <th scope="col" className="py-2 pr-4 font-semibold">
-                  Vagas Publicadas
-                </th>
-                <th scope="col" className="py-2 pr-4 font-semibold">
-                  Contratados
-                </th>
-                <th scope="col" className="py-2 font-semibold">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {partnerCompanies.map((partner) => {
-                const status = partnerStatus(partner.hired, partner.published);
-                const statusUi = PARTNER_STATUS_LABELS[status];
-                return (
-                  <tr
-                    key={partner.recruiterId}
-                    className="border-b border-slate-100 last:border-0"
-                  >
-                    <td className="py-2.5 pr-4 font-medium text-slate-800">
-                      {partner.companyName}
-                    </td>
-                    <td className="py-2.5 pr-4 text-slate-600">
-                      {partner.published}
-                    </td>
-                    <td className="py-2.5 pr-4 text-slate-600">
-                      {partner.hired}
-                    </td>
-                    <td className="py-2.5">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-xs ${statusUi.className}`}
-                      >
-                        {statusUi.label}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="-mx-2 overflow-x-auto">
+            <table className="w-full min-w-[32rem] text-left text-sm">
+              <caption className="sr-only">
+                Empresas parceiras com vagas publicadas, contratados e status
+              </caption>
+              <thead>
+                <tr className="text-xs text-slate-500">
+                  <th scope="col" className="px-2 pb-3 font-medium">
+                    Empresa
+                  </th>
+                  <th scope="col" className="px-2 pb-3 font-medium">
+                    Vagas publicadas
+                  </th>
+                  <th scope="col" className="px-2 pb-3 font-medium">
+                    Contratados
+                  </th>
+                  <th scope="col" className="px-2 pb-3 font-medium">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {partnerCompanies.map((partner) => {
+                  const status = partnerStatus(
+                    partner.hired,
+                    partner.published,
+                  );
+                  const statusUi = PARTNER_STATUS_LABELS[status];
+                  return (
+                    <tr
+                      key={partner.recruiterId}
+                      className="border-t border-slate-100 transition-colors hover:bg-slate-50 dark:hover:bg-white/5"
+                    >
+                      <td className="px-2 py-3.5 font-semibold text-slate-900">
+                        {partner.companyName}
+                      </td>
+                      <td className="px-2 py-3.5 tabular-nums text-slate-600">
+                        {partner.published}
+                      </td>
+                      <td className="px-2 py-3.5 tabular-nums text-slate-600">
+                        {partner.hired}
+                      </td>
+                      <td className="px-2 py-3.5">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs ${statusUi.className}`}
+                        >
+                          {statusUi.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
-      </section>
+      </Panel>
 
-      {/* 6 — Insights Estratégicos (3 colunas). */}
-      <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <section
-          data-testid="manager-insight-rejections"
-          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-          aria-label="Motivos de reprovação"
+      {/* Insights estratégicos. */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Panel
+          testId="manager-insight-rejections"
+          label="Motivos de reprovação"
+          title="Motivos de reprovação"
+          icon={<ClipboardList className="h-5 w-5" />}
+          description="Onde os alunos mais falham nos processos seletivos."
         >
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
-              <ClipboardList className="h-4 w-4" aria-hidden="true" />
-              Motivos de Reprovação
-            </h3>
-          </div>
-          <p className="mb-3 text-xs text-slate-500">
-            Onde os alunos mais falham nos processos seletivos (R5) — dados
-            reais de todas as candidaturas reprovadas.
-          </p>
           {rejections.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              Nenhuma reprovação registrada com os filtros atuais.
-            </p>
+            <Empty>Nenhuma reprovação registrada com os filtros atuais.</Empty>
           ) : (
-            <ul className="flex flex-col gap-2.5">
+            <ul className="flex flex-col gap-5">
               {rejections.map((row) => (
-                <li key={row.reason} className="flex items-center gap-2">
-                  <span className="w-44 shrink-0 truncate text-sm text-slate-700">
-                    {row.label}
-                  </span>
-                  <div
-                    className="h-5 flex-1 overflow-hidden rounded bg-slate-100"
-                    aria-hidden="true"
-                  >
-                    <div
-                      className="h-full rounded bg-primary"
-                      style={{
-                        width: `${(row.percent / maxRejection) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <span className="w-10 shrink-0 text-right text-xs font-bold text-primary">
-                    {row.percent}%
-                  </span>
-                </li>
+                <BarRow
+                  key={row.reason}
+                  label={row.label}
+                  percent={row.percent}
+                  scale={maxRejection}
+                  tone="bg-primary"
+                />
               ))}
             </ul>
           )}
-        </section>
+        </Panel>
 
-        <section
-          data-testid="manager-insight-skillgaps"
-          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-          aria-label="Radar de competências"
+        <Panel
+          testId="manager-insight-skillgaps"
+          label="Radar de competências"
+          title="Radar de competências"
+          icon={<Radar className="h-5 w-5" />}
+          description="O que as vagas pedem em comparação ao que os alunos têm. Os maiores gargalos aparecem com demanda muito acima da oferta."
+          footnote={
+            <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-2 w-2 rounded-full bg-primary"
+                />
+                Demanda das vagas
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-2 w-2 rounded-full bg-slate-300"
+                />
+                Oferta dos alunos
+              </span>
+            </span>
+          }
         >
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
-              <Radar className="h-4 w-4" aria-hidden="true" />
-              Radar de Competências
-            </h3>
-          </div>
-          <p className="mb-3 text-xs text-slate-500">
-            O que as vagas mais pedem vs. o que os alunos mais têm — dados reais
-            dos pré-requisitos e dos perfis; os maiores gargalos ficam com
-            demanda ≫ oferta.
-          </p>
           {skillsRadar.length === 0 ? (
-            <p className="text-sm text-slate-500">
+            <Empty>
               Sem vagas ou competências para comparar com os filtros atuais.
-            </p>
+            </Empty>
           ) : (
-            <ul className="flex flex-col gap-2.5">
+            <ul className="flex flex-col gap-5">
               {skillsRadar.map((gap) => (
-                <li key={gap.skill} className="flex items-center gap-2">
-                  <span className="w-32 shrink-0 truncate text-sm text-slate-700">
-                    {gap.skill}
-                  </span>
-                  <div className="flex flex-1 flex-col gap-1">
-                    <div
-                      className="h-3.5 rounded bg-primary"
-                      style={{ width: `${(gap.demand / maxSkill) * 100}%` }}
-                      aria-hidden="true"
-                    />
-                    <div
-                      className="h-3.5 rounded bg-slate-300"
-                      style={{ width: `${(gap.supply / maxSkill) * 100}%` }}
-                      aria-hidden="true"
-                    />
+                <li key={gap.skill}>
+                  <div className="mb-2 flex items-baseline justify-between gap-3">
+                    <span className="truncate text-sm text-slate-700">
+                      {gap.skill}
+                    </span>
+                    <span className="shrink-0 text-xs tabular-nums text-slate-500">
+                      {gap.demand} pedem · {gap.supply} têm
+                    </span>
                   </div>
-                  <span className="w-20 shrink-0 text-right text-[11px] text-slate-500">
-                    {gap.demand} pedem · {gap.supply} têm
-                  </span>
+                  <div className="flex flex-col gap-1">
+                    <Track height="h-1.5">
+                      <GrowBar
+                        className="bg-primary"
+                        percent={(gap.demand / maxSkill) * 100}
+                      />
+                    </Track>
+                    <Track height="h-1.5">
+                      <GrowBar
+                        className="bg-slate-300"
+                        percent={(gap.supply / maxSkill) * 100}
+                      />
+                    </Track>
+                  </div>
                 </li>
               ))}
             </ul>
           )}
-          <p className="mt-3 flex items-center gap-3 text-[11px] text-slate-500">
-            <span className="flex items-center gap-1">
-              <span
-                aria-hidden="true"
-                className="inline-block h-2.5 w-4 rounded bg-primary"
-              />
-              demanda das vagas
-            </span>
-            <span className="flex items-center gap-1">
-              <span
-                aria-hidden="true"
-                className="inline-block h-2.5 w-4 rounded bg-slate-300"
-              />
-              oferta dos alunos
-            </span>
-          </p>
-        </section>
+        </Panel>
 
-        <section
-          data-testid="manager-insight-engagement"
-          className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-          aria-label="Termômetro de engajamento"
+        <Panel
+          testId="manager-insight-engagement"
+          label="Termômetro de engajamento"
+          title="Termômetro de engajamento"
+          icon={<Thermometer className="h-5 w-5" />}
+          description="Alunos que precisam de um empurrão para completar o perfil."
+          footnote="Perfil completo e currículo publicado são o que mais aumenta as chances de contratação."
         >
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <h3 className="font-serif text-lg font-bold text-primary flex items-center gap-2">
-              <Thermometer className="h-4 w-4" aria-hidden="true" />
-              Termômetro de Engajamento
-            </h3>
-          </div>
-          <p className="mb-4 text-xs text-slate-500">
-            Alunos que precisam de um empurrão para completar o perfil.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-slate-200 bg-[#FDF2F4] p-6 text-center">
-              <p className="font-serif text-3xl font-bold text-primary">
+          <div className="grid grid-cols-2 rounded-2xl bg-slate-50 py-6">
+            <div className="px-5 text-center">
+              <p className="font-serif text-5xl font-bold leading-none tracking-tight tabular-nums text-primary">
                 {engagement.incompleteProfiles}
               </p>
-              <p className="mt-1 text-xs font-medium text-slate-600">
-                Perfil incompleto
-              </p>
+              <p className="mt-3 text-sm text-slate-600">Perfil incompleto</p>
             </div>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-6 text-center">
-              <p className="font-serif text-3xl font-bold text-primary">
+            <div className="border-l border-slate-200 px-5 text-center">
+              <p className="font-serif text-5xl font-bold leading-none tracking-tight tabular-nums text-primary">
                 {engagement.noResume}
               </p>
-              <p className="mt-1 text-xs font-medium text-slate-600">
-                Sem currículo
-              </p>
+              <p className="mt-3 text-sm text-slate-600">Sem currículo</p>
             </div>
           </div>
-          <p className="mt-4 text-xs text-a11y-slate-500">
-            Meta de engajamento: perfil completo + currículo publicado é o que
-            multiplica as chances de contratação.
-          </p>
-        </section>
+        </Panel>
       </div>
     </section>
   );

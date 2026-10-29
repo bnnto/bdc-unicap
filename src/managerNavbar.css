@@ -1,0 +1,191 @@
+/* ====================================================================
+   Navbar do gestor — pílula flutuante (ManagerNavbar.tsx).
+   Base NEUTRA (superfície dos cards); bordô (#6B1426) só como destaque:
+   logo, aba ativa e botão do usuário. Variáveis --mn-* isolam a navbar
+   dos remapeamentos globais de .dark / .high-contrast do index.css.
+   ==================================================================== */
+
+/* ---------- Tema claro (padrão) ---------- */
+.manager-nav {
+  --mn-bg: #ffffff; /* mesma superfície dos cards */
+  --mn-fg: #0f172a; /* slate-900 */
+  --mn-fg-muted: #475569; /* slate-600 (AA no branco) */
+  --mn-hover-bg: #f1f5f9; /* slate-100 */
+  --mn-active-bg: #fdf2f4; /* mesmo rosado suave usado nos ícones/hover */
+  --mn-active-fg: #6b1426;
+  --mn-accent: #6b1426; /* traço da aba ativa */
+  --mn-logo-bg: #6b1426;
+  --mn-logo-fg: #ffffff;
+  --mn-btn-bg: #6b1426; /* destaque bordô */
+  --mn-btn-bg-hover: #520f1d;
+  --mn-btn-fg: #ffffff;
+  --mn-avatar-bg: #c89d3c; /* dourado */
+  --mn-avatar-fg: #241703;
+  --mn-focus: #6b1426;
+  /* Contorno fino cinza + sombra suave acompanham a forma (inclui orelhas). */
+  --mn-edge: drop-shadow(0 6px 12px rgb(30 41 59 / 0.1));
+  --mn-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --mn-dur: 450ms;
+}
+
+/* ---------- Tema escuro ---------- */
+.dark .manager-nav {
+  --mn-bg: #171b22; /* superfície dos cards no dark */
+  --mn-fg: #f1f5f9;
+  --mn-fg-muted: #b3bdc9;
+  --mn-hover-bg: #242b3a;
+  --mn-active-bg: #2c1a21;
+  --mn-active-fg: #e9b8c3;
+  --mn-accent: #e9b8c3;
+  --mn-logo-bg: #e9b8c3;
+  --mn-logo-fg: #520f1d;
+  --mn-btn-bg: #e9b8c3;
+  --mn-btn-bg-hover: #dba3b1;
+  --mn-btn-fg: #3d0a15;
+  --mn-avatar-bg: #6b1426;
+  --mn-avatar-fg: #ffffff;
+  --mn-focus: #e9b8c3;
+  --mn-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --mn-dur: 450ms;
+}
+
+/* ---------- Estrutura ---------- */
+.manager-nav-pill {
+  background: var(--mn-bg);
+  color: var(--mn-fg);
+  filter: var(--mn-edge);
+}
+
+.manager-nav-ear--left {
+  background: radial-gradient(
+    circle at 0 100%,
+    transparent 15.5px,
+    var(--mn-bg) 16px
+  );
+}
+
+.manager-nav-ear--right {
+  background: radial-gradient(
+    circle at 100% 100%,
+    transparent 15.5px,
+    var(--mn-bg) 16px
+  );
+}
+
+/* ---------- Logo (imagem) ---------- */
+.manager-nav-logo {
+  background: transparent;
+}
+
+/* ---------- Abas ---------- */
+.manager-nav-tab {
+  background: transparent;
+  color: var(--mn-fg-muted);
+  transition:
+    color var(--mn-dur) var(--mn-ease),
+    background-color var(--mn-dur) var(--mn-ease);
+}
+
+.manager-nav-tab:hover {
+  background: var(--mn-hover-bg);
+  color: var(--mn-fg);
+}
+
+/* A aba ativa não tem fundo próprio: quem pinta é o destaque deslizante. */
+.manager-nav-tab[aria-selected="true"],
+.manager-nav-tab[aria-selected="true"]:hover {
+  background: transparent;
+  color: var(--mn-active-fg);
+}
+
+/* Destaque único que desliza de uma aba para outra. */
+.manager-nav-indicator {
+  background: var(--mn-active-bg);
+  overflow: hidden; /* corta a barra de baixo no arredondamento da aba */
+  transition:
+    transform var(--mn-dur) var(--mn-ease),
+    width var(--mn-dur) var(--mn-ease),
+    height var(--mn-dur) var(--mn-ease),
+    background-color var(--mn-dur) var(--mn-ease);
+}
+
+/* Barra grossa só na base, sem listras nas laterais. */
+.manager-nav-indicator::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--mn-accent);
+  transition: background-color var(--mn-dur) var(--mn-ease);
+}
+
+/* ---------- Botão do usuário ---------- */
+.manager-nav-user {
+  background: transparent;
+  color: var(--mn-fg);
+  transition: background-color var(--mn-dur) var(--mn-ease);
+}
+
+.manager-nav-user:hover {
+  background: var(--mn-hover-bg);
+}
+
+.manager-nav-avatar {
+  background: var(--mn-avatar-bg);
+  color: var(--mn-avatar-fg);
+}
+
+/* ---------- Foco visível ---------- */
+.manager-nav :focus-visible {
+  outline: 2px solid var(--mn-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Alto contraste (claro): branco, texto e contornos pretos ---------- */
+.high-contrast .manager-nav {
+  --mn-fg: #000000;
+  --mn-fg-muted: #0a0f16;
+  --mn-active-bg: #ffffff;
+  --mn-active-fg: #000000;
+  --mn-accent: #000000;
+  --mn-btn-bg: #000000;
+  --mn-btn-bg-hover: #1f2937;
+  --mn-btn-fg: #ffffff;
+  --mn-focus: #000000;
+  --mn-edge: drop-shadow(0 0 0 transparent);
+}
+
+.high-contrast .manager-nav :focus-visible {
+  outline-width: 3px;
+}
+
+/* ---------- Alto contraste sobre o escuro: preto, texto e contornos brancos ---------- */
+.dark.high-contrast .manager-nav {
+  --mn-bg: #000000;
+  --mn-fg: #ffffff;
+  --mn-fg-muted: #ffffff;
+  --mn-active-bg: #000000;
+  --mn-active-fg: #ffffff;
+  --mn-accent: #ffffff;
+  --mn-btn-bg: #ffffff;
+  --mn-btn-bg-hover: #e2e8f0;
+  --mn-btn-fg: #000000;
+  --mn-edge: drop-shadow(0 0 0 transparent);
+}
+
+.dark.high-contrast .manager-nav :focus-visible {
+  outline-width: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Sem deslizar; só a cor do destaque faz fade. Abas e hover mantêm o fade. */
+  .manager-nav-indicator {
+    transition: background-color var(--mn-dur) var(--mn-ease);
+  }
+}
+
+.manager-nav-user[aria-current="page"] {
+  background: var(--mn-hover-bg);
+}

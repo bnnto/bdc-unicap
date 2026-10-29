@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { useAuthState } from "../auth/authContext";
-import { navigateTo } from "../../lib/router";
+import { PillNavbar } from "../nav/PillNavbar";
 import { ResumeBuilderPage } from "./ResumeBuilderPage";
 import { JobOpportunities } from "./JobOpportunities";
 import { MyApplicationsPage } from "./MyApplicationsPage";
@@ -22,107 +21,33 @@ import { Briefcase, FileText, Send, type LucideIcon } from "lucide-react";
 
 export type StudentTab = "curriculo" | "oportunidades" | "candidaturas";
 
-const TABS: Array<{ key: StudentTab; label: string; icon: LucideIcon }> = [
+export const STUDENT_TABS: Array<{ key: StudentTab; label: string; icon: LucideIcon }> = [
   { key: "curriculo", label: "Meu Currículo", icon: FileText },
   { key: "oportunidades", label: "Oportunidades", icon: Briefcase },
   { key: "candidaturas", label: "Minhas Candidaturas", icon: Send },
 ];
 
-/** Iniciais do avatar: primeira + última palavra em caixa alta. */
-function initialsOf(name: string): string {
-  const parts = name.split(" ").filter((part) => part.length > 0);
-  if (parts.length === 0) return "?";
-  const first = parts[0]!.charAt(0);
-  const last = parts.length > 1 ? parts[parts.length - 1]!.charAt(0) : "";
-  return (first + last).toUpperCase();
-}
-
-export function StudentShell() {
+export function StudentShell({
+  tab,
+  onTabChange,
+}: {
+  tab: StudentTab;
+  onTabChange: (tab: StudentTab) => void;
+}) {
   const { user } = useAuthState();
   const userName = user?.name ?? user?.email ?? "Aluno";
-  const [active, setActive] = useState<StudentTab>("curriculo");
-
-  function selectTab(tab: StudentTab) {
-    setActive(tab);
-  }
+  const active = tab;
 
   return (
     <>
-      <header className="border-b border-slate-200 bg-white shadow-level1">
-        <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-3 px-6 py-3">
-          {/* Esquerda: logo institucional UNICAP. */}
-          <div className="flex items-center gap-3">
-            <span
-              aria-hidden="true"
-              className="flex h-9 w-9 items-center justify-center rounded bg-primary font-serif text-sm font-bold text-white"
-            >
-              UC
-            </span>
-            <div>
-              <p className="font-serif text-lg font-bold leading-tight text-primary">
-                Banco de Currículos — UNICAP
-              </p>
-              <p className="text-xs text-slate-500">Portal do Aluno</p>
-            </div>
-          </div>
-
-          {/* Centro: abas de navegação (padrão ARIA tabs). */}
-          <nav aria-label="Seções do portal" className="order-3 lg:order-2">
-            <ul className="flex flex-wrap items-center gap-1" role="tablist">
-              {TABS.map((tab) => (
-                <li key={tab.key} role="presentation">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={active === tab.key}
-                    aria-controls={`panel-${tab.key}`}
-                    id={`tab-${tab.key}`}
-                    onClick={() => selectTab(tab.key)}
-                    className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ease-in-out hover:-translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
-                      active === tab.key
-                        ? "border-b-2 border-secondary bg-[#FDF2F4] text-primary"
-                        : "border-b-2 border-transparent text-slate-600 hover:bg-[#FDF2F4] hover:text-primary dark:hover:text-white"
-                    }`}
-                  >
-                    {(() => {
-                      const Icon = tab.icon;
-                      return <Icon className="h-4 w-4" aria-hidden="true" />;
-                    })()}
-                    {tab.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* Direita: avatar + nome como um único botão que leva à
-              central de configurações /perfil ([UX_REFINEMENT] Etapa 3 —
-              sem dropdown; o "Sair" está dentro de /perfil). */}
-          <div className="order-2 flex items-center gap-2 lg:order-3">
-            <button
-              type="button"
-              aria-label="Meu perfil e configurações"
-              onClick={() => navigateTo("/perfil")}
-              className="flex items-center gap-2 rounded-full p-0.5 pr-3 transition-all duration-200 ease-in-out hover:bg-[#FDF2F4] hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-bold text-white">
-                {user?.image ? (
-                  <img
-                    src={user.image}
-                    alt=""
-                    className="h-9 w-9 object-cover"
-                  />
-                ) : (
-                  initialsOf(userName)
-                )}
-              </span>
-              <span className="hidden text-sm font-semibold text-slate-700 sm:block">
-                {userName}
-              </span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <PillNavbar
+        navLabel="Seções do portal"
+        tabs={STUDENT_TABS.map(({ key, label }) => ({ key, label }))}
+        active={active}
+        onChange={onTabChange}
+        userName={userName}
+        userImage={user?.image ?? undefined}
+      />
 
       {/* Painéis: uma tela visível por vez (renderização condicional).
           [S8-2] landmark main único do fluxo do aluno (#conteudo). */}
