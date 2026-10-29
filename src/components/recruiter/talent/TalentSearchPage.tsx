@@ -35,7 +35,6 @@ import {
   GraduationCap,
   Languages,
   MapPin,
-  Search,
   SearchX,
   Send,
   ShieldAlert,
