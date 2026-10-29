@@ -616,7 +616,6 @@ export function CandidateProfilePage({
                       </p>
                       <div className="mt-3 flex flex-wrap items-center gap-2">
                         <StatusBadge status={profile.status} />
-                        <Badge variant="triagem">Somente leitura</Badge>
                       </div>
                     </div>
                     <div className="print:hidden sm:pt-[4.75rem] max-sm:[&>button]:w-full">

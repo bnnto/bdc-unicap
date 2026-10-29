@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
-import { Card } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { CustomSelect } from "../../ui/CustomSelect";
 import {
@@ -68,9 +67,6 @@ const STATUS_OPTIONS = [
 
 const SURFACE =
   "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
-
-const FIELD =
-  "h-10 w-full appearance-none rounded-xl border border-slate-300 bg-white pl-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
 
 function GrowBar({
   percent,

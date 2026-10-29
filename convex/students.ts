@@ -695,7 +695,11 @@ export const getCandidateProfile = query({
       semester: student.semester ?? null,
       location: student.location ?? null,
       bannerUrl,
-      imageUrl: released ? (owner?.image ?? null) : null,
+      imageUrl: released
+        ? owner?.imageStorageId !== undefined
+          ? await ctx.storage.getUrl(owner.imageStorageId)
+          : (owner?.image ?? null)
+        : null,
       headline: student.resumeData?.headline ?? null,
       resume: student.resumeData ?? null,
       skills: student.skills ?? [],
@@ -722,11 +726,13 @@ export const searchTalent = query({
     course: v.optional(v.string()),
     status: v.optional(v.union(v.literal("ativo"), v.literal("egresso"))),
     availability: v.optional(
-      v.union(
-        v.literal("estagio"),
-        v.literal("integral"),
-        v.literal("meio_periodo"),
-        v.literal("freelancer"),
+      v.array(
+        v.union(
+          v.literal("estagio"),
+          v.literal("integral"),
+          v.literal("meio_periodo"),
+          v.literal("freelancer"),
+        ),
       ),
     ),
     location: v.optional(v.string()),
@@ -768,7 +774,6 @@ export const searchTalent = query({
       query: args.search?.trim() || undefined,
       course: args.course?.trim() || undefined,
       status: args.status,
-      availability: args.availability,
       location: args.location?.trim() || undefined,
       skill: args.skill?.trim() || undefined,
       skills: args.skills,
@@ -785,7 +790,10 @@ export const searchTalent = query({
     // entrada padrão by_visibility_status. R1+R2 já na varredura, nunca
     // full-scan. Filtros por igualdade exata de curso/cidade/competência/
     // idioma são aplicados em memória sobre o resultado do índice.
-    const plan = chooseTalentScanPlan(args.availability);
+    const selectedAvailability = args.availability ?? [];
+    const plan = chooseTalentScanPlan(
+      selectedAvailability.length === 1 ? selectedAvailability[0] : undefined,
+    );
     const rows: TalentCandidate[] = [];
     for (const status of plan.statuses) {
       let batch: Doc<"students">[];
@@ -825,6 +833,13 @@ export const searchTalent = query({
           .take(TALENT_SCAN_BATCH);
       }
       for (const doc of batch) {
+        // Disponibilidade múltipla: basta o aluno ter QUALQUER uma das marcadas.
+        if (
+          selectedAvailability.length > 0 &&
+          !selectedAvailability.some((a) => doc.availability.includes(a))
+        ) {
+          continue;
+        }
         rows.push(toTalentCandidate(doc));
       }
     }
@@ -856,6 +871,13 @@ export const searchTalent = query({
         },
         null,
       );
+      const owner = contactAllowed ? await ctx.db.get(student.userId) : null;
+      const imageUrl =
+        owner === null
+          ? null
+          : owner.imageStorageId !== undefined
+            ? await ctx.storage.getUrl(owner.imageStorageId)
+            : (owner.image ?? null);
       items.push({
         studentId: student._id,
         fullName: student.fullName,
@@ -877,6 +899,7 @@ export const searchTalent = query({
         headline: student.resumeData?.headline ?? null,
         contactAllowed,
         linkedinUrl: contactAllowed ? (student.linkedinUrl ?? null) : null,
+        imageUrl,
         portfolioUrl: contactAllowed ? (student.portfolioUrl ?? null) : null,
       });
     }
