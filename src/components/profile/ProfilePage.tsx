@@ -501,7 +501,6 @@ export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
   }
 
   // ---- Etapa 1: foto de avatar (upload direto + visualização) ----
-  const updateProfile = useMutation(api.users.updateMyProfile);
   const generateAvatarUploadUrl = useMutation(api.users.generateAvatarUploadUrl);
   const saveAvatar = useMutation(api.users.saveAvatar);
   const removeAvatar = useMutation(api.users.removeAvatar);

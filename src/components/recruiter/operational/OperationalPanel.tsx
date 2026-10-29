@@ -1,26 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  BadgeCheck,
   Briefcase,
+  Building2,
   Download,
-  FileSpreadsheet,
-  FileText,
+  Filter,
   Layers,
-  Lock,
-  SlidersHorizontal,
+  RefreshCw,
+  Timer,
+  TrendingUp,
+  Users,
   X,
 } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Card } from "../../ui/card";
 import { Button } from "../../ui/button";
+import { CustomSelect } from "../../ui/CustomSelect";
 import {
   buildOperationalReport,
   formatEmployabilityRate,
 } from "../../../lib/operationalPanel";
 import { downloadReport } from "../../../lib/reportExport";
 import { printOperationalReport } from "../../../lib/reportPrint";
-import type { FunnelStep } from "../../../lib/funnel";
 import {
   hasActiveFilters,
   normalizeDashboardFilters,
@@ -29,25 +30,22 @@ import {
 import { useStableQuery } from "../../../lib/useStableQuery";
 
 /**
- * Painel Operacional (issues [S5-1] a [S5-5]).
- * Cards de vagas, taxa de empregabilidade, Time-to-Hire, funil de
- * conversão e rankings — todos alimentados por queries agregadas no
- * servidor. [S5-5] A barra de filtros global (período, curso, empresa e
- * status) é COMBINÁVEL e atualiza todas as métricas reativamente:
- * cada mudança nos filtros muda os argumentos das queries e as
- * subscriptions do Convex entregam os novos valores em tempo real.
- * [S6-1] Botões de exportação (CSV/Excel): o relatório é montado a partir
- * do MESMO estado filtrado exibido — sem nova ida ao servidor.
+ * Dashboard de Métricas Operacionais.
+ *
+ * Refatoração visual (UI/UX) espelhando o painel do Gestor (ManagerDashboard).
+ * - Superfícies semitransparentes (anel de borda);
+ * - KPIs em linha contínua;
+ * - Barras percentuais contínuas;
+ * - Fontes Serifadas pesadas para títulos;
+ * - Remoção do indicador "Ao vivo".
  */
 
-/** Início do dia no fuso LOCAL do usuário (e não em UTC). */
 function startOfLocalDay(now: number): number {
   const date = new Date(now);
   date.setHours(0, 0, 0, 0);
   return date.getTime();
 }
 
-/** Início do dia local, `days` dias atrás (seguro contra mudança de horário). */
 function localDaysAgo(todayStart: number, days: number): number {
   const date = new Date(todayStart);
   date.setDate(date.getDate() - days);
@@ -68,61 +66,147 @@ const STATUS_OPTIONS = [
   { value: "encerrada", label: "Encerradas" },
 ] as const;
 
-const SELECT_CLASS =
-  "appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
+const SURFACE =
+  "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
 
-type KpiCardProps = {
-  value: string | number;
+const FIELD =
+  "h-10 w-full appearance-none rounded-xl border border-slate-300 bg-white pl-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
+
+function GrowBar({
+  percent,
+  className,
+  testId,
+}: {
+  percent: number;
+  className: string;
+  testId?: string;
+}) {
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setProgress(percent));
+    return () => cancelAnimationFrame(id);
+  }, [percent]);
+  return (
+    <div
+      data-testid={testId}
+      data-percent={percent}
+      className={`h-full w-full rounded-full will-change-transform transition-transform !duration-[900ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${className}`}
+      style={{ transform: `translateX(${progress - 100}%)` }}
+    />
+  );
+}
+
+function Track({ children, height = "h-2" }: { children: ReactNode; height?: string }) {
+  return (
+    <div
+      className={`${height} overflow-hidden rounded-full bg-slate-100`}
+      aria-hidden="true"
+    >
+      {children}
+    </div>
+  );
+}
+
+function Panel({
+  testId,
+  label,
+  title,
+  icon,
+  aside,
+  description,
+  footnote,
+  className = "",
+  children,
+}: {
+  testId?: string;
+  label: string;
+  title: string;
+  icon: ReactNode;
+  aside?: ReactNode;
+  description?: string;
+  footnote?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      data-testid={testId}
+      aria-label={label}
+      className={`${SURFACE} p-7 ${className}`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        {/* Trocado de text-slate-900 para text-slate-600 para ficar igual ao rótulo das vagas abertas */}
+        <h3 className="flex items-center gap-2.5 font-serif text-xl font-bold tracking-tight text-slate-600 dark:text-slate-200">
+          <span aria-hidden="true" className="text-primary">
+            {icon}
+          </span>
+          {title}
+        </h3>
+        {aside}
+      </div>
+      {description !== undefined ? (
+        <p className="mt-2 max-w-prose text-sm leading-relaxed text-slate-500">
+          {description}
+        </p>
+      ) : null}
+      <div className="mt-6">{children}</div>
+      {footnote !== undefined ? (
+        <p className="mt-5 text-xs leading-relaxed text-a11y-slate-500">
+          {footnote}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+function Empty({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+      {children}
+    </p>
+  );
+}
+
+function KpiCell({
+  value,
+  label,
+  hint,
+  icon,
+  testId,
+  unit,
+}: {
+  value: string | number | null;
   label: string;
   hint?: string;
-  /** [RECRUITER_UX_UPGRADE] Ícone lucide que ancora a métrica. */
-  icon?: React.ReactNode;
-};
-
-/**
- * [UX-P3] H1-4 — skeleton de carregamento: mantém o layout estável
- * enquanto a seção agrega no servidor (sem saltos de conteúdo).
- */
-function SkeletonBlock({ lines = 3 }: { lines?: number }) {
+  icon: ReactNode;
+  testId: string;
+  unit?: string;
+}) {
   return (
-    <div className="animate-pulse flex flex-col gap-2" aria-hidden="true">
-      {Array.from({ length: lines }).map((_, index) => (
-        <div
-          key={index}
-          className="h-4 rounded bg-slate-100"
-          style={{ width: `${100 - index * 12}%` }}
-        />
-      ))}
-    </div>
-  );
-}
-
-/** Contêiner de carga acessível com skeleton dentro. */
-function LoadingSection({ label }: { label: string }) {
-  return (
-    <div role="status" aria-label={label}>
-      <SkeletonBlock lines={3} />
-    </div>
-  );
-}
-
-function KpiCard({ value, label, hint, icon }: KpiCardProps) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-level1 transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-level2">
-      {icon !== undefined ? (
-        <span
-          aria-hidden="true"
-          className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF2F4] text-primary ring-1 ring-primary/20"
-        >
+    <div
+      data-testid={testId}
+      className="flex flex-col border-t border-slate-100 p-7 first:border-t-0 sm:even:border-l sm:[&:nth-child(2)]:border-t-0 xl:border-l xl:border-t-0 xl:first:border-l-0"
+    >
+      <p className="flex items-center gap-2 text-sm font-medium text-slate-600">
+        {/* Ícone agora fica em bordô (text-primary) */}
+        <span aria-hidden="true" className="text-primary">
           {icon}
         </span>
-      ) : null}
-      <p className="font-serif text-3xl font-bold text-primary">{value}</p>
-      <p className="mt-1 text-xs font-medium uppercase tracking-wide text-a11y-slate-500">
         {label}
       </p>
+      {/* O número agora assume sempre text-primary com destaque forte, eliminando o cinza claro */}
+      <p className="mt-4 font-serif text-5xl font-bold leading-none tracking-tight tabular-nums text-primary">
+        {value === null || value === "" ? "—" : value}
+        {unit !== undefined && value !== null && value !== "" ? (
+          <span className="ml-1.5 text-base font-semibold tracking-normal text-slate-500">
+            {unit}
+          </span>
+        ) : null}
+      </p>
       {hint !== undefined ? (
-        <p className="mt-0.5 text-xs text-a11y-slate-500">{hint}</p>
+        <p className="mt-3 text-xs leading-relaxed text-a11y-slate-500">
+          {hint}
+        </p>
       ) : null}
     </div>
   );
@@ -143,422 +227,28 @@ const EMPTY_FILTERS: FilterState = {
 };
 
 type Facets = { courses: string[]; companies: string[] };
-
-/** Referência estável: evita recriar o objeto a cada render durante o carregamento. */
 const EMPTY_FACETS: Facets = { courses: [], companies: [] };
 
-type FilterBarProps = {
-  state: FilterState;
-  onChange: (next: FilterState) => void;
-  facets: Facets;
-  active: boolean;
-};
-
-/**
- * [S5-5] Barra de filtros combináveis: período + curso + empresa + status.
- * Qualquer combinação atualiza todas as métricas do painel (as queries
- * recebem os mesmos argumentos). Os filtros ativos aparecem como chips
- * removíveis logo abaixo dos selects.
- */
-function FilterBar({ state, onChange, facets, active }: FilterBarProps) {
-  const set = (patch: Partial<FilterState>) => onChange({ ...state, ...patch });
-
-  const chips: { key: keyof FilterState; label: string }[] = [];
-  if (state.period !== "") {
-    const label =
-      PERIOD_OPTIONS.find((option) => option.value === state.period)?.label ??
-      state.period;
-    chips.push({ key: "period", label: `Período: ${label}` });
-  }
-  if (state.course !== "") {
-    chips.push({ key: "course", label: `Curso: ${state.course}` });
-  }
-  if (state.company !== "") {
-    chips.push({ key: "company", label: `Empresa: ${state.company}` });
-  }
-  if (state.status !== "") {
-    const label =
-      STATUS_OPTIONS.find((option) => option.value === state.status)?.label ??
-      state.status;
-    chips.push({ key: "status", label: `Status: ${label}` });
-  }
-
+function DashboardSkeleton() {
   return (
-    <section
-      data-testid="dashboard-filters"
-      aria-label="Filtros do dashboard"
-      className="mb-4 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-    >
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 font-serif text-sm font-bold uppercase tracking-wide text-primary">
-          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-          Filtros
-        </h3>
-        {active ? (
-          <button
-            type="button"
-            data-testid="clear-filters"
-            onClick={() => onChange(EMPTY_FILTERS)}
-            className="rounded border border-primary px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-[#FDF2F4] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-          >
-            Limpar filtros
-          </button>
-        ) : (
-          <span className="text-xs text-a11y-slate-500">
-            aplicam-se a todas as métricas
-          </span>
-        )}
+    <div role="status" aria-live="polite" className="animate-pulse space-y-6">
+      <span className="sr-only">Carregando o Dashboard de métricas…</span>
+      <div className="h-10 w-2/3 rounded-xl bg-slate-100" />
+      <div className="h-4 w-1/2 rounded-full bg-slate-100" />
+      <div className="h-24 rounded-3xl bg-slate-100" />
+      <div className="h-48 rounded-3xl bg-slate-100" />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <div className="h-72 rounded-3xl bg-slate-100" />
+        <div className="h-72 rounded-3xl bg-slate-100" />
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-a11y-slate-500">
-            Período
-          </span>
-          <select
-            value={state.period}
-            onChange={(e) => set({ period: e.target.value })}
-            className={SELECT_CLASS}
-          >
-            {PERIOD_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-a11y-slate-500">
-            Curso
-          </span>
-          <select
-            value={state.course}
-            onChange={(e) => set({ course: e.target.value })}
-            className={SELECT_CLASS}
-          >
-            <option value="">Todos os cursos</option>
-            {facets.courses.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-a11y-slate-500">
-            Empresa
-          </span>
-          <select
-            value={state.company}
-            onChange={(e) => set({ company: e.target.value })}
-            className={SELECT_CLASS}
-          >
-            <option value="">Todas as empresas</option>
-            {facets.companies.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-semibold uppercase tracking-wide text-a11y-slate-500">
-            Status da vaga
-          </span>
-          <select
-            value={state.status}
-            onChange={(e) => set({ status: e.target.value })}
-            className={SELECT_CLASS}
-          >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {chips.length > 0 ? (
-        <ul
-          data-testid="active-filter-chips"
-          aria-label="Filtros ativos"
-          className="mt-4 flex flex-wrap gap-2"
-        >
-          {chips.map((chip) => (
-            <li key={chip.key}>
-              <button
-                type="button"
-                onClick={() => set({ [chip.key]: "" } as Partial<FilterState>)}
-                aria-label={`Remover filtro ${chip.label}`}
-                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-[#FDF2F4] px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
-              >
-                <span className="truncate">{chip.label}</span>
-                <X className="h-3 w-3 shrink-0" aria-hidden="true" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </section>
-  );
-}
-
-type TimeToHireStats = {
-  averageDays: number | null;
-  label: string;
-  samplesCount: number;
-  facets: Facets;
-};
-
-/** [S5-2] Time-to-Hire médio (métrica segue os filtros globais). */
-function TimeToHireSection({ stats }: { stats: TimeToHireStats | undefined }) {
-  return (
-    <section
-      data-testid="time-to-hire"
-      className="min-w-0"
-      aria-label="Time to hire"
-    >
-      <Card title="Time-to-Hire médio" accent="primary">
-        {stats === undefined ? (
-          <LoadingSection label="Carregando time-to-hire" />
-        ) : (
-          <>
-            <div className="flex items-baseline gap-3">
-              <p className="font-serif text-3xl font-bold text-primary">
-                {stats.label}
-              </p>
-              <p className="text-xs text-a11y-slate-500">
-                {stats.samplesCount === 0
-                  ? "sem contratações no filtro selecionado"
-                  : `${stats.samplesCount} ${stats.samplesCount === 1 ? "contratação" : "contratações"} no filtro`}
-              </p>
-            </div>
-            <p className="mt-1 text-xs text-a11y-slate-500">
-              Média de dias entre a candidatura do contratado e o preenchimento
-              da vaga.
-            </p>
-          </>
-        )}
-      </Card>
-    </section>
-  );
-}
-
-type FunnelResult = {
-  steps: FunnelStep[];
-  totalApplications: number;
-};
-
-/** [S5-3] Funil de conversão (métrica segue os filtros globais). */
-function FunnelSection({ funnel }: { funnel: FunnelResult | undefined }) {
-  const steps = funnel?.steps ?? [];
-  const maxCount = Math.max(1, ...steps.map((step) => step.count));
-
-  return (
-    <section
-      data-testid="pipeline-funnel"
-      className="min-w-0"
-      aria-label="Funil de conversão"
-    >
-      <Card title="Funil de Conversão" accent="primary">
-        {funnel === undefined ? (
-          <LoadingSection label="Carregando funil" />
-        ) : funnel.totalApplications === 0 ? (
-          <div
-            data-testid="funnel-empty"
-            className="flex flex-col items-center gap-2 py-6 text-center"
-          >
-            <span
-              aria-hidden="true"
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FDF2F4] text-primary ring-1 ring-primary/20"
-            >
-              <Layers className="h-5 w-5" />
-            </span>
-            <p className="text-sm font-semibold text-slate-800">
-              Nenhuma candidatura no filtro atual
-            </p>
-            <p className="max-w-xs text-xs text-a11y-slate-500">
-              Ajuste ou limpe os filtros para ver o funil de conversão por
-              etapa do pipeline.
-            </p>
-          </div>
-        ) : (
-          <>
-            <p className="mb-3 text-xs text-a11y-slate-500">
-              Candidaturas por etapa do pipeline e % de avanço entre degraus —{" "}
-              {funnel.totalApplications} candidaturas no filtro atual.
-            </p>
-            <ul className="flex flex-col gap-2">
-              {steps.map((step) => (
-                <li key={step.stage} className="flex items-center gap-3">
-                  <span className="w-24 shrink-0 text-xs font-semibold text-slate-700">
-                    {step.label}
-                  </span>
-                  <div
-                    className="h-7 flex-1 overflow-hidden rounded bg-slate-100"
-                    aria-hidden="true"
-                  >
-                    <div
-                      data-testid={`funnel-bar-${step.stage}`}
-                      className="flex h-full items-center justify-end rounded bg-primary px-2 text-xs font-semibold text-white"
-                      style={{
-                        width: `${Math.max(
-                          step.count === 0 ? 0 : 8,
-                          (step.count / maxCount) * 100,
-                        )}%`,
-                      }}
-                    >
-                      {step.count > 0 ? step.count : ""}
-                    </div>
-                  </div>
-                  <span
-                    className="w-8 shrink-0 text-right text-sm font-bold text-primary"
-                    aria-label={`${step.count} candidaturas em ${step.label}`}
-                  >
-                    {step.count}
-                  </span>
-                  <span
-                    className="w-12 shrink-0 text-right text-xs text-a11y-slate-500"
-                    aria-label={
-                      step.conversionFromPrevious === null
-                        ? "sem conversão anterior"
-                        : `${step.conversionFromPrevious}% de conversão da etapa anterior`
-                    }
-                  >
-                    {step.conversionFromPrevious === null
-                      ? "—"
-                      : `${step.conversionFromPrevious}%`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-xs text-a11y-slate-500">
-              % = avanço em relação à etapa anterior (reprovados não compõem o
-              funil).
-            </p>
-          </>
-        )}
-      </Card>
-    </section>
-  );
-}
-
-type RankingsResult = {
-  limit: number;
-  topCompanies: {
-    recruiterId: string;
-    companyName: string;
-    publishedJobs: number;
-    applicationsCount: number;
-  }[];
-  topJobs: {
-    jobId: string;
-    title: string;
-    companyName: string;
-    applicationsCount: number;
-  }[];
-};
-
-/** [S5-4] Rankings (métricas seguem os filtros globais). */
-function RankingSection({
-  rankings,
-}: {
-  rankings: RankingsResult | undefined;
-}) {
-  return (
-    <section
-      data-testid="active-ranking"
-      className="mt-3 grid gap-3 md:grid-cols-2"
-      aria-label="Empresas e vagas mais ativas"
-    >
-      <Card title="Empresas mais ativas" accent="primary">
-        {rankings === undefined ? (
-          <LoadingSection label="Carregando ranking" />
-        ) : rankings.topCompanies.length === 0 ? (
-          <p className="text-sm text-slate-600">
-            Nenhuma vaga publicada no filtro atual.
-          </p>
-        ) : (
-          <ol className="flex flex-col gap-2">
-            {rankings.topCompanies.map((company, index) => (
-              <li
-                key={company.recruiterId}
-                className="flex items-center gap-3 rounded border border-slate-100 bg-white px-3 py-2"
-              >
-                <span
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] text-xs font-bold text-primary"
-                  aria-hidden="true"
-                >
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
-                  {company.companyName}
-                </span>
-                <span className="shrink-0 text-xs text-a11y-slate-500">
-                  {company.publishedJobs}{" "}
-                  {company.publishedJobs === 1 ? "vaga" : "vagas"} ·{" "}
-                  <strong className="text-primary">
-                    {company.applicationsCount}
-                  </strong>{" "}
-                  {company.applicationsCount === 1 ? "candidato" : "candidatos"}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </Card>
-      <Card title="Vagas mais procuradas" accent="primary">
-        {rankings === undefined ? (
-          <LoadingSection label="Carregando ranking" />
-        ) : rankings.topJobs.length === 0 ? (
-          <p className="text-sm text-slate-600">
-            Nenhuma candidatura no filtro atual.
-          </p>
-        ) : (
-          <ol className="flex flex-col gap-2">
-            {rankings.topJobs.map((job, index) => (
-              <li
-                key={job.jobId}
-                className="flex items-center gap-3 rounded border border-slate-100 bg-white px-3 py-2"
-              >
-                <span
-                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] text-xs font-bold text-primary"
-                  aria-hidden="true"
-                >
-                  {index + 1}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-slate-800">
-                    {job.title}
-                  </span>
-                  <span className="block truncate text-xs text-a11y-slate-500">
-                    {job.companyName}
-                  </span>
-                </span>
-                <span className="shrink-0 text-xs text-a11y-slate-500">
-                  <strong className="text-primary">
-                    {job.applicationsCount}
-                  </strong>{" "}
-                  {job.applicationsCount === 1 ? "candidato" : "candidatos"}
-                </span>
-              </li>
-            ))}
-          </ol>
-        )}
-      </Card>
-    </section>
+    </div>
   );
 }
 
 export function OperationalPanel() {
-  // [S5-5] Estado dos filtros combináveis — compartilhado por todas as
-  // métricas do painel.
   const [filterState, setFilterState] = useState<FilterState>(EMPTY_FILTERS);
+  const [draftState, setDraftState] = useState<FilterState>(EMPTY_FILTERS);
 
-  // Início do dia local. Só muda quando o dia vira (o setState com o mesmo
-  // valor não re-renderiza), mantendo os argumentos das queries estáveis e
-  // ainda assim atualizando o período se o painel ficar aberto de um dia
-  // para o outro.
   const [todayStart, setTodayStart] = useState<number>(() =>
     startOfLocalDay(Date.now()),
   );
@@ -569,8 +259,6 @@ export function OperationalPanel() {
     return () => window.clearInterval(id);
   }, []);
 
-  // `from` depende apenas do filtro e do dia atual: sem Date.now() solto
-  // no render, evitando resubscribe em loop.
   const filters: DashboardFilters = useMemo(
     () =>
       normalizeDashboardFilters({
@@ -584,10 +272,9 @@ export function OperationalPanel() {
       }),
     [filterState, todayStart],
   );
+
   const filtersActive = hasActiveFilters(filters);
 
-  // Toda mudança de filtro muda os argumentos → resubscribe reativa.
-  // useStableQuery segura o último valor enquanto o novo carrega.
   const summaryQuery = useStableQuery(
     useQuery(api.operational.operationalSummary, filters),
   );
@@ -611,30 +298,10 @@ export function OperationalPanel() {
     funnelQuery.stale ||
     rankingsQuery.stale;
 
-  // Horário da última atualização recebida do servidor.
-  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
-  useEffect(() => {
-    if (summary !== undefined) setUpdatedAt(Date.now());
-  }, [summary, tth, funnel, rankings]);
-
   if (summary === undefined) {
-    return (
-      <div
-        className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-        role="status"
-        aria-live="polite"
-      >
-        <p className="text-sm text-a11y-slate-500">Carregando indicadores…</p>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
-  /**
-   * [S6-1/S6-2] Exporta o relatório com os dados FILTRADOS vigentes:
-   * monta as seções a partir do estado atual das 4 queries e entrega em
-   * CSV (UTF-8+BOM), XLSX (OOXML) ou PDF (template UNICAP impresso pelo
-   * navegador) — todos sem dependências externas.
-   */
   const report = buildOperationalReport({
     summary: {
       jobs: summary.jobs,
@@ -661,57 +328,62 @@ export function OperationalPanel() {
           },
   });
 
-  // Só exporta com todas as seções carregadas e atualizadas — evita
-  // arquivos incompletos ou com dados do filtro anterior.
   const exportReady =
     tth !== undefined &&
     funnel !== undefined &&
     rankings !== undefined &&
     !refreshing;
 
-  const exportReport = (format: "csv" | "xlsx") => {
-    downloadReport(report, format);
-  };
-  /** [S6-2] PDF institucional via impressão nativa do navegador. */
-  const printPdf = () => {
-    printOperationalReport(report);
+  const exportReport = (format: "csv" | "xlsx") => downloadReport(report, format);
+  const printPdf = () => printOperationalReport(report);
+
+  const facets = tth?.facets ?? EMPTY_FACETS;
+
+  const funnelSteps = funnel?.steps ?? [];
+  const maxFunnel = Math.max(1, ...funnelSteps.map((s) => s.count));
+
+  const applyFilters = () => setFilterState(draftState);
+  const clearFilters = () => {
+    setFilterState(EMPTY_FILTERS);
+    setDraftState(EMPTY_FILTERS);
   };
 
-  // [S8-2]: role=region explícito — o main da página é único, no App (1.3.1).
+  const chips: { key: keyof FilterState; label: string }[] = [];
+  if (filterState.period !== "") {
+    const label =
+      PERIOD_OPTIONS.find((option) => option.value === filterState.period)?.label ??
+      filterState.period;
+    chips.push({ key: "period", label: `Período: ${label}` });
+  }
+  if (filterState.course !== "") {
+    chips.push({ key: "course", label: `Curso: ${filterState.course}` });
+  }
+  if (filterState.company !== "") {
+    chips.push({ key: "company", label: `Empresa: ${filterState.company}` });
+  }
+  if (filterState.status !== "") {
+    const label =
+      STATUS_OPTIONS.find((option) => option.value === filterState.status)?.label ??
+      filterState.status;
+    chips.push({ key: "status", label: `Status: ${label}` });
+  }
+
+
   return (
     <section
       data-testid="operational-panel"
       role="region"
-      aria-label="Painel operacional"
-      aria-busy={refreshing}
+      aria-label="Dashboard de métricas"
+      className="space-y-8 px-1 pb-16 pt-6"
     >
-      {/* [S8-2]: div (não header) — evita banner aninhado dentro do main. */}
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 font-serif text-2xl font-bold text-primary">
-            Painel Operacional
+      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+        <div className="min-w-0 max-w-3xl">
+          <h2 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
+            Dashboard de métricas
           </h2>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-4 max-w-xl text-base leading-relaxed text-slate-600">
             Visão geral das vagas e do desempenho dos processos seletivos,
             atualizado em tempo real com o banco do portal.
-          </p>
-          <p
-            data-testid="live-indicator"
-            className="mt-1 flex items-center gap-2 text-xs text-a11y-slate-500"
-          >
-            <span className="relative flex h-2 w-2" aria-hidden="true">
-              <span
-                className={`absolute inline-flex h-full w-full rounded-full bg-success opacity-60 ${
-                  refreshing ? "animate-ping" : ""
-                }`}
-              />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-success" />
-            </span>
-            {refreshing
-              ? "Atualizando…"
-              : updatedAt !== null
-                ? `Ao vivo · atualizado às ${new Date(updatedAt).toLocaleTimeString("pt-BR")}`
-                : "Ao vivo"}
           </p>
         </div>
         <div
@@ -725,8 +397,8 @@ export function OperationalPanel() {
             disabled={!exportReady}
             title="Planilha CSV (Excel/LibreOffice) com os indicadores filtrados"
           >
-            <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />
-            Baixar CSV
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Planilha (CSV)
           </Button>
           <Button
             variant="secondary"
@@ -735,94 +407,290 @@ export function OperationalPanel() {
             title="Pasta de trabalho Excel (.xlsx) com os indicadores filtrados"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
-            Baixar Excel
+            Excel
           </Button>
           <Button
-            variant="secondary"
+            variant="accent"
             onClick={printPdf}
             disabled={!exportReady}
-            title="Relatório em PDF com o template institucional UNICAP (usa a impressão do navegador)"
+            title="Relatório em PDF com o template institucional UNICAP"
           >
-            <FileText className="h-4 w-4" aria-hidden="true" />
-            Baixar PDF
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Relatório PDF
           </Button>
         </div>
+      </header>
+
+      <div
+        className={`${SURFACE} flex flex-col gap-4 p-5 transition-opacity duration-200 ${
+            refreshing ? "opacity-60" : "opacity-100"
+          }`}
+        role="group"
+        aria-label="Filtros do dashboard"
+      >
+        <div className="flex flex-wrap items-end gap-4">
+            <CustomSelect
+              label="Período"
+              value={draftState.period}
+              onChange={(val) => setDraftState({ ...draftState, period: val })}
+              placeholder="Todo o período"
+              options={PERIOD_OPTIONS}
+              className="w-full sm:w-52"
+            />
+
+            <CustomSelect
+              label="Curso"
+              value={draftState.course}
+              onChange={(val) => setDraftState({ ...draftState, course: val })}
+              placeholder="Todos os cursos"
+              options={[
+                { value: "", label: "Todos os cursos" },
+                ...facets.courses.map((c) => ({ value: c, label: c }))
+              ]}
+              className="w-full sm:w-64"
+            />
+
+            <CustomSelect
+              label="Empresa"
+              value={draftState.company}
+              onChange={(val) => setDraftState({ ...draftState, company: val })}
+              placeholder="Todas as empresas"
+              options={[
+                { value: "", label: "Todas as empresas" },
+                ...facets.companies.map((c) => ({ value: c, label: c }))
+              ]}
+              className="w-full sm:w-64"
+            />
+
+            <CustomSelect
+              label="Status da vaga"
+              value={draftState.status}
+              onChange={(val) => setDraftState({ ...draftState, status: val })}
+              placeholder="Todos os status"
+              options={STATUS_OPTIONS}
+              className="w-full sm:w-52"
+            />
+            <Button
+                className="h-10 shrink-0"
+                variant="primary"
+                onClick={applyFilters}
+            >
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            Atualizar
+            </Button>
+            {filtersActive ? (
+                 <Button
+                    className="h-10 shrink-0"
+                    variant="secondary"
+                    onClick={clearFilters}
+                >
+                    Limpar
+                </Button>
+            ) : null}
+        </div>
+        {chips.length > 0 ? (
+        <ul
+          data-testid="active-filter-chips"
+          aria-label="Filtros ativos"
+          className="flex flex-wrap gap-2 pt-2 border-t border-slate-100"
+        >
+          {chips.map((chip) => (
+            <li key={chip.key}>
+              <button
+                type="button"
+                onClick={() => {
+                    const newState = { ...filterState, [chip.key]: "" };
+                    setFilterState(newState);
+                    setDraftState(newState);
+                }}
+                aria-label={`Remover filtro ${chip.label}`}
+                className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-[#FDF2F4] px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+              >
+                <span className="truncate">{chip.label}</span>
+                <X className="h-3 w-3 shrink-0" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       </div>
 
-      <FilterBar
-        state={filterState}
-        onChange={setFilterState}
-        facets={tth?.facets ?? EMPTY_FACETS}
-        active={filtersActive}
-      />
-
-      {/* Enquanto os novos dados chegam, os antigos ficam na tela
-          levemente esmaecidos (sem piscar nem pular o layout). */}
       <div
         className={`transition-opacity duration-200 ${
           refreshing ? "opacity-60" : "opacity-100"
         }`}
       >
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiCard
-            value={summary.jobs.open}
-            label="Vagas abertas"
-            hint="recebendo candidaturas"
-            icon={<Briefcase className="h-5 w-5" />}
-          />
-          <KpiCard
-            value={summary.jobs.closed}
-            label="Vagas fechadas"
-            icon={<Lock className="h-5 w-5" />}
-          />
-          <KpiCard
-            value={summary.jobs.filled}
-            label="Vagas encerradas"
-            hint="prazo vencido ou ciclo completo"
-            icon={<BadgeCheck className="h-5 w-5" />}
-          />
-          <KpiCard
-            value={summary.jobs.total}
-            label="Total de vagas"
-            icon={<Layers className="h-5 w-5" />}
-          />
+        <div
+            className={`${SURFACE} grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4`}
+        >
+            <KpiCell
+                value={summary.jobs.open}
+                label="Vagas abertas"
+                hint="recebendo candidaturas"
+                testId="kpi-vagas-abertas"
+                icon={<Briefcase className="h-4 w-4" />}
+            />
+            <KpiCell
+                value={formatEmployabilityRate(summary.employability.rate)}
+                label="Taxa de empregabilidade"
+                hint="Aprovados sobre finalizados"
+                testId="kpi-empregabilidade"
+                icon={<TrendingUp className="h-4 w-4" />}
+            />
+            <KpiCell
+                value={tth?.averageDays ?? null}
+                label="Tempo médio de contratação"
+                hint="Da candidatura ao preenchimento da vaga"
+                testId="kpi-tempo-contratacao"
+                unit={tth?.averageDays !== null && tth?.averageDays !== undefined ? "dias" : undefined}
+                icon={<Timer className="h-4 w-4" />}
+            />
+             <KpiCell
+                value={summary.applications.finalized}
+                label="Resultados finais"
+                hint={`${summary.applications.approved} aprovados · ${summary.applications.rejected} reprovados`}
+                testId="kpi-resultados-finais"
+                icon={<Users className="h-4 w-4" />}
+            />
         </div>
 
-        {/* [REFACTOR_UI] Painel executivo: cards e gráficos distribuídos em
-            CSS Grid (sem empilhamento vertical de documento). */}
-        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <Card title="Taxa de Empregabilidade" accent="primary">
-            <p className="font-serif text-3xl font-bold text-primary">
-              {formatEmployabilityRate(summary.employability.rate)}
-            </p>
-            <p className="mt-1 text-xs text-a11y-slate-500">
-              Aprovados sobre finalizados
-            </p>
-          </Card>
-          <Card title="Candidaturas em andamento" accent="primary">
-            <p className="font-serif text-3xl font-bold text-primary">
-              {summary.applications.inProgress}
-            </p>
-            <p className="mt-1 text-xs text-a11y-slate-500">
-              Inscrito, triagem e entrevista
-            </p>
-          </Card>
-          <Card title="Resultados finais" accent="primary">
-            <p className="font-serif text-3xl font-bold text-primary">
-              {summary.applications.finalized}
-            </p>
-            <p className="mt-1 text-xs text-a11y-slate-500">
-              {summary.applications.approved} aprovados ·{" "}
-              {summary.applications.rejected} reprovados
-            </p>
-          </Card>
+        <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-2">
+            <Panel
+                testId="manager-funnel"
+                label="Funil de conversão"
+                title="Funil de conversão"
+                icon={<Filter className="h-5 w-5" />}
+                aside={
+                    <span className="text-sm tabular-nums text-slate-500">
+                    {funnel?.totalApplications ?? 0} candidaturas
+                    </span>
+                }
+                footnote="O percentual de cada etapa é relativo à etapa anterior."
+            >
+                {funnel === undefined ? (
+                    <Empty>Carregando funil...</Empty>
+                ) : funnel.totalApplications === 0 ? (
+                     <Empty>Nenhuma candidatura no filtro atual.</Empty>
+                ) : (
+                    <ul className="flex flex-col gap-5">
+                    {funnelSteps.map((step) => (
+                    <li key={step.stage}>
+                        <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                        <span className="text-sm font-semibold text-slate-800">
+                            {step.label}
+                        </span>
+                        <span className="flex items-baseline gap-2">
+                            <span className="font-serif text-lg font-bold tabular-nums text-slate-900">
+                            {step.count}
+                            </span>
+                            {step.conversionFromPrevious !== null ? (
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium tabular-nums text-slate-600">
+                                {step.conversionFromPrevious}%
+                            </span>
+                            ) : null}
+                        </span>
+                        </div>
+                        <Track height="h-2.5">
+                        <GrowBar
+                            testId={`funnel-bar-${step.stage}`}
+                            className="bg-primary"
+                            percent={Math.max(
+                            step.count === 0 ? 0 : 8,
+                            (step.count / maxFunnel) * 100,
+                            )}
+                        />
+                        </Track>
+                    </li>
+                    ))}
+                </ul>
+                )}
+            </Panel>
+            
+            <div className="flex flex-col gap-6">
+                <Panel
+                    testId="active-ranking-companies"
+                    label="Empresas mais ativas"
+                    title="Empresas mais ativas"
+                    icon={<Building2 className="h-5 w-5" />}
+                >
+                     {rankings === undefined ? (
+                         <Empty>Carregando ranking...</Empty>
+                     ) : rankings.topCompanies.length === 0 ? (
+                         <Empty>Nenhuma vaga publicada no filtro atual.</Empty>
+                     ) : (
+                         <ol className="flex flex-col gap-4">
+                            {rankings.topCompanies.map((company, index) => (
+                            <li
+                                key={company.recruiterId}
+                                className="flex items-center gap-3"
+                            >
+                                <span
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-500"
+                                aria-hidden="true"
+                                >
+                                {index + 1}
+                                </span>
+                                <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
+                                {company.companyName}
+                                </span>
+                                <span className="shrink-0 text-xs text-a11y-slate-500">
+                                {company.publishedJobs}{" "}
+                                {company.publishedJobs === 1 ? "vaga" : "vagas"} ·{" "}
+                                <strong className="text-primary">
+                                    {company.applicationsCount}
+                                </strong>{" "}
+                                {company.applicationsCount === 1 ? "cand." : "cands."}
+                                </span>
+                            </li>
+                            ))}
+                        </ol>
+                     )}
+                </Panel>
+                
+                 <Panel
+                    testId="active-ranking-jobs"
+                    label="Vagas mais procuradas"
+                    title="Vagas mais procuradas"
+                    icon={<Layers className="h-5 w-5" />}
+                >
+                    {rankings === undefined ? (
+                         <Empty>Carregando ranking...</Empty>
+                     ) : rankings.topJobs.length === 0 ? (
+                         <Empty>Nenhuma candidatura no filtro atual.</Empty>
+                     ) : (
+                         <ol className="flex flex-col gap-4">
+                            {rankings.topJobs.map((job, index) => (
+                            <li
+                                key={job.jobId}
+                                className="flex items-center gap-3"
+                            >
+                                <span
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-bold text-slate-500"
+                                aria-hidden="true"
+                                >
+                                {index + 1}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium text-slate-800">
+                                    {job.title}
+                                </span>
+                                <span className="block truncate text-xs text-a11y-slate-500">
+                                    {job.companyName}
+                                </span>
+                                </span>
+                                <span className="shrink-0 text-xs text-a11y-slate-500">
+                                <strong className="text-primary">
+                                    {job.applicationsCount}
+                                </strong>{" "}
+                                {job.applicationsCount === 1 ? "cand." : "cands."}
+                                </span>
+                            </li>
+                            ))}
+                        </ol>
+                     )}
+                </Panel>
+            </div>
         </div>
-
-        <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
-          <TimeToHireSection stats={tth} />
-          <FunnelSection funnel={funnel} />
-        </div>
-        <RankingSection rankings={rankings} />
       </div>
     </section>
   );
