@@ -3,7 +3,7 @@
  * Compartilhada entre o formulário do recrutador e a mutation Convex
  * (`jobs.upsertJob`) — TDD, sem I/O.
  */
-import type { LanguageLevel } from "./skills";
+import { canonicalSkill, dictionaryKey, type LanguageLevel } from "./skills";
 import type { Availability } from "./studentProfile";
 
 /** Tipos de contrato suportados (CEREBRO.md §4.2 — tabela `jobs`). */
@@ -11,7 +11,10 @@ export const CONTRACT_TYPES = ["estagio", "clt", "pj", "temporario"] as const;
 export type ContractType = (typeof CONTRACT_TYPES)[number];
 
 /** Máximo de pré-requisitos por vaga (base para R3/R8). */
-export const MAX_PREREQS = 8;
+export const MAX_PREREQS = 15;
+
+/** Tamanho máximo do texto de um requisito descritivo. */
+export const PREREQ_TEXT_MAX = 120;
 
 const TITLE_MIN = 5;
 const TITLE_MAX = 120;
@@ -19,10 +22,18 @@ const DESCRIPTION_MIN = 30;
 const DESCRIPTION_MAX = 4000;
 const SALARY_MAX = 1_000_000;
 
+export type PrerequisiteKind = "skill" | "text";
+
 export type JobPrerequisite = {
   item: string;
   required: boolean;
+  kind?: PrerequisiteKind;
 };
+
+/** O sistema consegue conferir este pré-requisito contra as competências do aluno? */
+export function isVerifiablePrerequisite(p: JobPrerequisite): boolean {
+  return p.kind !== "text" && canonicalSkill(p.item) !== null;
+}
 
 export type JobInput = {
   title: string;
@@ -130,13 +141,48 @@ export function validateJob(input: JobInput): JobValidation {
     errors.push(`Máximo de ${MAX_PREREQS} pré-requisitos.`);
   }
   const prerequisites: JobPrerequisite[] = [];
+  const seenSkills = new Set<string>();
   input.prerequisites.forEach((prereq, i) => {
-    const item = prereq.item.trim();
+    const n = i + 1;
+    const item = prereq.item.trim().replace(/\s+/g, " ");
     if (item.length === 0) {
-      errors.push(`Pré-requisito ${i + 1}: informe o item.`);
-    } else {
-      prerequisites.push({ item, required: prereq.required === true });
+      errors.push(`Pré-requisito ${n}: informe o item.`);
+      return;
     }
+    const canonical = canonicalSkill(item);
+    // Sem `kind` (chamadores antigos): do dicionário = competência; o resto = texto.
+    const kind: PrerequisiteKind =
+      prereq.kind ?? (canonical !== null ? "skill" : "text");
+
+    if (kind === "text") {
+      if (item.length > PREREQ_TEXT_MAX) {
+        errors.push(
+          `Pré-requisito ${n}: o texto deve ter até ${PREREQ_TEXT_MAX} caracteres.`,
+        );
+        return;
+      }
+      // Descritivo é informativo: nunca obrigatório, nunca bloqueia.
+      prerequisites.push({ item, required: false, kind: "text" });
+      return;
+    }
+
+    if (canonical === null) {
+      errors.push(
+        `Pré-requisito ${n}: "${item}" não está no dicionário de competências. Escolha da lista ou use "Requisito descritivo".`,
+      );
+      return;
+    }
+    const key = dictionaryKey(canonical);
+    if (seenSkills.has(key)) {
+      errors.push(`Pré-requisito ${n}: "${canonical}" está repetido.`);
+      return;
+    }
+    seenSkills.add(key);
+    prerequisites.push({
+      item: canonical,
+      required: prereq.required === true,
+      kind: "skill",
+    });
   });
 
   if (errors.length > 0) return { ok: false, errors };

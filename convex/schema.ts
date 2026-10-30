@@ -231,7 +231,11 @@ export default defineSchema({
     title: v.string(),
     description: v.string(),
     prerequisites: v.array(
-      v.object({ item: v.string(), required: v.boolean() }),
+      v.object({
+        item: v.string(),
+        required: v.boolean(),
+        kind: v.optional(v.union(v.literal("skill"), v.literal("text"))),
+      })
     ),
     contractType: v.union(
       v.literal("estagio"),

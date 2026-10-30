@@ -14,6 +14,7 @@ export function CustomSelect({
   placeholder,
   options,
   className = "",
+  disabled = false,
 }: {
   label: string;
   value: string;
@@ -21,6 +22,7 @@ export function CustomSelect({
   placeholder: string;
   options: readonly { value: string; label: string }[];
   className?: string;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Opção para onde a marcação está (ou deslizando).
@@ -102,7 +104,8 @@ export function CustomSelect({
         aria-expanded={open}
         aria-label={label || placeholder}
         onClick={toggle}
-        className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-300 bg-white pl-3.5 pr-3 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:border-white/20 dark:focus:ring-offset-[#0f1218]"
+        disabled={disabled}
+        className="flex h-11 w-full items-center justify-between rounded-xl border border-slate-300 bg-white pl-3.5 pr-3 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:border-white/20 dark:focus:ring-offset-[#0f1218] disabled:cursor-not-allowed disabled:opacity-60"
       >
         <span className="truncate">{selectedLabel}</span>
         <ChevronDown

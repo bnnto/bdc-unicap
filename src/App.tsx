@@ -7,6 +7,8 @@ import {
   isPasswordResetPath,
   navigateTo,
   parseCandidateProfilePath,
+  parsePortalPath,
+  portalPath,
 } from "./lib/router";
 import { useAuthState } from "./components/auth/authContext";
 import { Kanban, LayoutDashboard, Users } from "lucide-react";
@@ -100,7 +102,6 @@ const RECRUITER_TABS: TabDef[] = [
 
 function AuthGate() {
   const { isLoading, isAuthenticated, user, role } = useAuthState();
-  const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
   const [studentTab, setStudentTab] = useState<StudentTab>("curriculo");
   const [publicPath, setPublicPath] = useState(() =>
     typeof window === "undefined" ? "/" : window.location.pathname,
@@ -110,6 +111,10 @@ function AuthGate() {
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  const portal = parsePortalPath(publicPath);
+  const activeTab: TabKey = portal.tab;
+  const setActiveTab = (tab: TabKey) => navigateTo(portalPath(tab));
 
   const sawGuest = useRef(false);
   useEffect(() => {
@@ -167,10 +172,7 @@ function AuthGate() {
   if (publicPath === "/perfil") {
     const name = user.name ?? user.email ?? "usuário";
     const image = user.image ?? undefined;
-    const goTab = (tab: TabKey) => {
-      setActiveTab(tab);
-      navigateTo("/");
-    };
+    const goTab = (tab: TabKey) => setActiveTab(tab);
     const navbar =
       role === "gestor" ? (
         <ManagerNavbar
@@ -254,10 +256,7 @@ function AuthGate() {
               navLabel="Seções do portal"
               tabs={RECRUITER_TABS.map(({ key, label }) => ({ key, label }))}
               active={activeTab}
-              onChange={(tab) => {
-                setActiveTab(tab);
-                navigateTo("/");
-              }}
+              onChange={setActiveTab}
               userName={user.name ?? user.email ?? "usuário"}
               userImage={user.image ?? undefined}
             />
@@ -309,7 +308,7 @@ function AuthGate() {
           ) : role === "recrutador" && activeTab === "talentos" ? (
             <TalentSearchPage />
           ) : role === "recrutador" && activeTab === "vagas" ? (
-            <RecruiterJobsPage />
+            <RecruiterJobsPage jobId={portal.jobId} />
           ) : (
             <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
               <h2 className="font-serif text-2xl font-bold text-primary">

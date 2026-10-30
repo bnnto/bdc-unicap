@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { navigateTo, portalPath } from "../../lib/router";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { JobsPanel } from "./JobsPanel";
 import { JobKanban } from "./JobKanban";
@@ -12,17 +12,19 @@ import { JobKanban } from "./JobKanban";
  *   vaga (busca já com a vaga selecionada).
  * - "Voltar para Minhas Vagas" retorna à lista.
  */
-export function RecruiterJobsPage() {
-  const [selectedJobId, setSelectedJobId] = useState<Id<"jobs"> | null>(null);
-
-  if (selectedJobId !== null) {
+export function RecruiterJobsPage({ jobId }: { jobId: string | null }) {
+  if (jobId !== null) {
     return (
       <JobKanban
-        initialJobId={selectedJobId}
-        onBack={() => setSelectedJobId(null)}
+        initialJobId={jobId as Id<"jobs">}
+        onBack={() => navigateTo(portalPath("vagas"))}
       />
     );
   }
 
-  return <JobsPanel onViewCandidates={(jobId) => setSelectedJobId(jobId)} />;
+  return (
+    <JobsPanel
+      onViewCandidates={(id) => navigateTo(portalPath("vagas", id))}
+    />
+  );
 }

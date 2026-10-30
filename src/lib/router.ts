@@ -52,3 +52,46 @@ export function parseCandidateProfilePath(path: string): string | null {
   }
   return /^[a-zA-Z0-9_-]+$/.test(decoded) ? decoded : null;
 }
+
+/** [URL_STATE] Abas do portal (recrutador/gestor) refletidas na URL. */
+export type PortalTab =
+  | "dashboard"
+  | "talentos"
+  | "vagas"
+  | "recrutadores"
+  | "moderacao";
+
+const PORTAL_TABS: readonly PortalTab[] = [
+  "dashboard",
+  "talentos",
+  "vagas",
+  "recrutadores",
+  "moderacao",
+];
+
+/** "/" = dashboard; as demais ficam em `/painel/<aba>[/<jobId>]`. */
+export function portalPath(tab: PortalTab, jobId?: string | null): string {
+  if (tab === "dashboard") return "/";
+  return jobId
+    ? `/painel/${tab}/${encodeURIComponent(jobId)}`
+    : `/painel/${tab}`;
+}
+
+export function parsePortalPath(path: string): {
+  tab: PortalTab;
+  jobId: string | null;
+} {
+  const match = /^\/painel\/([a-z]+)(?:\/([^/]+))?$/.exec(path);
+  const tab = PORTAL_TABS.find((t) => t === match?.[1]);
+  if (match === null || tab === undefined) return { tab: "dashboard", jobId: null };
+  let jobId: string | null = null;
+  if (tab === "vagas" && match[2] !== undefined) {
+    try {
+      const decoded = decodeURIComponent(match[2]);
+      if (/^[a-zA-Z0-9_-]+$/.test(decoded)) jobId = decoded;
+    } catch {
+      jobId = null;
+    }
+  }
+  return { tab, jobId };
+}

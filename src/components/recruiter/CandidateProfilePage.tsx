@@ -423,7 +423,9 @@ export function CandidateProfilePage({
   );
 
   function voltarAoKanban(): void {
-    navigateTo("/");
+    // Volta para onde o recrutador estava (pipeline da vaga ou Banco de Talentos).
+    if (window.history.length > 1) window.history.back();
+    else navigateTo("/");
   }
 
   const denied = invalidId || profile === null;

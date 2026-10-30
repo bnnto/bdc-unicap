@@ -62,7 +62,7 @@ function toJobInput(args: {
   return {
     title: args.title,
     description: args.description,
-    prerequisites: args.prerequisites,
+    prerequisites: args.prerequisites.map((p) => ({ item: p.item, required: p.required, kind: p.kind })),
     contractType: args.contractType,
     salaryMin: args.salaryMin,
     salaryMax: args.salaryMax,
@@ -82,7 +82,11 @@ export const upsertJob = mutation({
     title: v.string(),
     description: v.string(),
     prerequisites: v.array(
-      v.object({ item: v.string(), required: v.boolean() }),
+      v.object({
+        item: v.string(),
+        required: v.boolean(),
+        kind: v.optional(v.union(v.literal("skill"), v.literal("text"))),
+      }),
     ),
     contractType: v.union(
       v.literal("estagio"),

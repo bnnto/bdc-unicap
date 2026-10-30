@@ -1,15 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type DragEvent,
+  type ReactNode,
+} from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
 import { friendlyErrorMessage } from "../../lib/toastMessages";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
-import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Card } from "../ui/card";
-import { Input } from "../ui/input";
 import { Modal } from "../ui/modal";
-import { Select } from "../ui/select";
 import {
   APPLICATION_STAGES,
   STAGE_LABELS,
@@ -23,19 +26,243 @@ import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
 import { formatDay } from "../../lib/formatters";
 import { candidateProfilePath, navigateTo } from "../../lib/router";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
   Briefcase,
   CalendarCheck,
+  CalendarDays,
   CalendarPlus,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
   Eye,
   Inbox,
+  LayoutGrid,
+  List as ListIcon,
+  Mail, 
   Target,
   UserCheck,
   UserX,
   X,
 } from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
+import { SuperSearch } from "../ui/SuperSearch";
+import { CustomSelect } from "../ui/CustomSelect";
+import {
+  CARD_HOVER,
+  CARD_SURFACE,
+  IconTile,
+  LABEL_CLASS,
+  MotionStyles,
+  PageHeader,
+  PRESS,
+  SELECT_CLASS,
+  SURFACE,
+  TextField,
+} from "./jobsUi";
+
+/** Cor de cada etapa (ponto da coluna e faixa de resumo). */
+const STAGE_DOT: Record<string, string> = {
+  inscrito: "bg-slate-400",
+  triagem: "bg-amber-500",
+  entrevista: "bg-sky-500",
+  aprovado: "bg-emerald-500",
+  reprovado: "bg-rose-500",
+};
+const dotOf = (stage: string): string => STAGE_DOT[stage] ?? "bg-slate-400";
+
+/** Pílula de compatibilidade (tons explícitos para o dark mode). */
+const MATCH_TONE: Record<ReturnType<typeof matchBand>, string> = {
+  strong:
+    "border-emerald-600/25 bg-emerald-50 text-emerald-800 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-300",
+  medium:
+    "border-sky-600/25 bg-sky-50 text-sky-800 dark:border-sky-400/25 dark:bg-sky-500/10 dark:text-sky-300",
+  low: "border-rose-600/25 bg-rose-50 text-rose-800 dark:border-rose-400/25 dark:bg-rose-500/10 dark:text-rose-300",
+};
+const MATCH_BAR: Record<ReturnType<typeof matchBand>, string> = {
+  strong: "bg-emerald-500",
+  medium: "bg-sky-500",
+  low: "bg-rose-500",
+};
+
+/** Botão compacto das ações do card (hover só com ponteiro preciso). */
+const CARD_BTN =
+  "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 [@media(hover:hover)_and_(pointer:fine)]:hover:border-primary/40 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary";
+const CARD_BTN_DANGER =
+  "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 [@media(hover:hover)_and_(pointer:fine)]:hover:border-rose-400/60 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-rose-50 [@media(hover:hover)_and_(pointer:fine)]:hover:text-rose-700 dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-rose-500/10 dark:[@media(hover:hover)_and_(pointer:fine)]:hover:text-rose-300";
+
+/** Voltar: contorno e texto na cor primária (o "secondary" some no claro). */
+const BACK_BTN = `inline-flex h-10 items-center gap-2 rounded-xl border border-primary/40 bg-white px-4 text-sm font-semibold text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 dark:border-primary/50 dark:bg-primary/10 ${PRESS} [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#FDF2F4] dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-primary/20`;
+
+/** Chips de filtro (faixa de compatibilidade). */
+const CHIP =
+  "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1";
+const CHIP_ON =
+  "border-primary/40 bg-[#FDF2F4] text-primary dark:bg-primary/15";
+const CHIP_OFF =
+  "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 [@media(hover:hover)_and_(pointer:fine)]:hover:border-primary/30 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary";
+
+type ViewMode = "board" | "list";
+type SortMode = "match" | "recent";
+type BandFilter = "all" | ReturnType<typeof matchBand>;
+
+const BAND_FILTERS: { value: BandFilter; label: string }[] = [
+  { value: "all", label: "Todas" },
+  { value: "strong", label: "Forte" },
+  { value: "medium", label: "Média" },
+  { value: "low", label: "Baixa" },
+];
+
+const VIEW_STORAGE_KEY = "jobKanban:view";
+
+/** Preferência por-visualizador; pode falhar (janela privada etc.). */
+function readStoredView(): ViewMode {
+  try {
+    return window.localStorage.getItem(VIEW_STORAGE_KEY) === "list"
+      ? "list"
+      : "board";
+  } catch {
+    return "board";
+  }
+}
+
+const FILTERS_KEY = "jobKanban:filters";
+
+type SavedView = {
+  query: string;
+  band: BandFilter;
+  sort: SortMode;
+  stage: ApplicationStage | "all";
+  expanded: string[];
+  rejectedOpen: boolean;
+};
+
+/** Filtros/expansões da última visita a esta vaga (sessionStorage; pode falhar). */
+function readSavedView(jobId: string | null): SavedView {
+  const empty: SavedView = {
+    query: "",
+    band: "all",
+    sort: "match",
+    stage: "all",
+    expanded: [],
+    rejectedOpen: false,
+  };
+  try {
+    const raw = window.sessionStorage.getItem(
+      `${FILTERS_KEY}:${jobId ?? "none"}`,
+    );
+    if (raw === null) return empty;
+    const d = JSON.parse(raw) as Partial<Record<keyof SavedView, unknown>>;
+    return {
+      query: typeof d.query === "string" ? d.query : "",
+      band:
+        d.band === "strong" || d.band === "medium" || d.band === "low"
+          ? d.band
+          : "all",
+      sort: d.sort === "recent" ? "recent" : "match",
+      stage: APPLICATION_STAGES.find((s) => s === d.stage) ?? "all",
+      expanded: Array.isArray(d.expanded)
+        ? d.expanded.filter((x): x is string => typeof x === "string")
+        : [],
+      rejectedOpen: d.rejectedOpen === true,
+    };
+  } catch {
+    return empty;
+  }
+}
+
+/** Busca sem acento e sem diferença de caixa. */
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/** Melhores no topo (desempate: quem se candidatou antes) ou mais recentes. */
+function sortApplications<T extends { matchScore: number; appliedAt: number }>(
+  items: readonly T[],
+  mode: SortMode,
+): T[] {
+  return [...items].sort((a, b) =>
+    mode === "match"
+      ? b.matchScore - a.matchScore || a.appliedAt - b.appliedAt
+      : b.appliedAt - a.appliedAt,
+  );
+}
+
+function CardButton({
+  danger = false,
+  className = "",
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { danger?: boolean }) {
+  return (
+    <button
+      type="button"
+      className={`${danger ? CARD_BTN_DANGER : CARD_BTN} ${PRESS} ${className}`}
+      {...props}
+    />
+  );
+}
+
+/** Título de modal: ícone em ladrilho + serifada (ids/textos preservados). */
+function ModalTitle({
+  id,
+  icon,
+  children,
+}: {
+  id: string;
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <h3
+      id={id}
+      className="flex items-center gap-3 font-serif text-xl font-bold tracking-tight text-primary"
+    >
+      <IconTile>{icon}</IconTile>
+      {children}
+    </h3>
+  );
+}
+
+function ModalError({ children }: { children: ReactNode }) {
+  return (
+    <p
+      role="alert"
+      className="mt-4 flex items-start gap-2 rounded-xl border border-danger/40 bg-rose-50 px-3.5 py-2.5 text-sm text-danger dark:bg-rose-500/10"
+    >
+      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+/** Esqueleto do board: mesma silhueta das colunas e dos cards. */
+function BoardSkeleton() {
+  return (
+    <div role="status" aria-live="polite" className="flex gap-4 overflow-hidden">
+      <span className="sr-only">Carregando pipeline…</span>
+      {[0, 1, 2, 3, 4].map((col) => (
+        <div
+          key={col}
+          aria-hidden="true"
+          className="min-h-72 min-w-[272px] flex-1 animate-pulse rounded-3xl border border-slate-200/80 bg-slate-50/70 p-4 motion-reduce:animate-none dark:border-white/10 dark:bg-white/[0.03]"
+        >
+          <div className="mb-4 h-4 w-1/2 rounded-full bg-slate-200/80 dark:bg-white/10" />
+          {[0, 1].map((card) => (
+            <div
+              key={card}
+              className="mb-3 h-16 rounded-2xl bg-white dark:bg-white/5"
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /** [UI_OVERHAUL] Iniciais do candidato para o avatar circular do card. */
 function initialsOf(name: string): string {
@@ -45,15 +272,6 @@ function initialsOf(name: string): string {
   const last = parts.length > 1 ? parts[parts.length - 1]!.charAt(0) : "";
   return (first + last).toUpperCase();
 }
-
-const MATCH_CHIP: Record<
-  ReturnType<typeof matchBand>,
-  "aprovado" | "andamento" | "reprovado"
-> = {
-  strong: "aprovado",
-  medium: "andamento",
-  low: "reprovado",
-};
 
 /** [UX_UPGRADE] timestamp → valor de input `yyyy-mm-dd` (fuso local). */
 function toDateInputValue(ts?: number): string {
@@ -100,6 +318,13 @@ type BoardApplication = {
  * CA 2 — colunas por stage com contagem de cards.
  * CA 3 — teclado: botões ←/→ nos cards movem entre colunas com foco
  * mantido no card (alternativa acessível ao arrastar).
+ *
+ * [SCALE_UPGRADE] Pensado para vagas com muitos candidatos:
+ * 1. card compacto (2 linhas) que expande ao clicar;
+ * 2. ordenação por compatibilidade + busca + filtro por faixa;
+ * 3. coluna "Reprovado" recolhida (continua aceitando soltar);
+ * 4. alternância Quadro/Lista (lista com menu de etapa por linha).
+ * A lógica de mover/reprovar/agendar não mudou.
  */
 export function JobKanban({
   initialJobId = null,
@@ -158,6 +383,39 @@ export function JobKanban({
   });
   const [startDraft, setStartDraft] = useState("");
 
+  // [SCALE_UPGRADE] Estado de visualização (nada disso toca o servidor).
+  // Restaurado do sessionStorage: sobrevive a "Ver Perfil" → voltar e a F5.
+  const [saved] = useState(() => readSavedView(initialJobId));
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(
+    () => new Set(saved.expanded),
+  );
+  const [query, setQuery] = useState(saved.query);
+  const [bandFilter, setBandFilter] = useState<BandFilter>(saved.band);
+  const [sortMode, setSortMode] = useState<SortMode>(saved.sort);
+  const [viewMode, setViewMode] = useState<ViewMode>(readStoredView);
+  const [stageFilter, setStageFilter] = useState<ApplicationStage | "all">(
+    saved.stage,
+  );
+  const [rejectedOpen, setRejectedOpen] = useState(saved.rejectedOpen);
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(
+        `${FILTERS_KEY}:${initialJobId ?? "none"}`,
+        JSON.stringify({
+          query,
+          band: bandFilter,
+          sort: sortMode,
+          stage: stageFilter,
+          expanded: [...expandedIds],
+          rejectedOpen,
+        }),
+      );
+    } catch {
+      // Só conveniência; ignorar falha de storage.
+    }
+  }, [initialJobId, query, bandFilter, sortMode, stageFilter, expandedIds, rejectedOpen]);
+
   const boardResult = useQuery(
     api.applications.jobBoard,
     selectedJobId !== null ? { jobId: selectedJobId } : "skip",
@@ -182,6 +440,30 @@ export function JobKanban({
       delete rest[applicationId];
       return rest;
     });
+  }
+
+  function toggleExpanded(applicationId: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(applicationId)) next.delete(applicationId);
+      else next.add(applicationId);
+      return next;
+    });
+  }
+
+  function changeView(next: ViewMode) {
+    setViewMode(next);
+    try {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      // Preferência é só uma conveniência; ignorar falha de storage.
+    }
+  }
+
+  function clearFilters() {
+    setQuery("");
+    setBandFilter("all");
+    setStageFilter("all");
   }
 
   /**
@@ -351,61 +633,92 @@ export function JobKanban({
 
   if (jobs === undefined && selectedJobId === null) {
     return (
-      <p
-        className="text-sm text-a11y-slate-500"
-        role="status"
-        aria-live="polite"
-      >
-        Carregando vagas…
-      </p>
+      <div className="pb-16 pt-2">
+        <div role="status" aria-live="polite" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <span className="sr-only">Carregando vagas…</span>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              aria-hidden="true"
+              className={`${SURFACE} h-24 animate-pulse motion-reduce:animate-none`}
+            />
+          ))}
+        </div>
+      </div>
     );
   }
 
   if (jobs?.length === 0 && selectedJobId === null) {
     return (
-      <Card title="Pipeline de candidaturas" accent="primary">
-        <EmptyState
-          icon={Briefcase}
-          title="Nenhuma vaga publicada"
-          description="Publique uma vaga para começar a acompanhar o pipeline de candidaturas em tempo real."
+      <div className="pb-16 pt-2">
+        <MotionStyles />
+        <PageHeader
+          title="Pipeline de candidaturas"
+          description="Acompanhe cada candidato da inscrição à contratação."
         />
-      </Card>
+        <div className={`${SURFACE} px-6 py-10`}>
+          <EmptyState
+            icon={Briefcase}
+            title="Nenhuma vaga publicada"
+            description="Publique uma vaga para começar a acompanhar o pipeline de candidaturas em tempo real."
+          />
+        </div>
+      </div>
     );
   }
 
   if (selectedJobId === null) {
     return (
-      <Card title="Pipeline de candidaturas" accent="primary">
-        <p className="mb-3 text-sm text-slate-600">
-          Escolha a vaga para visualizar o pipeline Kanban:
-        </p>
-        <ul className="flex flex-col gap-2">
-          {(jobs ?? []).map((job: Doc<"jobs">) => (
-            <li key={job._id}>
-              <Button
-                variant="secondary"
+      <div className="pb-16 pt-2">
+        <MotionStyles />
+        <PageHeader
+          title="Pipeline de candidaturas"
+          description="Escolha a vaga para visualizar o pipeline Kanban:"
+        />
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {(jobs ?? []).map((job: Doc<"jobs">, index) => (
+            <li
+              key={job._id}
+              className="jb-rise"
+              style={{ animationDelay: `${Math.min(index, 6) * 35}ms` }}
+            >
+              <button
+                type="button"
                 onClick={() => setSelectedJobId(job._id)}
+                className={`${SURFACE} ${PRESS} flex w-full items-center gap-4 p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary [@media(hover:hover)_and_(pointer:fine)]:hover:border-primary/30`}
               >
-                <Briefcase className="h-4 w-4" aria-hidden="true" />
-                {job.title}
-              </Button>
+                <IconTile size="lg">
+                  <Briefcase className="h-5 w-5" />
+                </IconTile>
+                <span className="min-w-0 flex-1 truncate font-semibold text-slate-900 dark:text-slate-100">
+                  {job.title}
+                </span>
+                <ArrowRight
+                  className="h-4 w-4 shrink-0 text-slate-400"
+                  aria-hidden="true"
+                />
+              </button>
             </li>
           ))}
         </ul>
-      </Card>
+      </div>
     );
   }
 
   if (boardNotFound) {
     return (
-      <Card title="Pipeline de candidaturas" accent="primary">
-        <EmptyState
-          icon={Briefcase}
-          title="Vaga não encontrada"
-          description="Esta vaga não existe mais ou você não tem acesso a ela."
-          action={{ label: "Voltar", onClick: handleBack }}
-        />
-      </Card>
+      <div className="pb-16 pt-2">
+        <MotionStyles />
+        <PageHeader title="Pipeline de candidaturas" />
+        <div className={`${SURFACE} px-6 py-10`}>
+          <EmptyState
+            icon={Briefcase}
+            title="Vaga não encontrada"
+            description="Esta vaga não existe mais ou você não tem acesso a ela."
+            action={{ label: "Voltar", onClick: handleBack }}
+          />
+        </div>
+      </div>
     );
   }
 
@@ -423,320 +736,758 @@ export function JobKanban({
             application.applicationId === pendingMove.applicationId,
         ) ?? null)
       : null;
-  const grouped = groupApplicationsByStage(applications);
   const selectedJobTitle =
     board?.job.title ?? jobs?.find((j) => j._id === selectedJobId)?.title ?? "";
 
-  return (
-    <Card title={`Pipeline — ${selectedJobTitle}`} accent="primary">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          {onBack !== undefined ? (
-            <Button variant="primary" onClick={onBack}>
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              Voltar para Minhas Vagas
-            </Button>
-          ) : (
-            <Button variant="secondary" onClick={() => setSelectedJobId(null)}>
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              Trocar vaga
-            </Button>
-          )}
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-[#FDF2F4] px-3 py-1 text-xs font-semibold text-primary">
-            <Briefcase className="h-3.5 w-3.5" aria-hidden="true" />
-            {selectedJobTitle}
+  // [SCALE_UPGRADE] Filtros: busca (nome/curso), faixa de match e, só no
+  // modo lista, etapa. O resumo do topo continua contando TODOS.
+  const normalizedQuery = normalizeText(query);
+  const stageFilterActive = viewMode === "list" && stageFilter !== "all";
+  const filtersActive =
+    normalizedQuery !== "" || bandFilter !== "all" || stageFilterActive;
+  const visible = applications.filter((application) => {
+    if (
+      normalizedQuery !== "" &&
+      !normalizeText(`${application.fullName} ${application.course}`).includes(
+        normalizedQuery,
+      )
+    ) {
+      return false;
+    }
+    if (bandFilter !== "all" && matchBand(application.matchScore) !== bandFilter) {
+      return false;
+    }
+    if (stageFilterActive && application.stage !== stageFilter) return false;
+    return true;
+  });
+  const groupedAll = groupApplicationsByStage(applications);
+  const grouped = groupApplicationsByStage(visible);
+  // Durante a digitação o filtro muda a cada tecla: sem animação de entrada.
+  const enterClass = filtersActive ? "" : "jb-rise";
+
+  /** Destaque da coluna sob o card arrastado. */
+  const columnTone = (stage: ApplicationStage): string =>
+    dropTarget === stage
+      ? "border-primary/40 bg-[#FDF2F4] dark:bg-primary/10"
+      : "border-slate-200/80 bg-slate-50/70 dark:border-white/10 dark:bg-white/[0.03]";
+
+  /** Handlers de soltar — compartilhados por colunas abertas e recolhidas. */
+  const columnDropProps = (stage: ApplicationStage) => ({
+    onDragOver: (e: DragEvent<HTMLElement>) => {
+      e.preventDefault();
+      setDropTarget(stage);
+    },
+    onDragLeave: (e: DragEvent<HTMLElement>) => {
+      // dragleave também dispara ao entrar em elementos filhos;
+      // só limpa o destaque ao sair de fato da coluna.
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+        setDropTarget(null);
+      }
+    },
+    onDrop: (e: DragEvent<HTMLElement>) => {
+      e.preventDefault();
+      setDropTarget(null);
+      const id = e.dataTransfer.getData("text/plain") || draggingId;
+      if (id !== null && id.length > 0) {
+        void handleMove(id, stage);
+      }
+      setDraggingId(null);
+    },
+  });
+
+  /** Card compacto (2 linhas) que expande ao clicar. */
+  const renderCard = (
+    application: BoardApplication,
+    stage: ApplicationStage,
+    cardIndex: number,
+  ) => {
+    const currentIndex = APPLICATION_STAGES.indexOf(stage);
+    // [UX_UPGRADE] reentrada de Reprovado só em "inscrito"
+    // (caminho obrigatório — o retrocesso direto para
+    // Aprovado seria bloqueado no servidor).
+    const prevStage: ApplicationStage | null =
+      stage === "reprovado"
+        ? "inscrito"
+        : currentIndex > 0
+          ? (APPLICATION_STAGES[currentIndex - 1] ?? null)
+          : null;
+    const nextStage: ApplicationStage | null =
+      currentIndex < APPLICATION_STAGES.length - 1
+        ? (APPLICATION_STAGES[currentIndex + 1] ?? null)
+        : null;
+    // Dica de teclado explícita (destino de cada seta).
+    const keyboardHint = [
+      prevStage !== null
+        ? `Seta para a esquerda move para ${STAGE_LABELS[prevStage]}.`
+        : null,
+      nextStage !== null
+        ? `Seta para a direita move para ${STAGE_LABELS[nextStage]}.`
+        : null,
+    ]
+      .filter((hint): hint is string => hint !== null)
+      .join(" ");
+    const band = matchBand(application.matchScore);
+    const open = expandedIds.has(application.applicationId);
+    const detailsId = `card-details-${application.applicationId}`;
+    return (
+      <article
+        key={application.applicationId}
+        draggable
+        tabIndex={0}
+        aria-label={`${application.fullName}, ${STAGE_LABELS[application.stage]}. ${keyboardHint}`}
+        style={{
+          animationDelay: `${Math.min(cardIndex, 5) * 30}ms`,
+        }}
+        onDragStart={(e) => {
+          e.dataTransfer.setData("text/plain", application.applicationId);
+          setDraggingId(application.applicationId);
+        }}
+        onDragEnd={() => setDraggingId(null)}
+        onKeyDown={(e) => {
+          // Campos de formulário dentro do card mantêm o
+          // comportamento nativo das setas.
+          if (
+            (e.target as HTMLElement).closest(
+              "input, textarea, select, [contenteditable='true']",
+            ) !== null
+          ) {
+            return;
+          }
+          // Enter/Espaço no próprio card (não nos botões internos) expande.
+          if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+            e.preventDefault();
+            toggleExpanded(application.applicationId);
+            return;
+          }
+          if (e.key === "ArrowLeft" && prevStage !== null) {
+            e.preventDefault();
+            void handleMove(application.applicationId, prevStage);
+          }
+          if (e.key === "ArrowRight" && nextStage !== null) {
+            e.preventDefault();
+            void handleMove(application.applicationId, nextStage);
+          }
+        }}
+        className={`${CARD_SURFACE} ${CARD_HOVER} ${enterClass} shrink-0 cursor-grab p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing ${
+          draggingId === application.applicationId ? "opacity-50" : ""
+        }`}
+      >
+        {/* Cabeçalho = botão de expandir: avatar, nome/curso e match. */}
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={detailsId}
+          onClick={() => toggleExpanded(application.applicationId)}
+          className="flex w-full items-center gap-2.5 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+        >
+          <span
+            aria-hidden="true"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] font-serif text-xs font-bold text-primary ring-1 ring-primary/20 dark:bg-primary/15"
+          >
+            {initialsOf(application.fullName)}
           </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {application.fullName}
+            </span>
+            <span className="mt-0.5 flex items-center gap-1.5 text-xs text-a11y-slate-500">
+              {application.contactReleased ? (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"
+                  />
+                  <span className="sr-only">Contato liberado.</span>
+                </>
+              ) : null}
+              <span className="truncate">{application.course}</span>
+            </span>
+          </span>
+          <span
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums ${MATCH_TONE[band]}`}
+          >
+            <Target className="h-3 w-3" aria-hidden="true" />
+            {application.matchScore}%
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${
+              open ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        {cardErrors[application.applicationId] !== undefined ? (
+          <p
+            role="alert"
+            className="mt-2.5 rounded-lg border border-danger/40 bg-rose-50 px-2.5 py-1.5 text-xs text-danger dark:bg-rose-500/10"
+          >
+            {cardErrors[application.applicationId]}
+          </p>
+        ) : null}
+
+        {/* Detalhes: grid 0fr→1fr (único caso tolerado de animar altura) +
+            opacity; `visibility` sai do tab/leitor de tela quando fechado.
+            Reduced motion: só o fade. */}
+        <div
+          id={detailsId}
+          className={`grid transition-[grid-template-rows,opacity,visibility] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:[transition-property:opacity,visibility] ${
+            open
+              ? "visible grid-rows-[1fr] opacity-100"
+              : "invisible grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="-mx-1 -mb-1 min-h-0 overflow-hidden px-1 pb-1">
+            <div
+              aria-hidden="true"
+              className="mt-3 h-1 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"
+            >
+              <div
+                className={`h-full w-full origin-left rounded-full transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${MATCH_BAR[band]}`}
+                style={{
+                  transform: `scaleX(${Math.min(Math.max(application.matchScore, 0), 100) / 100})`,
+                }}
+              />
+            </div>
+
+            <p className="mt-2.5 text-xs leading-snug text-a11y-slate-500">
+              {MATCH_BAND_LABELS[band]}
+            </p>
+            {/* [UX-P3] H6-2 — idade do processo no próprio card. */}
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-a11y-slate-500">
+              <CalendarDays
+                className="h-3 w-3 shrink-0 text-slate-400"
+                aria-hidden="true"
+              />
+              Candidatou-se em {formatDay(application.appliedAt)}
+            </p>
+            <p className="mt-2.5 text-xs font-semibold">
+              {application.contactReleased ? (
+                <span className="inline-flex items-center gap-1.5 text-success">
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                  />
+                  Contato liberado
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-a11y-slate-500">
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-500"
+                  />
+                  Contato não liberado
+                </span>
+              )}
+            </p>
+            {application.contactReleased ? (
+              <p className="mt-2 flex flex-wrap items-center gap-x-1 text-xs text-primary">
+                {application.email !== undefined ? (
+                  <a
+                    href={`mailto:${application.email}`}
+                    className="inline-flex min-w-0 items-center gap-1 break-all hover:underline"
+                    onClick={() =>
+                      void trackProfileView({
+                        applicationId:
+                          application.applicationId as Id<"applications">,
+                      }).catch(() => undefined)
+                    }
+                  >
+                    <Mail className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    {application.email}
+                  </a>
+                ) : (
+                  "E-mail não cadastrado"
+                )}
+                {application.linkedinUrl !== undefined ? (
+                  <>
+                    {" · "}
+                    <a
+                      href={application.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 hover:underline"
+                      onClick={() =>
+                        void trackProfileView({
+                          applicationId:
+                            application.applicationId as Id<"applications">,
+                        }).catch(() => undefined)
+                      }
+                    >
+                      LinkedIn
+                      <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    </a>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+            <div className="mt-3.5 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3 dark:border-white/10">
+              {prevStage !== null ? (
+                <CardButton
+                  className="w-8 px-0"
+                  disabled={saving}
+                  aria-label={`Mover ${application.fullName} para ${STAGE_LABELS[prevStage]}`}
+                  onClick={() =>
+                    void handleMove(application.applicationId, prevStage)
+                  }
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                </CardButton>
+              ) : null}
+              {nextStage !== null ? (
+                <CardButton
+                  className="w-8 px-0"
+                  disabled={saving}
+                  aria-label={`Mover ${application.fullName} para ${STAGE_LABELS[nextStage]}`}
+                  onClick={() =>
+                    void handleMove(application.applicationId, nextStage)
+                  }
+                >
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </CardButton>
+              ) : null}
+              {/* [RECRUITER_VIEW_PROFILE] Etapa 3 — acesso à
+                  página dedicada (currículo somente leitura). */}
+              <CardButton
+                className="ml-auto"
+                onClick={() =>
+                  navigateTo(candidateProfilePath(application.studentId))
+                }
+              >
+                <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                Ver Perfil
+              </CardButton>
+              {stage !== "reprovado" ? (
+                <CardButton
+                  danger
+                  disabled={saving}
+                  aria-label={`Reprovar ${application.fullName} com motivo padronizado`}
+                  onClick={() => openReject(application.applicationId)}
+                >
+                  <UserX className="h-3.5 w-3.5" aria-hidden="true" />
+                  Reprovar
+                </CardButton>
+              ) : null}
+            </div>
+          </div>
         </div>
-        <p className="text-xs text-a11y-slate-500">
-          Arraste os cards ou use as setas do teclado; clique no nome ou em Ver
-          Perfil para abrir o currículo completo do candidato; para reprovar,
-          escolha o motivo, ele fica registrado para auditoria.
-        </p>
-      </div>
+      </article>
+    );
+  };
+
+  /** Coluna do quadro; "Reprovado" vira uma faixa estreita quando recolhida. */
+  const renderColumn = (stage: ApplicationStage) => {
+    const cards = sortApplications(grouped[stage], sortMode);
+    const count = cards.length;
+    const isRejected = stage === "reprovado";
+
+    if (isRejected && !rejectedOpen) {
+      return (
+        <section
+          key={`${stage}-collapsed`}
+          aria-label={`${STAGE_LABELS[stage]} — ${count} candidatura(s), recolhida`}
+          className={`flex max-h-[70vh] min-h-48 w-14 shrink-0 flex-col rounded-3xl border transition-colors duration-200 ${columnTone(stage)}`}
+          {...columnDropProps(stage)}
+        >
+          <button
+            type="button"
+            aria-expanded={false}
+            aria-label={`Expandir coluna ${STAGE_LABELS[stage]}, ${count} candidatura(s). Também aceita cards soltos aqui.`}
+            onClick={() => setRejectedOpen(true)}
+            className="flex h-full w-full flex-col items-center gap-3 rounded-3xl px-2 py-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <span
+              className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-2 text-xs font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200 dark:bg-white/10 dark:text-slate-200 dark:ring-white/10"
+              aria-hidden="true"
+            >
+              {count}
+            </span>
+            <span
+              aria-hidden="true"
+              className={`h-2 w-2 rounded-full ${dotOf(stage)}`}
+            />
+            <span
+              aria-hidden="true"
+              className="font-serif text-[0.9375rem] font-bold text-primary [writing-mode:vertical-rl]"
+            >
+              {STAGE_LABELS[stage]}
+            </span>
+            <ChevronRight
+              className="mt-auto h-4 w-4 text-slate-400"
+              aria-hidden="true"
+            />
+          </button>
+        </section>
+      );
+    }
+
+    return (
+      <section
+        key={stage}
+        aria-label={`${STAGE_LABELS[stage]} — ${count} candidatura(s)`}
+        className={`flex max-h-[70vh] min-h-48 min-w-[272px] flex-1 flex-col gap-4 rounded-3xl border p-4 transition-colors duration-200 ${
+          isRejected ? "jb-fade" : ""
+        } ${columnTone(stage)}`}
+        {...columnDropProps(stage)}
+      >
+        <h3 className="flex items-center justify-between gap-2 px-1 font-serif text-[0.9375rem] font-bold text-primary">
+          <span className="flex items-center gap-2">
+            <span
+              aria-hidden="true"
+              className={`h-2 w-2 rounded-full ${dotOf(stage)}`}
+            />
+            {STAGE_LABELS[stage]}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-2 text-xs font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200 dark:bg-white/10 dark:text-slate-200 dark:ring-white/10"
+              aria-label={`Contagem: ${count}`}
+            >
+              {count}
+            </span>
+            {isRejected ? (
+              <button
+                type="button"
+                aria-expanded
+                aria-label={`Recolher coluna ${STAGE_LABELS[stage]}`}
+                onClick={() => setRejectedOpen(false)}
+                className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${PRESS} [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary`}
+              >
+                <ChevronRight className="h-4 w-4 rotate-180" aria-hidden="true" />
+              </button>
+            ) : null}
+          </span>
+        </h3>
+
+        {/* [RECRUITER_UX_UPGRADE] Muitos candidatos não partem o
+            ecrã: a coluna cresce até max-h e o corpo rola. */}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-0.5">
+          {count === 0 ? (
+            <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-dashed border-slate-300/80 px-2 py-8 text-center dark:border-white/15">
+              <Inbox
+                className="h-5 w-5 text-slate-300 dark:text-slate-500"
+                aria-hidden="true"
+              />
+              <p className="text-xs text-a11y-slate-500">Sem cards</p>
+            </div>
+          ) : null}
+          {cards.map((application, cardIndex) =>
+            renderCard(application, stage, cardIndex),
+          )}
+        </div>
+      </section>
+    );
+  };
+
+  /** Modo lista: uma linha por candidato com menu para mudar a etapa. */
+  const renderList = () => {
+    const rows = sortApplications(visible, sortMode);
+    if (rows.length === 0) {
+      return (
+        <div className={`${SURFACE} px-6 py-10`}>
+          <EmptyState
+            icon={Inbox}
+            title={
+              filtersActive
+                ? "Nenhum candidato com esses filtros"
+                : "Nenhum candidato ainda"
+            }
+            description={
+              filtersActive
+                ? "Ajuste a busca ou limpe os filtros para ver todos."
+                : "Quando alguém se candidatar, aparece aqui."
+            }
+            action={
+              filtersActive
+                ? { label: "Limpar filtros", onClick: clearFilters }
+                : undefined
+            }
+          />
+        </div>
+      );
+    }
+    return (
+      <ul className="jb-fade flex flex-col gap-2">
+        {rows.map((application) => {
+          const band = matchBand(application.matchScore);
+          // Reprovado só reentra em "inscrito" (mesma regra do quadro).
+          const stageOptions: readonly ApplicationStage[] =
+            application.stage === "reprovado"
+              ? ["reprovado", "inscrito"]
+              : APPLICATION_STAGES;
+          return (
+            <li
+              key={application.applicationId}
+              className={`${CARD_SURFACE} flex flex-wrap items-center gap-x-4 gap-y-3 p-3`}
+            >
+              <div className="flex min-w-0 flex-1 basis-64 items-center gap-2.5">
+                <span
+                  aria-hidden="true"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] font-serif text-xs font-bold text-primary ring-1 ring-primary/20 dark:bg-primary/15"
+                >
+                  {initialsOf(application.fullName)}
+                </span>
+                <div className="min-w-0">
+                  <button
+                    type="button"
+                    aria-label={`Ver perfil de ${application.fullName}`}
+                    title="Ver currículo completo (somente leitura)"
+                    onClick={() =>
+                      navigateTo(candidateProfilePath(application.studentId))
+                    }
+                    className="block max-w-full truncate rounded text-left text-sm font-semibold text-slate-900 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-100 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
+                  >
+                    {application.fullName}
+                  </button>
+                  <p className="truncate text-xs text-a11y-slate-500">
+                    {application.course} · Candidatou-se em{" "}
+                    {formatDay(application.appliedAt)}
+                    {application.contactReleased ? " · Contato liberado" : ""}
+                  </p>
+                </div>
+              </div>
+              <span
+                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums ${MATCH_TONE[band]}`}
+              >
+                <Target className="h-3 w-3" aria-hidden="true" />
+                {application.matchScore}%
+              </span>
+              <CustomSelect
+                className="w-40 shrink-0"
+                label=""
+                placeholder={`Etapa de ${application.fullName}`}
+                value={application.stage}
+                onChange={(v) =>
+                  void handleMove(application.applicationId, v as ApplicationStage)
+                }
+                options={stageOptions.map((o) => ({ value: o, label: STAGE_LABELS[o] }))}
+              />
+              <div className="flex shrink-0 items-center gap-1.5">
+                <CardButton
+                  onClick={() =>
+                    navigateTo(candidateProfilePath(application.studentId))
+                  }
+                >
+                  <Eye className="h-3.5 w-3.5" aria-hidden="true" />
+                  Ver Perfil
+                </CardButton>
+                {application.stage !== "reprovado" ? (
+                  <CardButton
+                    danger
+                    disabled={saving}
+                    aria-label={`Reprovar ${application.fullName} com motivo padronizado`}
+                    onClick={() => openReject(application.applicationId)}
+                  >
+                    <UserX className="h-3.5 w-3.5" aria-hidden="true" />
+                    Reprovar
+                  </CardButton>
+                ) : null}
+              </div>
+              {cardErrors[application.applicationId] !== undefined ? (
+                <p
+                  role="alert"
+                  className="w-full rounded-lg border border-danger/40 bg-rose-50 px-2.5 py-1.5 text-xs text-danger dark:bg-rose-500/10"
+                >
+                  {cardErrors[application.applicationId]}
+                </p>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
+  return (
+    <div className="pb-16 pt-2">
+      <MotionStyles />
+      <PageHeader
+        leading={
+          <button
+            type="button"
+            onClick={onBack ?? (() => setSelectedJobId(null))}
+            className={BACK_BTN}
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            {onBack !== undefined ? "Voltar para Minhas Vagas" : "Trocar vaga"}
+          </button>
+        }
+        title={
+          <>
+            <span className="mb-2 block font-sans text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Pipeline<span className="sr-only">: </span>
+            </span>
+            {selectedJobTitle}
+          </>
+        }
+        description="Arraste os cards ou use as setas do teclado. Reprovar exige um motivo, registrado para auditoria."
+      />
 
       {board === undefined ? (
-        <p
-          className="text-sm text-a11y-slate-500"
-          role="status"
-          aria-live="polite"
-        >
-          Carregando pipeline…
-        </p>
+        <BoardSkeleton />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {APPLICATION_STAGES.map((stage) => (
-            <section
-              key={stage}
-              aria-label={`${STAGE_LABELS[stage]} — ${grouped[stage].length} candidatura(s)`}
-              className={`flex max-h-[68vh] min-h-40 flex-col gap-4 rounded-xl border p-6 transition-colors ${
-                dropTarget === stage
-                  ? "border-secondary bg-[#FDF2F4]"
-                  : "border-slate-200 bg-slate-50"
-              }`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDropTarget(stage);
-              }}
-              onDragLeave={(e) => {
-                // dragleave também dispara ao entrar em elementos filhos;
-                // só limpa o destaque ao sair de fato da coluna.
-                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                  setDropTarget(null);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                setDropTarget(null);
-                const id = e.dataTransfer.getData("text/plain") || draggingId;
-                if (id !== null && id.length > 0) {
-                  void handleMove(id, stage);
-                }
-                setDraggingId(null);
-              }}
+        <>
+          {/* Resumo: total + distribuição por etapa (decorativo, aria-hidden). */}
+          <div className="jb-fade mb-5 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {applications.length === 1
+                ? "1 candidato"
+                : `${applications.length} candidatos`}
+            </p>
+            <ul
+              aria-label="Candidatos por etapa"
+              className="flex flex-wrap items-center gap-1.5"
             >
-              <h3 className="flex items-center justify-between font-serif text-sm font-bold text-primary">
-                {STAGE_LABELS[stage]}
-                <span
-                  className="rounded border border-slate-300 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700"
-                  aria-label={`Contagem: ${grouped[stage].length}`}
-                >
-                  {grouped[stage].length}
-                </span>
-              </h3>
-
-              {/* [RECRUITER_UX_UPGRADE] Muitos candidatos não partem o
-                  ecrã: a coluna cresce até max-h e o corpo rola. */}
-              <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
-                {grouped[stage].length === 0 ? (
-                  <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed border-slate-300/80 px-2 py-6 text-center">
-                    <Inbox
-                      className="h-5 w-5 text-slate-300"
+              {APPLICATION_STAGES.map((stage) => {
+                const n = groupedAll[stage].length;
+                return (
+                  <li
+                    key={stage}
+                    className={`inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold tabular-nums ${
+                      n > 0
+                        ? "border-slate-200 bg-white text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200"
+                        : "border-transparent text-slate-400 dark:text-slate-500"
+                    }`}
+                  >
+                    <span
                       aria-hidden="true"
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        n > 0 ? dotOf(stage) : "bg-slate-300 dark:bg-slate-600"
+                      }`}
                     />
-                    <p className="text-xs text-a11y-slate-500">Sem cards</p>
-                  </div>
-                ) : null}
+                    {STAGE_LABELS[stage]} {n}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
 
-                {grouped[stage].map((application) => {
-                  const currentIndex = APPLICATION_STAGES.indexOf(stage);
-                  // [UX_UPGRADE] reentrada de Reprovado só em "inscrito"
-                  // (caminho obrigatório — o retrocesso direto para
-                  // Aprovado seria bloqueado no servidor).
-                  const prevStage: ApplicationStage | null =
-                    stage === "reprovado"
-                      ? "inscrito"
-                      : currentIndex > 0
-                        ? (APPLICATION_STAGES[currentIndex - 1] ?? null)
-                        : null;
-                  const nextStage: ApplicationStage | null =
-                    currentIndex < APPLICATION_STAGES.length - 1
-                      ? (APPLICATION_STAGES[currentIndex + 1] ?? null)
-                      : null;
-                  // Dica de teclado explícita (destino de cada seta).
-                  const keyboardHint = [
-                    prevStage !== null
-                      ? `Seta para a esquerda move para ${STAGE_LABELS[prevStage]}.`
-                      : null,
-                    nextStage !== null
-                      ? `Seta para a direita move para ${STAGE_LABELS[nextStage]}.`
-                      : null,
-                  ]
-                    .filter((hint): hint is string => hint !== null)
-                    .join(" ");
-                  return (
-                    <article
-                      key={application.applicationId}
-                      draggable
-                      tabIndex={0}
-                      aria-label={`${application.fullName}, ${STAGE_LABELS[application.stage]}. ${keyboardHint}`}
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData(
-                          "text/plain",
-                          application.applicationId,
-                        );
-                        setDraggingId(application.applicationId);
-                      }}
-                      onDragEnd={() => setDraggingId(null)}
-                      onKeyDown={(e) => {
-                        // Campos de formulário dentro do card mantêm o
-                        // comportamento nativo das setas.
-                        if (
-                          (e.target as HTMLElement).closest(
-                            "input, textarea, select, [contenteditable='true']",
-                          ) !== null
-                        ) {
-                          return;
-                        }
-                        if (e.key === "ArrowLeft" && prevStage !== null) {
-                          e.preventDefault();
-                          void handleMove(application.applicationId, prevStage);
-                        }
-                        if (e.key === "ArrowRight" && nextStage !== null) {
-                          e.preventDefault();
-                          void handleMove(application.applicationId, nextStage);
-                        }
-                      }}
-                      className="cursor-grab rounded-lg border border-slate-200 bg-white p-6 shadow-level1 transition-all duration-200 ease-in-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-level2 focus-visible:ring-2 focus-visible:ring-secondary active:cursor-grabbing"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <span
-                            aria-hidden="true"
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary ring-1 ring-primary/20"
-                          >
-                            {initialsOf(application.fullName)}
-                          </span>
-                          <button
-                            type="button"
-                            aria-label={`Ver perfil de ${application.fullName}`}
-                            title="Ver currículo completo (somente leitura)"
-                            onClick={() =>
-                              navigateTo(
-                                candidateProfilePath(application.studentId),
-                              )
-                            }
-                            className="truncate rounded text-left text-sm font-semibold text-slate-800 transition-colors hover:text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-secondary"
-                          >
-                            {application.fullName}
-                          </button>
-                        </div>
-                        <Badge
-                          variant={
-                            MATCH_CHIP[matchBand(application.matchScore)]
-                          }
-                        >
-                          <Target className="h-3 w-3" aria-hidden="true" />
-                          {application.matchScore}%
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-xs text-a11y-slate-500">
-                        {application.course} ·{" "}
-                        {MATCH_BAND_LABELS[matchBand(application.matchScore)]}
-                      </p>
-                      {/* [UX-P3] H6-2 — idade do processo no próprio card. */}
-                      <p className="mt-1 text-xs text-a11y-slate-500">
-                        Candidatou-se em {formatDay(application.appliedAt)}
-                      </p>
-                      <p className="mt-2 text-xs font-semibold">
-                        {application.contactReleased ? (
-                          <span className="text-success">Contato liberado</span>
-                        ) : (
-                          <span className="text-a11y-slate-500">
-                            Contato não liberado
-                          </span>
-                        )}
-                      </p>
-                      {cardErrors[application.applicationId] !== undefined ? (
-                        <p
-                          role="alert"
-                          className="mt-2 rounded border border-danger bg-white px-2 py-1 text-xs text-danger"
-                        >
-                          {cardErrors[application.applicationId]}
-                        </p>
-                      ) : null}
-                      {application.contactReleased ? (
-                        <p className="mt-2 text-xs text-primary">
-                          {application.email !== undefined ? (
-                            <a
-                              href={`mailto:${application.email}`}
-                              onClick={() =>
-                                void trackProfileView({
-                                  applicationId:
-                                    application.applicationId as Id<"applications">,
-                                }).catch(() => undefined)
-                              }
-                            >
-                              {application.email}
-                            </a>
-                          ) : (
-                            "E-mail não cadastrado"
-                          )}
-                          {application.linkedinUrl !== undefined ? (
-                            <>
-                              {" · "}
-                              <a
-                                href={application.linkedinUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={() =>
-                                  void trackProfileView({
-                                    applicationId:
-                                      application.applicationId as Id<"applications">,
-                                  }).catch(() => undefined)
-                                }
-                              >
-                                LinkedIn
-                              </a>
-                            </>
-                          ) : null}
-                        </p>
-                      ) : null}
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {prevStage !== null ? (
-                          <Button
-                            variant="secondary"
-                            disabled={saving}
-                            aria-label={`Mover ${application.fullName} para ${STAGE_LABELS[prevStage]}`}
-                            onClick={() =>
-                              void handleMove(
-                                application.applicationId,
-                                prevStage,
-                              )
-                            }
-                          >
-                            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-                          </Button>
-                        ) : null}
-                        {nextStage !== null ? (
-                          <Button
-                            variant="secondary"
-                            disabled={saving}
-                            aria-label={`Mover ${application.fullName} para ${STAGE_LABELS[nextStage]}`}
-                            onClick={() =>
-                              void handleMove(
-                                application.applicationId,
-                                nextStage,
-                              )
-                            }
-                          >
-                            <ArrowRight
-                              className="h-4 w-4"
-                              aria-hidden="true"
-                            />
-                          </Button>
-                        ) : null}
-                        {stage !== "reprovado" ? (
-                          <Button
-                            variant="secondary"
-                            disabled={saving}
-                            aria-label={`Reprovar ${application.fullName} com motivo padronizado`}
-                            onClick={() => openReject(application.applicationId)}
-                          >
-                            <UserX className="h-4 w-4" aria-hidden="true" />
-                            Reprovar
-                          </Button>
-                        ) : null}
-                        {/* [RECRUITER_VIEW_PROFILE] Etapa 3 — acesso à
-                          página dedicada (currículo somente leitura). */}
-                        <Button
-                          variant="secondary"
-                          onClick={() =>
-                            navigateTo(
-                              candidateProfilePath(application.studentId),
-                            )
-                          }
-                        >
-                          <Eye className="h-4 w-4" aria-hidden="true" />
-                          Ver Perfil
-                        </Button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
+          {/* [SCALE_UPGRADE] Barra de controle: busca, faixa de match,
+              ordenação, etapa (só lista) e alternância Quadro/Lista. */}
+          <div className="mb-5 flex flex-wrap items-center gap-3">
+            <div className="min-w-[220px] flex-1 sm:max-w-sm">
+              <SuperSearch
+                ariaLabel="Buscar candidato por nome ou curso"
+                placeholder="Buscar por nome ou curso"
+                value={query}
+                onChange={setQuery}
+                sources={[]}
+                onPick={() => undefined}
+              />
+            </div>
+
+            <div
+              role="group"
+              aria-label="Filtrar por compatibilidade"
+              className="flex flex-wrap items-center gap-1.5"
+            >
+              {BAND_FILTERS.map((filter) => (
+                <button
+                  key={filter.value}
+                  type="button"
+                  aria-pressed={bandFilter === filter.value}
+                  onClick={() => setBandFilter(filter.value)}
+                  className={`${CHIP} ${PRESS} ${
+                    bandFilter === filter.value ? CHIP_ON : CHIP_OFF
+                  }`}
+                >
+                  {filter.value !== "all" ? (
+                    <span
+                      aria-hidden="true"
+                      className={`h-1.5 w-1.5 rounded-full ${MATCH_BAR[filter.value]}`}
+                    />
+                  ) : null}
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
+            <CustomSelect
+              className="w-52"
+              label=""
+              placeholder="Ordenar candidatos"
+              value={sortMode}
+              onChange={(v) => setSortMode(v as SortMode)}
+              options={[
+                { value: "match", label: "Maior compatibilidade" },
+                { value: "recent", label: "Mais recentes" },
+              ]}
+            />
+
+            {viewMode === "list" ? (
+              <CustomSelect
+                className="w-48"
+                label=""
+                placeholder="Filtrar por etapa"
+                value={stageFilter}
+                onChange={(v) => setStageFilter(v as ApplicationStage | "all")}
+                options={[
+                  { value: "all", label: "Todas as etapas" },
+                  ...APPLICATION_STAGES.map((s) => ({ value: s, label: STAGE_LABELS[s] })),
+                ]}
+              />
+            ) : null}
+
+            <div
+              role="group"
+              aria-label="Modo de visualização"
+              className="ml-auto flex rounded-xl border border-slate-200 bg-white p-0.5 dark:border-white/10 dark:bg-white/5"
+            >
+              {(
+                [
+                  ["board", "Quadro", LayoutGrid],
+                  ["list", "Lista", ListIcon],
+                ] as const
+              ).map(([value, label, Icon]) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={viewMode === value}
+                  onClick={() => changeView(value)}
+                  className={`inline-flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${PRESS} ${
+                    viewMode === value
+                      ? "bg-[#FDF2F4] text-primary dark:bg-primary/15"
+                      : "text-slate-600 dark:text-slate-300 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className={
+              filtersActive
+                ? "-mt-2 mb-4 flex items-center gap-3 text-xs text-a11y-slate-500"
+                : "sr-only"
+            }
+          >
+            <p aria-live="polite">
+              {filtersActive
+                ? `${visible.length} de ${applications.length} candidatos`
+                : `${applications.length} candidatos`}
+            </p>
+            {filtersActive ? (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="rounded font-semibold text-primary underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:underline"
+              >
+                Limpar filtros
+              </button>
+            ) : null}
+          </div>
+
+          {viewMode === "board" ? (
+            <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-4">
+              {APPLICATION_STAGES.map((stage) => renderColumn(stage))}
+            </div>
+          ) : (
+            renderList()
+          )}
+        </>
       )}
 
       {rejectingApplication !== null ? (
@@ -745,31 +1496,30 @@ export function JobKanban({
           descriptionId="reject-modal-description"
           onClose={closeReject}
         >
-          <h3
+          <ModalTitle
             id="reject-modal-title"
-            className="flex items-center gap-2 font-serif text-lg font-bold text-primary"
+            icon={<UserX className="h-4 w-4" />}
           >
-            <UserX className="h-4 w-4" aria-hidden="true" />
             Reprovar candidatura
-          </h3>
+          </ModalTitle>
           <p
             id="reject-modal-description"
-            className="mt-1 text-sm text-slate-600"
+            className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400"
           >
             {rejectingApplication.fullName} — {rejectingApplication.course}.
             Escolha o motivo padronizado: ele fica registrado para auditoria do
             processo e aparece para o candidato.
           </p>
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="mt-5 flex flex-col gap-1.5">
             <label
               htmlFor="reject-reason-select"
-              className="text-sm font-semibold text-slate-700"
+              className={`${LABEL_CLASS} after:ml-0.5 after:text-danger after:content-['*']`}
             >
               Motivo da reprovação (obrigatório)
             </label>
-            <Select
+            <select
               id="reject-reason-select"
-              className="w-full"
+              className={SELECT_CLASS}
               value={reasonDraft}
               onChange={(e) =>
                 setReasonDraft(e.target.value as RejectionReason | "")
@@ -781,17 +1531,14 @@ export function JobKanban({
                   {REJECTION_REASON_LABELS[reason]}
                 </option>
               ))}
-            </Select>
+            </select>
           </div>
           {cardErrors[rejectingApplication.applicationId] !== undefined ? (
-            <p
-              role="alert"
-              className="mt-2 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-            >
+            <ModalError>
               {cardErrors[rejectingApplication.applicationId]}
-            </p>
+            </ModalError>
           ) : null}
-          <div className="mt-4 flex items-center justify-end gap-2">
+          <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
             <Button variant="secondary" onClick={closeReject}>
               <X className="h-4 w-4" aria-hidden="true" />
               Cancelar
@@ -823,47 +1570,48 @@ export function JobKanban({
           descriptionId="interview-modal-description"
           onClose={closePendingMove}
         >
-          <h3
+          <ModalTitle
             id="interview-modal-title"
-            className="flex items-center gap-2 font-serif text-lg font-bold text-primary"
+            icon={<CalendarPlus className="h-4 w-4" />}
           >
-            <CalendarPlus className="h-4 w-4" aria-hidden="true" />
             Agendar entrevista
-          </h3>
+          </ModalTitle>
           <p
             id="interview-modal-description"
-            className="mt-1 text-sm text-slate-600"
+            className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400"
           >
             {pendingApplication.fullName} — {pendingApplication.course}. Data,
             hora e link/local ficam registrados para auditoria do processo
             seletivo; a mudança só acontece após salvar.
           </p>
-          <div className="mt-3 flex flex-col gap-3">
-            <Input
-              label="Data da entrevista"
-              type="date"
-              required
-              value={interviewDraft.date}
-              onChange={(e) =>
-                setInterviewDraft((draft) => ({
-                  ...draft,
-                  date: e.target.value,
-                }))
-              }
-            />
-            <Input
-              label="Hora da entrevista"
-              type="time"
-              required
-              value={interviewDraft.time}
-              onChange={(e) =>
-                setInterviewDraft((draft) => ({
-                  ...draft,
-                  time: e.target.value,
-                }))
-              }
-            />
-            <Input
+          <div className="mt-5 flex flex-col gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField
+                label="Data da entrevista"
+                type="date"
+                required
+                value={interviewDraft.date}
+                onChange={(e) =>
+                  setInterviewDraft((draft) => ({
+                    ...draft,
+                    date: e.target.value,
+                  }))
+                }
+              />
+              <TextField
+                label="Hora da entrevista"
+                type="time"
+                required
+                value={interviewDraft.time}
+                onChange={(e) =>
+                  setInterviewDraft((draft) => ({
+                    ...draft,
+                    time: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <TextField
               label="Link ou local da entrevista"
               type="text"
               required
@@ -879,14 +1627,11 @@ export function JobKanban({
             />
           </div>
           {cardErrors[pendingApplication.applicationId] !== undefined ? (
-            <p
-              role="alert"
-              className="mt-3 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-            >
+            <ModalError>
               {cardErrors[pendingApplication.applicationId]}
-            </p>
+            </ModalError>
           ) : null}
-          <div className="mt-4 flex items-center justify-end gap-2">
+          <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
             <Button variant="secondary" onClick={closePendingMove}>
               <X className="h-4 w-4" aria-hidden="true" />
               Cancelar
@@ -920,23 +1665,22 @@ export function JobKanban({
           descriptionId="hire-modal-description"
           onClose={closePendingMove}
         >
-          <h3
+          <ModalTitle
             id="hire-modal-title"
-            className="flex items-center gap-2 font-serif text-lg font-bold text-primary"
+            icon={<UserCheck className="h-4 w-4" />}
           >
-            <UserCheck className="h-4 w-4" aria-hidden="true" />
             Confirmar contratação
-          </h3>
+          </ModalTitle>
           <p
             id="hire-modal-description"
-            className="mt-1 text-sm text-slate-600"
+            className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400"
           >
             {pendingApplication.fullName} — {pendingApplication.course}. A data
             de início prevista fica registrada para auditoria do processo; o
             card só é aprovado após salvar.
           </p>
-          <div className="mt-3">
-            <Input
+          <div className="mt-5">
+            <TextField
               label="Data de início prevista"
               type="date"
               required
@@ -945,14 +1689,11 @@ export function JobKanban({
             />
           </div>
           {cardErrors[pendingApplication.applicationId] !== undefined ? (
-            <p
-              role="alert"
-              className="mt-3 rounded border border-danger bg-white px-3 py-2 text-sm text-danger"
-            >
+            <ModalError>
               {cardErrors[pendingApplication.applicationId]}
-            </p>
+            </ModalError>
           ) : null}
-          <div className="mt-4 flex items-center justify-end gap-2">
+          <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
             <Button variant="secondary" onClick={closePendingMove}>
               <X className="h-4 w-4" aria-hidden="true" />
               Cancelar
@@ -971,6 +1712,6 @@ export function JobKanban({
           </div>
         </Modal>
       ) : null}
-    </Card>
+    </div>
   );
 }

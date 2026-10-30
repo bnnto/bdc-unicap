@@ -14,6 +14,7 @@ import {
   CONTRACT_LABELS,
   formatSalaryRange,
   type ContractType,
+  isVerifiablePrerequisite
 } from "../../lib/job";
 import {
   DEFAULT_JOB_FILTERS,
@@ -154,12 +155,10 @@ export function JobOpportunities() {
     filters.minSalary !== null ||
     filters.minMatch !== null;
 
-  // [S3-5] Bloqueio da UI: pré-requisitos obrigatórios faltando
-  // (mesma regra pura do servidor — a fonte da verdade continua lá).
   function missingPrerequisitesFor(job: OpenJob): string[] {
     if (!hasProfile) return [];
     return checkRequiredPrerequisites(
-      { prerequisites: job.prerequisites },
+      { prerequisites: job.prerequisites.filter(isVerifiablePrerequisite) },
       profile?.skills ?? [],
     ).missing;
   }
@@ -412,20 +411,28 @@ export function JobOpportunities() {
                   className="flex flex-wrap gap-2"
                   aria-label="Pré-requisitos"
                 >
-                  {job.prerequisites.map((p, i) => (
-                    <li key={`${p.item}-${i}`}>
-                      <span
-                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
-                          p.required
-                            ? "border-primary bg-[#FDF2F4] text-primary"
-                            : "border-secondary bg-white text-slate-700"
-                        }`}
-                      >
-                        {p.item}
-                        {p.required ? " · obrigatório" : " · opcional"}
-                      </span>
-                    </li>
-                  ))}
+                  {job.prerequisites.map((p, i) => {
+                    const verifiable = isVerifiablePrerequisite(p);
+                    const blocking = verifiable && p.required;
+                    return (
+                      <li key={`${p.item}-${i}`}>
+                        <span
+                          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+                            blocking
+                              ? "border-primary bg-[#FDF2F4] text-primary"
+                              : "border-secondary bg-white text-slate-700"
+                          }`}
+                        >
+                          {p.item}
+                          {!verifiable
+                            ? " · informativo"
+                            : p.required
+                              ? " · obrigatório"
+                              : " · opcional"}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 {blocked ? (

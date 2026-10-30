@@ -56,7 +56,7 @@ type ComboboxProps = {
  * direita, altura h-10, cantos rounded-xl.
  */
 const COMBOBOX_INPUT_CLASS =
-  "w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_0.75rem_center] bg-[size:1rem_1rem] h-11 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60";
+  "dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:border-white/20 dark:focus:ring-offset-[#0f1218] w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_0.75rem_center] bg-[size:1rem_1rem] h-11 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60";
 
 export function Combobox({
   ariaLabel,
@@ -217,6 +217,8 @@ export function Combobox({
         onBlur={(event) => {
           if (!rootRef.current?.contains(event.relatedTarget)) {
             setOpen(false);
+            // Texto que não é um termo oficial não fica na tela parecendo escolhido.
+            setQuery(lastEmitted.current);
           }
         }}
         className={COMBOBOX_INPUT_CLASS}
@@ -226,7 +228,7 @@ export function Combobox({
           id={listId}
           role="listbox"
           aria-label={ariaLabel}
-          className="absolute inset-x-0 top-[calc(100%+8px)] z-50 max-h-60 overflow-auto rounded-2xl border border-transparent bg-white p-1.5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.15),0_0_0_1px_rgba(15,23,42,0.06)]"
+          className="absolute inset-x-0 top-[calc(100%+8px)] z-50 max-h-60 overflow-auto rounded-2xl border border-transparent bg-white p-1.5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.15),0_0_0_1px_rgba(15,23,42,0.06)] dark:bg-[#171b22] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)]"
         >
           {visibleItems.length === 0 ? (
             <li
@@ -263,8 +265,8 @@ export function Combobox({
                     onMouseEnter={() => setActive(flatIndex)}
                     className={`cursor-pointer select-none rounded-xl px-3 py-2 text-sm ${
                       flatIndex === trimmedActive
-                        ? "bg-[#FDF2F4] text-primary"
-                        : "text-slate-900"
+                        ? "bg-[#FDF2F4] text-primary dark:bg-white/5"
+                        : "text-slate-900 dark:text-slate-200"
                     }`}
                   >
                     {item}
