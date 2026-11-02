@@ -97,7 +97,13 @@ export function CustomSelect({
 
   return (
     <div className={`relative flex flex-col gap-1.5 ${className}`} ref={ref}>
-      {label ? <span className="text-xs font-medium text-slate-500">{label}</span> : null}
+      {/* Mesmo estilo do LABEL_CLASS (jobsUi) usado pelo TextField e pelos
+          demais campos, para os rótulos ficarem na mesma altura/peso. */}
+      {label ? (
+        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+          {label}
+        </span>
+      ) : null}
       <button
         type="button"
         aria-haspopup="listbox"

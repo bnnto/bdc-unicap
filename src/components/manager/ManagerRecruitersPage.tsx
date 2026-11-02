@@ -162,7 +162,7 @@ export function ManagerRecruitersPage() {
 
   return (
     <section aria-label="Recrutadores" className="flex flex-col gap-8 pb-16 pt-6">
-      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+      <header className="rise flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
         <div className="min-w-0 max-w-2xl">
           <h2 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
             Recrutadores
@@ -220,23 +220,26 @@ export function ManagerRecruitersPage() {
           })}
         </div>
       </header>
-      <div key={filter} className="view-enter">
+      <div key={filter}>
         {rows === undefined ? (
           <ListSkeleton />
         ) : rows.length === 0 ? (
-          <EmptyState
-            icon={UserCheck}
-            title="Nenhum recrutador nesta lista"
-            description="Quando alguém se cadastrar como recrutador, o pedido aparece aqui para a sua decisão."
-          />
+          <div className="rise [animation-delay:200ms]">
+            <EmptyState
+              icon={UserCheck}
+              title="Nenhum recrutador nesta lista"
+              description="Quando alguém se cadastrar como recrutador, o pedido aparece aqui para a sua decisão."
+            />
+          </div>
         ) : (
           <ul className="flex flex-col gap-4" aria-label="Recrutadores">
-            {rows.map((row) => {
+            {rows.map((row, index) => {
               const badge = STATUS_BADGE[row.status];
               return (
                 <li
                   key={row.userId}
-                  className={`${SURFACE} flex flex-col gap-5 p-6 [overflow-wrap:anywhere] lg:flex-row lg:items-center lg:justify-between`}
+                  className={`rise ${SURFACE} flex flex-col gap-5 p-6 [overflow-wrap:anywhere] lg:flex-row lg:items-center lg:justify-between`}
+                  style={{ animationDelay: `${200 + Math.min(index, 6) * 130}ms` }}
                 >
                   <div className="flex min-w-0 items-start gap-4">
                     <span

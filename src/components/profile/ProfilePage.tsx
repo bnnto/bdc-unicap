@@ -75,7 +75,7 @@ const NAV_ITEM =
   "transition-[color,background-color,transform] duration-[300ms] ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:duration-150 motion-reduce:[transition-property:color,background-color] motion-reduce:active:scale-100";
 
 const NAV_INDICATOR =
-  "transition-[transform,width,height] duration-[300ms] ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none";
+  "transition-[transform,width,height] duration-[450ms] ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none";
 
 type ThemeTransitionKind = "circle" | "wipe" | "diagonal" | "fade";
 

@@ -329,7 +329,10 @@ export function JobsPanel({
       />
 
       {jobs !== undefined && jobs.length > 0 ? (
-        <div className="jb-fade mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div
+          className="jb-rise mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4"
+          style={{ animationDelay: "200ms" }}
+        >
           <StatTile label="Total de vagas" value={total} />
           <StatTile label="Abertas" value={openCount} dot="bg-emerald-500" />
           <StatTile label="Fechadas" value={closedCount} dot="bg-amber-500" />
@@ -345,7 +348,7 @@ export function JobsPanel({
         <JobsSkeleton />
       ) : jobs.length === 0 ? (
         /* [UX-P3] H4-2 — empty state com CTA real (não só instrução textual). */
-        <div className={`${SURFACE} px-6 py-10`}>
+        <div className={`jb-fade ${SURFACE} px-6 py-10`}>
           <EmptyState
             icon={Plus}
             title="Nenhuma vaga publicada ainda"
@@ -366,7 +369,7 @@ export function JobsPanel({
               <li
                 key={job._id}
                 className="jb-rise"
-                style={{ animationDelay: `${Math.min(index, 6) * 35}ms` }}
+                style={{ animationDelay: `${300 + Math.min(index, 6) * 130}ms` }}
               >
                 <article className={`${SURFACE} ${CARD_HOVER} p-6 sm:p-7`}>
                   <div className="flex flex-wrap items-start justify-between gap-4">
@@ -552,7 +555,7 @@ export function JobsPanel({
                     <div
                       role="dialog"
                       aria-labelledby={`confirm-status-${job._id}`}
-                      className="jb-rise mt-5 rounded-2xl border border-amber-500/40 bg-amber-50 p-4 dark:border-amber-400/30 dark:bg-amber-500/10"
+                      className="jb-quick mt-5 rounded-2xl border border-amber-500/40 bg-amber-50 p-4 dark:border-amber-400/30 dark:bg-amber-500/10"
                     >
                       <div className="flex items-start gap-3">
                         <span
@@ -608,7 +611,7 @@ export function JobsPanel({
                     <div
                       role="dialog"
                       aria-labelledby={`confirm-delete-${job._id}`}
-                      className="jb-rise mt-5 rounded-2xl border border-rose-500/40 bg-rose-50 p-4 dark:border-rose-400/30 dark:bg-rose-500/10"
+                      className="jb-quick mt-5 rounded-2xl border border-rose-500/40 bg-rose-50 p-4 dark:border-rose-400/30 dark:bg-rose-500/10"
                     >
                       <div className="flex items-start gap-3">
                         <span

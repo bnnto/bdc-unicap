@@ -125,7 +125,7 @@ const LEGEND_ICON_CLASS =
   "flex h-7 w-7 items-center justify-center rounded-lg bg-[#FDF2F4] text-primary";
 
 const CHIP_REMOVE_CLASS =
-  "inline-flex max-w-[200px] sm:max-w-[280px] items-center gap-1.5 rounded-full bg-[#FDF2F4] py-1 pl-3 pr-2 text-xs font-semibold text-primary ring-1 ring-primary/20 dark:bg-primary/10 dark:text-primary dark:ring-primary/30 hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1";
+  "inline-flex max-w-[200px] sm:max-w-[280px] items-center gap-1.5 rounded-full bg-[#FDF2F4] py-1 pl-3 pr-2 text-xs font-semibold text-primary ring-1 ring-primary/15 hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1";
 
 /**
  * Keyframes locais (curva `cubic-bezier(0.23, 1, 0.32, 1)`, ease-out forte).
@@ -136,12 +136,12 @@ const CHIP_REMOVE_CLASS =
  * Se preferir, mova este bloco para o CSS global ao lado de `.view-enter`.
  */
 const MOTION_CSS = `
-@keyframes ts-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes ts-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes ts-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ts-pop { from { opacity: 0; transform: scale(0.96) translateY(6px); } to { opacity: 1; transform: none; } }
-.ts-rise { animation: ts-rise 260ms cubic-bezier(0.23, 1, 0.32, 1) both; }
-.ts-fade { animation: ts-fade 200ms ease-out both; }
-.ts-pop  { animation: ts-pop 220ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+.ts-rise { animation: ts-rise 1000ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+.ts-fade { animation: ts-fade 400ms ease-out both; }
+.ts-pop  { animation: ts-pop 450ms cubic-bezier(0.23, 1, 0.32, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   .ts-rise, .ts-pop { animation-name: ts-fade; animation-duration: 150ms; }
 }
@@ -1013,7 +1013,7 @@ export function TalentSearchPage() {
       <style>{MOTION_CSS}</style>
 
       {/* 1 — Cabeçalho editorial. */}
-      <header className="mb-8 max-w-2xl">
+      <header className="ts-rise mb-8 max-w-2xl">
         <h2 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
           Banco de Talentos
         </h2>
@@ -1024,7 +1024,10 @@ export function TalentSearchPage() {
       </header>
 
       {/* Barra de busca larga + contagem + limpar. */}
-      <div className={`${SURFACE} relative z-20 mb-8 p-5 sm:p-6`}>
+      <div
+        className={`${SURFACE} ts-rise relative z-20 mb-8 p-5 sm:p-6`}
+        style={{ animationDelay: "200ms" }}
+      >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
           <div className="flex-1">
             <SuperSearch
@@ -1102,7 +1105,7 @@ export function TalentSearchPage() {
               className="flex items-baseline gap-1.5 text-sm text-a11y-slate-600"
               aria-live="polite"
             >
-              <strong className="font-serif text-xl font-bold leading-none tracking-tight tabular-nums text-primary">
+              <strong className="font-serif text-base font-bold leading-none tracking-tight tabular-nums text-primary">
                 {result === undefined ? "…" : result.total}
               </strong>{" "}
               <span className="font-medium">Estudantes Disponíveis</span>
@@ -1136,9 +1139,8 @@ export function TalentSearchPage() {
         <form
           id="talent-filters"
           aria-label="Filtros do Banco de Talentos"
-          className={`${SURFACE} ${
-            filtersOpen ? "ts-pop flex" : "hidden"
-          } flex-col gap-6 p-6 lg:flex`}
+          className={`${SURFACE} ts-rise ${filtersOpen ? "ts-pop flex" : "hidden"} flex-col gap-6 p-6 lg:flex`}
+          style={{ animationDelay: "400ms" }}
           onSubmit={(e) => e.preventDefault()}
         >
           <div className="flex items-center justify-between gap-3">
@@ -1374,7 +1376,10 @@ export function TalentSearchPage() {
 
         {/* Conteúdo principal — chips, ordenação e grid de cards. */}
         <div ref={listTopRef} className="min-w-0 scroll-mt-6">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div
+            className="ts-rise mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-3"
+            style={{ animationDelay: "600ms" }}
+          >
             {activeChips.length > 0 ? (
               <ul
                 data-testid="active-filter-chips"
@@ -1465,7 +1470,7 @@ export function TalentSearchPage() {
                   <li
                     key={talent.studentId}
                     className="ts-rise"
-                    style={{ animationDelay: `${Math.min(index, 7) * 35}ms` }}
+                    style={{ animationDelay: `${300 + Math.min(index, 7) * 130}ms` }}
                   >
                     <TalentCard
                       talent={talent}
@@ -1484,7 +1489,8 @@ export function TalentSearchPage() {
 
               {/* 4 — Rodapé: paginação centralizada. */}
               <nav
-                className="mt-10 flex justify-center"
+                className="ts-rise mt-10 flex justify-center"
+                style={{ animationDelay: "900ms" }}
                 aria-label="Paginação de resultados"
               >
                 <div

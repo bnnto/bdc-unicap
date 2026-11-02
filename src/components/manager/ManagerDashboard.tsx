@@ -82,16 +82,18 @@ function GrowBar({
   percent,
   className,
   testId,
+  delay = 1000,
 }: {
   percent: number;
   className: string;
   testId?: string;
+  delay?: number;
 }) {
   const [progress, setProgress] = useState(0);
   useEffect(() => {
-    const id = requestAnimationFrame(() => setProgress(percent));
-    return () => cancelAnimationFrame(id);
-  }, [percent]);
+    const id = window.setTimeout(() => setProgress(percent), delay);
+    return () => window.clearTimeout(id);
+  }, [percent, delay]);
   return (
     <div
       data-testid={testId}
@@ -177,6 +179,7 @@ function KpiCell({
   testId,
   unit,
   icon,
+  delay = 0,
 }: {
   kpi: {
     value: string | number;
@@ -187,12 +190,14 @@ function KpiCell({
   testId: string;
   unit?: string;
   icon: ReactNode;
+  delay?: number;
 }) {
   const empty = kpi.hasData === false;
   return (
     <div
       data-testid={testId}
-      className="flex flex-col border-t border-slate-100 p-7 first:border-t-0 sm:even:border-l sm:[&:nth-child(2)]:border-t-0 xl:border-l xl:border-t-0 xl:first:border-l-0"
+      className="rise flex flex-col border-t border-slate-100 p-7 first:border-t-0 sm:even:border-l sm:[&:nth-child(2)]:border-t-0 xl:border-l xl:border-t-0 xl:first:border-l-0"
+      style={{ animationDelay: `${delay}ms` }}
     >
       <p className="flex items-center gap-2 text-sm font-medium text-slate-600">
         <span aria-hidden="true" className="text-slate-400">
@@ -270,12 +275,14 @@ function BarRow({
   scale,
   tone,
   testId,
+  delay,
 }: {
   label: string;
-  percent: number;
+  percent: number;  
   scale: number;
   tone: string;
   testId?: string;
+  delay?: number;
 }) {
   return (
     <li>
@@ -290,6 +297,7 @@ function BarRow({
           testId={testId}
           percent={(percent / scale) * 100}
           className={tone}
+          delay={delay}
         />
       </Track>
     </li>
@@ -396,7 +404,7 @@ export function ManagerDashboard() {
       className="space-y-8 px-1 pb-16 pt-6"
     >
       {/* Cabeçalho: título grande, subtítulo curto, exportações à direita. */}
-      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+      <header className="rise flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
         <div className="min-w-0 max-w-3xl">
           <h2 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
             Painel estratégico
@@ -489,6 +497,7 @@ export function ManagerDashboard() {
           kpi={kpis.oportunidades}
           testId="kpi-oportunidades"
           icon={<Briefcase className="h-4 w-4" />}
+          delay={400}
         />
         <KpiCell
           kpi={{
@@ -499,6 +508,7 @@ export function ManagerDashboard() {
           }}
           testId="kpi-empregabilidade"
           icon={<TrendingUp className="h-4 w-4" />}
+          delay={520}
         />
         <KpiCell
           kpi={{
@@ -510,11 +520,13 @@ export function ManagerDashboard() {
           testId="kpi-tempo-contratacao"
           unit={kpis.tempoContratacao.hasData ? "dias" : undefined}
           icon={<Timer className="h-4 w-4" />}
+          delay={640}
         />
         <KpiCell
           kpi={kpis.talentos}
           testId="kpi-talentos"
           icon={<Users className="h-4 w-4" />}
+          delay={760}
         />
       </div>
 
@@ -531,6 +543,7 @@ export function ManagerDashboard() {
             </span>
           }
           footnote="O percentual de cada etapa é relativo à etapa anterior."
+          className="rise [animation-delay:900ms]"
         >
           <ul className="flex flex-col gap-5">
             {funnelSteps.map((step) => (
@@ -558,6 +571,7 @@ export function ManagerDashboard() {
                       step.count === 0 ? 0 : 8,
                       (step.count / maxFunnel) * 100,
                     )}
+                    delay={1300}
                   />
                 </Track>
               </li>
@@ -571,6 +585,7 @@ export function ManagerDashboard() {
           title="Empregabilidade por curso"
           icon={<GraduationCap className="h-5 w-5" />}
           footnote="Taxa = alunos do curso com ao menos uma aprovação ÷ alunos do curso."
+          className="rise [animation-delay:1050ms]"
         >
           {courseEmployability.length === 0 ? (
             <Empty>
@@ -586,6 +601,7 @@ export function ManagerDashboard() {
                   scale={maxCourse}
                   tone="bg-secondary"
                   testId={`course-bar-${index}`}
+                  delay={1450}
                 />
               ))}
             </ul>
@@ -598,6 +614,7 @@ export function ManagerDashboard() {
         label="Empresas parceiras"
         title="Empresas parceiras"
         icon={<Building2 className="h-5 w-5" />}
+        className="rise [animation-delay:1200ms]"
       >
         {partnerCompanies.length === 0 ? (
           <Empty>Ainda não há empresas parceiras no portal.</Empty>
@@ -668,6 +685,7 @@ export function ManagerDashboard() {
           title="Motivos de reprovação"
           icon={<ClipboardList className="h-5 w-5" />}
           description="Onde os alunos mais falham nos processos seletivos."
+          className="rise [animation-delay:1350ms]"
         >
           {rejections.length === 0 ? (
             <Empty>Nenhuma reprovação registrada com os filtros atuais.</Empty>
@@ -680,6 +698,7 @@ export function ManagerDashboard() {
                   percent={row.percent}
                   scale={maxRejection}
                   tone="bg-primary"
+                  delay={1750}
                 />
               ))}
             </ul>
@@ -689,6 +708,7 @@ export function ManagerDashboard() {
         <Panel
           testId="manager-insight-skillgaps"
           label="Radar de competências"
+          className="rise [animation-delay:1500ms]"
           title="Radar de competências"
           icon={<Radar className="h-5 w-5" />}
           description="O que as vagas pedem em comparação ao que os alunos têm. Os maiores gargalos aparecem com demanda muito acima da oferta."
@@ -732,12 +752,14 @@ export function ManagerDashboard() {
                       <GrowBar
                         className="bg-primary"
                         percent={(gap.demand / maxSkill) * 100}
+                        delay={1900}
                       />
                     </Track>
                     <Track height="h-1.5">
                       <GrowBar
                         className="bg-slate-300"
                         percent={(gap.supply / maxSkill) * 100}
+                        delay={1900}
                       />
                     </Track>
                   </div>
@@ -754,6 +776,7 @@ export function ManagerDashboard() {
           icon={<Thermometer className="h-5 w-5" />}
           description="Alunos que precisam de um empurrão para completar o perfil."
           footnote="Perfil completo e currículo publicado são o que mais aumenta as chances de contratação."
+          className="rise [animation-delay:1650ms]"
         >
           <div className="grid grid-cols-2 rounded-2xl bg-slate-50 py-6">
             <div className="px-5 text-center">

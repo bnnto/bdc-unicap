@@ -40,14 +40,18 @@ export const SELECT_CLASS =
  * Keyframes locais (curva ease-out forte). `backwards` (e não `both`) para
  * que o estado final NÃO fique preso por cima de classes como opacity-50.
  * Movimento reduzido vira um fade curto.
+ * - `jb-rise`: entrada lenta (páginas, cards);
+ * - `jb-fade`: fade lento;
+ * - `jb-quick`: entrada rápida (avisos de confirmação inline).
  */
 const MOTION_CSS = `
-@keyframes jb-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes jb-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes jb-fade { from { opacity: 0; } to { opacity: 1; } }
-.jb-rise { animation: jb-rise 260ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
-.jb-fade { animation: jb-fade 200ms ease-out backwards; }
+.jb-rise { animation: jb-rise 1000ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+.jb-fade { animation: jb-fade 900ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
+.jb-quick { animation: jb-rise 300ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
 @media (prefers-reduced-motion: reduce) {
-  .jb-rise { animation-name: jb-fade; animation-duration: 150ms; }
+  .jb-rise, .jb-fade, .jb-quick { animation-name: jb-fade; animation-duration: 200ms; animation-delay: 0ms !important; }
 }
 `;
 
@@ -68,7 +72,7 @@ export function PageHeader({
   leading?: ReactNode;
 }) {
   return (
-    <header className="mb-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+    <header className="jb-rise mb-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
       <div className="min-w-0 max-w-3xl">
         {leading !== undefined ? <div className="mb-4">{leading}</div> : null}
         <h2 className="break-words font-serif text-3xl font-bold leading-[1.1] tracking-tight text-primary sm:text-4xl">

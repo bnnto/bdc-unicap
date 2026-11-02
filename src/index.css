@@ -289,20 +289,50 @@ body {
   outline-color: #ffffff;
 }
 
-/* Conteúdo entra suavemente ao trocar de visão. */
+/* Conteúdo entra devagar ao trocar de visão (global).
+   O contêiner `.view-enter` faz um fade e cada filho direto sobe em cascata,
+   dando tempo para o olho acompanhar. O próprio contêiner NÃO se desloca,
+   então overlays `fixed inset-0` (modais) não deixam faixa na borda: só o
+   fundo some/aparece e o conteúdo de dentro sobe.
+   Para ajustar o ritmo: durações (900ms / 1000ms) e delays abaixo. */
 @keyframes view-enter {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-.view-enter { animation: view-enter 350ms cubic-bezier(0.32, 0.72, 0, 1) both; }
-
 @keyframes view-enter-fade {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-.view-enter { animation: view-enter 600ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+@keyframes view-enter-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.view-enter { animation: view-enter 900ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.view-enter > * {
+  animation: view-enter-rise 1000ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+}
+.view-enter > *:nth-child(1) { animation-delay: 120ms; }
+.view-enter > *:nth-child(2) { animation-delay: 300ms; }
+.view-enter > *:nth-child(3) { animation-delay: 480ms; }
+.view-enter > *:nth-child(4) { animation-delay: 660ms; }
+.view-enter > *:nth-child(n+5) { animation-delay: 840ms; }
 @media (prefers-reduced-motion: reduce) {
   .view-enter { animation-name: view-enter-fade; }
+  .view-enter > *:nth-child(n) {
+    animation-name: view-enter-fade;
+    animation-duration: 200ms;
+    animation-delay: 0ms;
+  }
+}
+
+/* `.rise`: entrada em cascata para qualquer elemento (use junto com
+   `[animation-delay:XXXms]` do Tailwind). Fica em @layer components para
+   os utilitários do Tailwind (como o delay) terem precedência. */
+@layer components {
+  .rise { animation: view-enter-rise 1000ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation-name: view-enter-fade; animation-duration: 200ms; animation-delay: 0ms !important; }
 }
 
 ::view-transition-old(root),

@@ -37,6 +37,7 @@ import { useStableQuery } from "../../../lib/useStableQuery";
  * - Barras percentuais contínuas;
  * - Fontes Serifadas pesadas para títulos;
  * - Remoção do indicador "Ao vivo".
+ * - Entrada gradual: classe global `.rise` + `[animation-delay:...]`.
  */
 
 function startOfLocalDay(now: number): number {
@@ -78,9 +79,11 @@ function GrowBar({
   testId?: string;
 }) {
   const [progress, setProgress] = useState(0);
+  // Espera o painel terminar de aparecer (delay 600ms + subida) antes de
+  // a barra começar a crescer.
   useEffect(() => {
-    const id = requestAnimationFrame(() => setProgress(percent));
-    return () => cancelAnimationFrame(id);
+    const id = window.setTimeout(() => setProgress(percent), 900);
+    return () => window.clearTimeout(id);
   }, [percent]);
   return (
     <div
@@ -170,6 +173,7 @@ function KpiCell({
   icon,
   testId,
   unit,
+  delay = 0,
 }: {
   value: string | number | null;
   label: string;
@@ -177,11 +181,14 @@ function KpiCell({
   icon: ReactNode;
   testId: string;
   unit?: string;
+  /** Atraso (ms) da entrada gradual desta célula. */
+  delay?: number;
 }) {
   return (
     <div
       data-testid={testId}
-      className="flex flex-col border-t border-slate-100 p-7 first:border-t-0 sm:even:border-l sm:[&:nth-child(2)]:border-t-0 xl:border-l xl:border-t-0 xl:first:border-l-0"
+      className="rise flex flex-col border-t border-slate-100 p-7 first:border-t-0 sm:even:border-l sm:[&:nth-child(2)]:border-t-0 xl:border-l xl:border-t-0 xl:first:border-l-0"
+      style={{ animationDelay: `${delay}ms` }}
     >
       <p className="flex items-center gap-2 text-sm font-medium text-slate-600">
         {/* Ícone agora fica em bordô (text-primary) */}
@@ -372,7 +379,7 @@ export function OperationalPanel() {
       aria-label="Dashboard de métricas"
       className="space-y-8 px-1 pb-16 pt-6"
     >
-      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
+      <header className="rise flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
         <div className="min-w-0 max-w-3xl">
           <h2 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
             Dashboard de métricas
@@ -418,7 +425,7 @@ export function OperationalPanel() {
       </header>
 
       <div
-        className={`${SURFACE} flex flex-col gap-4 p-5 transition-opacity duration-200 ${
+        className={`${SURFACE} rise [animation-delay:200ms] flex flex-col gap-4 p-5 transition-opacity duration-200 ${
             refreshing ? "opacity-60" : "opacity-100"
           }`}
         role="group"
@@ -520,6 +527,7 @@ export function OperationalPanel() {
             className={`${SURFACE} grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4`}
         >
             <KpiCell
+                delay={400}
                 value={summary.jobs.open}
                 label="Vagas abertas"
                 hint="recebendo candidaturas"
@@ -527,6 +535,7 @@ export function OperationalPanel() {
                 icon={<Briefcase className="h-4 w-4" />}
             />
             <KpiCell
+                delay={520}
                 value={formatEmployabilityRate(summary.employability.rate)}
                 label="Taxa de empregabilidade"
                 hint="Aprovados sobre finalizados"
@@ -534,6 +543,7 @@ export function OperationalPanel() {
                 icon={<TrendingUp className="h-4 w-4" />}
             />
             <KpiCell
+                delay={640}
                 value={tth?.averageDays ?? null}
                 label="Tempo médio de contratação"
                 hint="Da candidatura ao preenchimento da vaga"
@@ -542,6 +552,7 @@ export function OperationalPanel() {
                 icon={<Timer className="h-4 w-4" />}
             />
              <KpiCell
+                delay={760}
                 value={summary.applications.finalized}
                 label="Resultados finais"
                 hint={`${summary.applications.approved} aprovados · ${summary.applications.rejected} reprovados`}
@@ -556,6 +567,7 @@ export function OperationalPanel() {
                 label="Funil de conversão"
                 title="Funil de conversão"
                 icon={<Filter className="h-5 w-5" />}
+                className="rise [animation-delay:900ms]"
                 aside={
                     <span className="text-sm tabular-nums text-slate-500">
                     {funnel?.totalApplications ?? 0} candidaturas
@@ -602,7 +614,7 @@ export function OperationalPanel() {
                 )}
             </Panel>
             
-            <div className="flex flex-col gap-6">
+            <div className="rise [animation-delay:1100ms] flex flex-col gap-6">
                 <Panel
                     testId="active-ranking-companies"
                     label="Empresas mais ativas"

@@ -26,6 +26,7 @@
   --mn-edge: drop-shadow(0 6px 12px rgb(30 41 59 / 0.1));
   --mn-ease: cubic-bezier(0.32, 0.72, 0, 1);
   --mn-dur: 450ms;
+  --mn-dur-slide: 750ms;
 }
 
 /* ---------- Tema escuro ---------- */
@@ -47,6 +48,7 @@
   --mn-focus: #e9b8c3;
   --mn-ease: cubic-bezier(0.32, 0.72, 0, 1);
   --mn-dur: 450ms;
+  --mn-dur-slide: 750ms;
 }
 
 /* ---------- Estrutura ---------- */
@@ -103,9 +105,9 @@
   background: var(--mn-active-bg);
   overflow: hidden; /* corta a barra de baixo no arredondamento da aba */
   transition:
-    transform var(--mn-dur) var(--mn-ease),
-    width var(--mn-dur) var(--mn-ease),
-    height var(--mn-dur) var(--mn-ease),
+    transform var(--mn-dur-slide) var(--mn-ease),
+    width var(--mn-dur-slide) var(--mn-ease),
+    height var(--mn-dur-slide) var(--mn-ease),
     background-color var(--mn-dur) var(--mn-ease);
 }
 
@@ -189,3 +191,4 @@
 .manager-nav-user[aria-current="page"] {
   background: var(--mn-hover-bg);
 }
+
