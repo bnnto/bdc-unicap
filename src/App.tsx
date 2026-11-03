@@ -23,7 +23,13 @@ import { ManagerDashboard } from "./components/manager/ManagerDashboard";
 import { ROLE_LABELS } from "./lib/roles";
 import { RecruiterApprovalGate } from "./components/recruiter/RecruiterApprovalGate";
 import { PillNavbar } from "./components/nav/PillNavbar";
-import { StudentShell, STUDENT_TABS, type StudentTab } from "./components/student/StudentShell";
+import {
+  StudentShell,
+  StudentPillNavbar,
+  parseStudentTabPath,
+  studentTabPath,
+  type StudentTab,
+} from "./components/student/StudentShell";
 
 /**
  * Shell da aplicação (issue [S1-1]): usuários autenticados veem o painel
@@ -102,7 +108,6 @@ const RECRUITER_TABS: TabDef[] = [
 
 function AuthGate() {
   const { isLoading, isAuthenticated, user, role } = useAuthState();
-  const [studentTab, setStudentTab] = useState<StudentTab>("curriculo");
   const [publicPath, setPublicPath] = useState(() =>
     typeof window === "undefined" ? "/" : window.location.pathname,
   );
@@ -116,6 +121,10 @@ function AuthGate() {
   const activeTab: TabKey = portal.tab;
   const setActiveTab = (tab: TabKey) => navigateTo(portalPath(tab));
 
+  // Aba do aluno vive na URL (/aluno/:aba) → F5 não perde onde ele estava.
+  const studentTab = parseStudentTabPath(publicPath);
+  const setStudentTab = (tab: StudentTab) => navigateTo(studentTabPath(tab));
+
   const sawGuest = useRef(false);
   useEffect(() => {
     if (!isLoading && !isAuthenticated) sawGuest.current = true;
@@ -125,7 +134,6 @@ function AuthGate() {
     if (user === null || !sawGuest.current) return;
     sawGuest.current = false;
     setActiveTab("dashboard");
-    setStudentTab("curriculo");
     navigateTo("/");
   }, [user]);
 
@@ -183,15 +191,10 @@ function AuthGate() {
           userImage={image}
         />
       ) : role === "aluno" ? (
-        <PillNavbar<StudentTab>
-          navLabel="Seções do portal"
-          tabs={STUDENT_TABS.map(({ key, label }) => ({ key, label }))}
+        <StudentPillNavbar
           active={null}
           userActive
-          onChange={(tab) => {
-            setStudentTab(tab);
-            navigateTo("/");
-          }}
+          onChange={setStudentTab}
           userName={name}
           userImage={image}
         />

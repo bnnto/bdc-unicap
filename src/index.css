@@ -346,3 +346,14 @@ body {
 ::view-transition-new(root) {
   z-index: 2;
 }
+
+/* [ALUNO_REDESIGN] Badge de contagem: "pop" curto (começa em 0.7, nunca em 0). */
+@keyframes badge-pop {
+  0%   { transform: scale(0.7); opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.badge-pop { animation: badge-pop 320ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .badge-pop { animation: view-enter-fade 200ms ease-out both; }
+}

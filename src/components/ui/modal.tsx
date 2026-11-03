@@ -82,7 +82,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-primary/40 p-4 [animation:view-enter-fade_250ms_ease-out_both]"
       onMouseDown={(e) => {
         // Clique no backdrop fecha (não no conteúdo do diálogo).
         if (e.target === e.currentTarget) onClose();
@@ -95,7 +95,7 @@ export function Modal({
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         tabIndex={-1}
-        className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-level1 focus:outline-none"
+        className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-level1 focus:outline-none [animation:view-enter-rise_380ms_cubic-bezier(0.23,1,0.32,1)_both] motion-reduce:[animation-name:view-enter-fade]"
       >
         {children}
       </div>

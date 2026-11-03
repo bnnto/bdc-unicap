@@ -1,34 +1,99 @@
 /**
  * [REFACTOR_ALUNO Etapa 2] — Página "Meu Currículo": layout de duas
- * colunas inspirado na referência visual (stitch — edição de currículo):
- * sidebar sticky à esquerda (foto/iniciais, nome, curso, toggle de
- * visibilidade no Banco de Talentos e navegação rápida por âncoras) e
- * conteúdo à direita com os 7 blocos do formulário + visualização/exportação
- * do PDF (Etapa 2.3 — crítica).
+ * colunas: sidebar sticky à esquerda (foto/iniciais, nome, curso e os
+ * controles de privacidade do Banco de Talentos) e conteúdo à direita com
+ * os 7 blocos do formulário + visualização/exportação do PDF.
+ *
+ * [UI_REDESIGN] Sidebar na mesma linguagem do ResumeForm (superfície,
+ * curvas e ritmo de movimento da ProfilePage). A "Navegação rápida" por
+ * âncoras saiu: o ResumeForm agora tem navegação própria com indicador
+ * deslizante, scroll-spy e progresso por bloco.
  *
  * Container full-width max-w-[1440px] (Etapa 1.2). O landmark main
  * continua único no App — daqui sai apenas <section>/<aside>/<div>.
  */
+import {
+  useLayoutEffect,
+  useRef,
+  type ElementType,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { ResumeForm } from "./ResumeForm";
 import { ResumeDownload } from "./ResumeDownload";
-import { CheckCircle2, Eye, FileDown, XCircle } from "lucide-react";
+import {
+  EyeOff,
+  FileDown,
+  Globe,
+  GraduationCap,
+  Lock,
+  Mail,
+  User,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { friendlyErrorMessage } from "../../lib/toastMessages";
 import { useAuthState } from "../auth/authContext";
 
-/** Âncoras dos 7 blocos do formulário (navegação rápida da sidebar). */
-const SECTION_LINKS: Array<{ href: string; label: string; index: number }> = [
-  { href: "#bloco-pessoais", label: "1. Dados Pessoais & Apresentação", index: 0 },
-  { href: "#bloco-academico", label: "2. Formação Institucional UNICAP", index: 1 },
-  { href: "#bloco-links", label: "3. Links & Portfólio", index: 2 },
-  { href: "#bloco-competencias", label: "4. Competências (Skills)", index: 3 },
-  { href: "#bloco-idiomas", label: "5. Idiomas & Proficiência", index: 4 },
-  { href: "#bloco-experiencias", label: "6. Experiências & Extensão", index: 5 },
-  { href: "#bloco-certificacoes", label: "7. Certificações & Atividades", index: 6 },
-];
+/* ==========================================================================
+   Tokens (espelham os do ResumeForm / ProfilePage)
+   ========================================================================== */
+
+const SURFACE =
+  "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+
+const EASE = "ease-[cubic-bezier(0.32,0.72,0,1)]";
+const EASE_OUT = "ease-[cubic-bezier(0.23,1,0.32,1)]";
+
+/** Troca de ícone: opacidade + escala + blur leve (nunca scale(0)). */
+const ICON_SWAP = `col-start-1 row-start-1 h-5 w-5 transition-[opacity,transform,scale,filter] duration-300 ${EASE_OUT} motion-reduce:[transition-property:opacity]`;
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/**
+ * Entrada pontual (WAAPI): opacidade + subida curta + escala a partir de
+ * 0.985. Reduced motion → só um fade curto.
+ */
+type EnterProps = HTMLAttributes<HTMLElement> & {
+  as?: ElementType;
+  delay?: number;
+  y?: number;
+};
+
+function Enter({ as: Tag = "div", delay = 0, y = 10, ...rest }: EnterProps) {
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el === null || typeof el.animate !== "function") return;
+    const reduce = prefersReducedMotion();
+    const animation = el.animate(
+      reduce
+        ? [{ opacity: 0 }, { opacity: 1 }]
+        : [
+            { opacity: 0, transform: `translateY(${y}px) scale(0.985)` },
+            { opacity: 1, transform: "translateY(0) scale(1)" },
+          ],
+      {
+        duration: reduce ? 150 : 380,
+        delay: reduce ? 0 : delay,
+        easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+        fill: "backwards",
+      },
+    );
+    return () => animation.cancel();
+    // Só na montagem.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <Tag ref={ref} {...rest} />;
+}
 
 /** Iniciais do avatar: primeira + última palavra (sem foto externa). */
 function initialsOf(name: string): string {
@@ -39,51 +104,104 @@ function initialsOf(name: string): string {
   return (first + last).toUpperCase();
 }
 
-/** Avalia se um bloco específico está preenchido com base nos dados do perfil */
-function isBlockFilled(profile: Doc<"students"> | null | undefined, blockIndex: number): boolean {
-  if (!profile) return false;
+/* ==========================================================================
+   Componentes de apresentação
+   ========================================================================== */
 
-  const resume = profile.resumeData;
+/**
+ * Linha de privacidade: ícone que troca conforme o estado, switch nativo
+ * (`<input type="checkbox" role="switch">` — teclado e leitor de tela de
+ * graça) e a explicação do estado atual, que entra com um fade curto.
+ */
+function SwitchRow({
+  labelId,
+  label,
+  checked,
+  disabled,
+  onChange,
+  iconOn: IconOn,
+  iconOff: IconOff,
+  children,
+}: {
+  labelId: string;
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (next: boolean) => void;
+  iconOn: LucideIcon;
+  iconOff: LucideIcon;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <label
+        className={`flex items-center justify-between gap-4 ${
+          disabled ? "cursor-not-allowed" : "cursor-pointer"
+        }`}
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span
+            aria-hidden="true"
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-[background-color,color] duration-[450ms] ${EASE} ${
+              checked
+                ? "bg-[#FDF2F4] text-primary"
+                : "bg-slate-100 text-slate-500"
+            }`}
+          >
+            <IconOn
+              className={`${ICON_SWAP} ${
+                checked ? "opacity-100" : "scale-75 opacity-0 blur-[2px]"
+              }`}
+            />
+            <IconOff
+              className={`${ICON_SWAP} ${
+                checked ? "scale-75 opacity-0 blur-[2px]" : "opacity-100"
+              }`}
+            />
+          </span>
+          <span
+            id={labelId}
+            className="text-sm font-semibold leading-snug text-slate-900"
+          >
+            {label}
+          </span>
+        </span>
 
-  switch (blockIndex) {
-    case 0: // Pessoais
-      // Para o Bloco 1, verificamos se tem headline e summary. Os dados pessoais
-      // básicos vêm do perfil que sempre existe se chegamos aqui, mas o
-      // currículo só é "valido" se a apresentação foi feita.
-      return !!(resume && resume.headline.trim() && resume.summary.trim());
-    
-    case 1: // Acadêmico
-      // CORREÇÃO: O curso principal da UNICAP (profile.course) já conta como 
-      // formação acadêmica! Não é obrigatório ter histórico adicional.
-      return !!(profile.course || (resume && resume.academicHistory && resume.academicHistory.length > 0));
-      
-    case 2: // Links
-      // Verifica links salvos no perfil ou no currículo (legacy)
-      return !!(
-        profile.linkedinUrl || 
-        profile.portfolioUrl || 
-        (resume && resume.links && (resume.links.github || resume.links.lattes))
-      );
-      
-    case 3: // Competências
-      return !!(profile.skills && profile.skills.length > 0);
-      
-    case 4: // Idiomas
-      return !!(profile.languages && profile.languages.length > 0);
-      
-    case 5: // Experiências
-      return !!(
-        resume && 
-        ((resume.experiences && resume.experiences.length > 0) || 
-         (resume.projectsText && resume.projectsText.trim()))
-      );
-      
-    case 6: // Certificações
-      return !!(resume && resume.certifications && resume.certifications.length > 0);
-      
-    default:
-      return false;
-  }
+        <span className="relative shrink-0">
+          <input
+            type="checkbox"
+            role="switch"
+            aria-labelledby={labelId}
+            checked={checked}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.checked)}
+            className="peer sr-only"
+          />
+          <span
+            aria-hidden="true"
+            className={`block h-7 w-12 rounded-full bg-slate-300 transition-colors duration-[450ms] ${EASE} peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-disabled:opacity-50 after:absolute after:left-0.5 after:top-0.5 after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-[450ms] after:content-[''] after:ease-[cubic-bezier(0.32,0.72,0,1)] peer-checked:after:translate-x-5 motion-reduce:after:transition-none`}
+          />
+        </span>
+      </label>
+      <Enter
+        as="p"
+        key={String(checked)}
+        y={3}
+        className="mt-3 text-xs leading-relaxed text-slate-500"
+      >
+        {children}
+      </Enter>
+    </div>
+  );
+}
+
+function ProfileMeta({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      {children}
+    </span>
+  );
 }
 
 export function ResumeBuilderPage() {
@@ -117,213 +235,211 @@ export function ResumeBuilderPage() {
   }
 
   const { user } = useAuthState();
+  const bannerUrl = useQuery(
+    api.students.myBannerUrl,
+    profile ? {} : "skip",
+  );
+  const switchesDisabled = profile === undefined || profile === null;
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-6 py-6">
+    <div className="mx-auto w-full max-w-[1440px] px-6 pb-20 pt-8 sm:px-8">
       {/* Cabeçalho da página (h1 único da tela). */}
-      <div className="mb-6 border-b border-slate-200 pb-4">
-        <h1 className="font-serif text-3xl font-bold text-primary">
+      <Enter as="header" y={8} className="mb-8">
+        <h1 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
           Meu Currículo
         </h1>
-        <p className="mt-1 max-w-3xl text-sm text-slate-600">
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
           Mantenha seus dados acadêmicos, técnicos e projetos atualizados. O PDF
           gerado é o espelho exato desta tela, cores, colunas e identidade
           UNICAP preservadas na impressão.
         </p>
-      </div>
+      </Enter>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]">
         {/* SIDEBAR — fixa/sticky na rolagem (Etapa 2.1). */}
-        <aside className="space-y-4 lg:col-span-4 lg:sticky lg:top-24">
-          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-level1">
-            <div className="h-16 bg-gradient-to-r from-primary via-[#8a1c31] to-primary" />
-            <div className="relative -mt-8 flex flex-col items-center px-6 pb-6 text-center">
-              <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-[#FDF2F4] font-serif text-2xl font-bold text-primary shadow-level1">
-                {user?.image ? (
-                  <img
-                    src={user.image}
-                    alt="Sua foto de perfil"
-                    className="h-full w-full object-cover"
-                  />
-                ) : profile === undefined || profile === null ? (
-                  "…"
+        <aside className="flex flex-col gap-6 lg:sticky lg:top-24">
+          {/* Cartão de identidade. */}
+          <Enter delay={60}>
+            <section className={`${SURFACE} overflow-hidden`}>
+              <div
+                aria-hidden="true"
+                className="relative h-24 overflow-hidden bg-[linear-gradient(120deg,#4f0d1c,#6b1426_45%,#8f2238)]"
+              >
+                {bannerUrl ? (
+                  <Enter key={bannerUrl} y={0} className="absolute inset-0">
+                    <img
+                      src={bannerUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </Enter>
                 ) : (
-                  initialsOf(profile.fullName)
+                  <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(closest-side,rgba(200,157,60,0.32),transparent)]" />
                 )}
-              </span>
-              {profile === undefined ? (
-                <p
-                  className="mt-3 text-sm text-slate-500"
-                  role="status"
-                  aria-live="polite"
-                >
-                  Carregando perfil…
-                </p>
-              ) : profile === null ? (
-                /* [ONBOARDING_RECOVERY] conta nova: sem beco sem saída — o
-                   próprio Bloco 1 do currículo cria o perfil (upsert). */
-                <p className="mt-3 text-sm text-slate-600">
-                  Perfil novo: preencha o Bloco 1 (Dados Pessoais) abaixo e
-                  salve — seus dados ficam por aqui, direto no currículo.
-                </p>
-              ) : (
-                <>
-                  <h2 className="mt-3 font-serif text-lg font-bold text-primary">
-                    {profile.fullName}
-                  </h2>
-                  <p className="text-sm font-semibold text-slate-700">
-                    {profile.course}
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    {profile.semester !== undefined && profile.semester !== null
-                      ? `${profile.semester}º semestre · `
-                      : ""}
-                    Conclusão {profile.graduationYear}
-                  </p>
-                  <p className="mt-2 rounded bg-slate-100 px-2 py-1 font-mono text-xs text-slate-600">
-                    Matrícula {profile.enrollment}
-                  </p>
-                </>
-              )}
-            </div>
-          </section>
+              </div>
+              <div className="relative -mt-12 flex flex-col items-center px-6 pb-7 text-center">
+                {/* Avatar com aro bordô e dourado (igual ao da ProfilePage). */}
+                <div className="rounded-full bg-[conic-gradient(from_200deg,#6b1426,#c89d3c,#6b1426)] p-[3px]">
+                  <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-[#FDF2F4] font-serif text-3xl font-bold text-primary ring-4 ring-white dark:ring-[#171b22]">
+                    {user?.image ? (
+                      <img
+                        src={user.image}
+                        alt="Sua foto de perfil"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : profile === undefined || profile === null ? (
+                      "…"
+                    ) : (
+                      initialsOf(profile.fullName)
+                    )}
+                  </span>
+                </div>
 
-          {/* Toggle de visibilidade (R2) — Público vs Privado. */}
-          <section className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1">
-            <label className="flex cursor-pointer items-center justify-between gap-3">
-              <span
-                id="visibility-switch-label"
-                className="text-sm font-semibold text-slate-700"
-              >
-                Visibilidade no Banco de Talentos
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                aria-labelledby="visibility-switch-label"
+                {profile === undefined ? (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className="mt-4 flex w-full flex-col items-center gap-2"
+                  >
+                    <span className="sr-only">Carregando perfil…</span>
+                    <div className="h-5 w-40 animate-pulse rounded-full bg-slate-100 motion-reduce:animate-none" />
+                    <div className="h-4 w-28 animate-pulse rounded-full bg-slate-100 motion-reduce:animate-none" />
+                  </div>
+                ) : profile === null ? (
+                  /* [ONBOARDING_RECOVERY] conta nova: sem beco sem saída — o
+                     próprio Bloco 1 do currículo cria o perfil (upsert). */
+                  <p className="mt-4 text-sm leading-relaxed text-slate-600">
+                    Perfil novo: preencha o Bloco 1 (Dados Pessoais) abaixo e
+                    salve — seus dados ficam por aqui, direto no currículo.
+                  </p>
+                ) : (
+                  <Enter y={6} className="mt-4 flex flex-col items-center">
+                    <h2 className="break-words font-serif text-xl font-bold leading-tight tracking-tight text-slate-900">
+                      {profile.fullName}
+                    </h2>
+                    <p className="mt-1 text-sm font-semibold text-primary">
+                      {profile.course}
+                    </p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      <ProfileMeta icon={GraduationCap}>
+                        {profile.semester !== undefined &&
+                        profile.semester !== null
+                          ? `${profile.semester}º semestre · `
+                          : ""}
+                        Conclusão {profile.graduationYear}
+                      </ProfileMeta>
+                      <ProfileMeta icon={User}>
+                        Matrícula{" "}
+                        <span className="tabular-nums">
+                          {profile.enrollment}
+                        </span>
+                      </ProfileMeta>
+                    </div>
+                  </Enter>
+                )}
+              </div>
+            </section>
+          </Enter>
+
+          {/* Privacidade (R2) — Público vs Privado + consentimento de contato. */}
+          <Enter delay={120}>
+            <section
+              aria-label="Privacidade do currículo"
+              className={`${SURFACE} flex flex-col gap-6 p-6`}
+            >
+              <SwitchRow
+                labelId="visibility-switch-label"
+                label="Visibilidade no Banco de Talentos"
                 checked={isPublic}
-                disabled={profile === undefined || profile === null}
-                onChange={(event) =>
-                  void handleVisibility(
-                    event.target.checked ? "publico" : "somente_candidaturas",
-                  )
+                disabled={switchesDisabled}
+                onChange={(next) =>
+                  void handleVisibility(next ? "publico" : "somente_candidaturas")
                 }
-                className="relative h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-slate-300 checked:bg-primary transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:content-[''] checked:after:translate-x-5"
-              />
-            </label>
-            <p className="mt-2 text-xs text-slate-500">
-              {isPublic ? (
-                <>
-                  <strong className="text-primary">Público:</strong> seu currículo
-                  aparece nas buscas do banco de talentos.
-                </>
-              ) : (
-                <>
-                  <strong className="text-primary">Privado:</strong> visível apenas a
-                  recrutadores de vagas em que você é candidato.
-                </>
-              )}
-            </p>
-
-            <hr className="my-4 border-slate-200" />
-
-            <label className="flex cursor-pointer items-center justify-between gap-3">
-              <span
-                id="contact-switch-label"
-                className="text-sm font-semibold text-slate-700"
+                iconOn={Globe}
+                iconOff={Lock}
               >
-                Permitir contato de recrutadores
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                aria-labelledby="contact-switch-label"
-                checked={showContact}
-                disabled={profile === undefined || profile === null}
-                onChange={(event) => void handleContactConsent(event.target.checked)}
-                className="relative h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-slate-300 checked:bg-primary transition-colors after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:content-[''] checked:after:translate-x-5"
-              />
-            </label>
-            <p className="mt-2 text-xs text-slate-500">
-              {showContact ? (
-                <>
-                  <strong className="text-primary">Autorizado:</strong> recrutadores
-                  podem ver seu e-mail e enviar convites por e-mail pelo portal.
-                </>
-              ) : (
-                <>
-                  <strong className="text-primary">Não autorizado:</strong> seu e-mail
-                  fica oculto e você não recebe convites.
-                </>
-              )}
-            </p>
-          </section>
+                {isPublic ? (
+                  <>
+                    <strong className="font-semibold text-primary">
+                      Público:
+                    </strong>{" "}
+                    seu currículo aparece nas buscas do banco de talentos.
+                  </>
+                ) : (
+                  <>
+                    <strong className="font-semibold text-primary">
+                      Privado:
+                    </strong>{" "}
+                    visível apenas a recrutadores de vagas em que você é
+                    candidato.
+                  </>
+                )}
+              </SwitchRow>
 
-          {/* Navegação rápida por âncoras (menu do formulário com indicadores). */}
-          <nav
-            aria-label="Navegação rápida do currículo"
-            className="rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
-          >
-            <p className="mb-2 font-serif text-xs font-bold uppercase tracking-wider text-slate-500">
-              Navegação rápida do currículo
-            </p>
-            <ul className="flex flex-col gap-1 text-sm">
-              {SECTION_LINKS.map((link) => {
-                const filled = isBlockFilled(profile, link.index);
-                return (
-                  <li key={link.href}>
-                    <a
-                      href={link.href}
-                      className="group flex items-center justify-between gap-2 rounded px-2 py-1.5 text-slate-700 transition-colors hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-300 dark:hover:bg-primary/25 dark:hover:text-white"
-                    >
-                      <span className="truncate">{link.label}</span>
-                      <span className="shrink-0" aria-hidden="true">
-                        {filled ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-500 group-hover:text-emerald-600 transition-colors" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400 transition-colors" />
-                        )}
-                      </span>
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+              <div className="border-t border-slate-100 pt-6">
+                <SwitchRow
+                  labelId="contact-switch-label"
+                  label="Permitir contato de recrutadores"
+                  checked={showContact}
+                  disabled={switchesDisabled}
+                  onChange={(next) => void handleContactConsent(next)}
+                  iconOn={Mail}
+                  iconOff={EyeOff}
+                >
+                  {showContact ? (
+                    <>
+                      <strong className="font-semibold text-primary">
+                        Autorizado:
+                      </strong>{" "}
+                      recrutadores podem ver seu e-mail e enviar convites por
+                      e-mail pelo portal.
+                    </>
+                  ) : (
+                    <>
+                      <strong className="font-semibold text-primary">
+                        Não autorizado:
+                      </strong>{" "}
+                      seu e-mail fica oculto e você não recebe convites.
+                    </>
+                  )}
+                </SwitchRow>
+              </div>
+            </section>
+          </Enter>
         </aside>
 
         {/* CONTEÚDO — os 7 blocos + exportação (Etapa 2.2/2.3). */}
-        <div className="space-y-6 lg:col-span-8">
+        <div className="flex min-w-0 flex-col gap-6">
           <ResumeForm />
-          <section
+          <Enter
+            as="section"
             id="bloco-exportar"
-            className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8 shadow-level1 transition-all duration-300 ease-in-out hover:shadow-level2"
+            aria-labelledby="exportar-heading"
+            className={`${SURFACE} scroll-mt-44 p-6 sm:p-8`}
           >
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-start gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"
-                  >
-                    <FileDown className="h-5 w-5" strokeWidth={2} />
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="flex items-center gap-2 font-serif text-lg font-bold text-primary">
-                      <Eye className="h-4 w-4" aria-hidden="true" />
-                      Visualizador e Exportação PDF
-                    </h2>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      Confira a prévia final e baixe em PDF.
-                    </p>
-                  </div>
-                </div>
+            <div className="flex items-start gap-4">
+              <span
+                aria-hidden="true"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FDF2F4] text-primary"
+              >
+                <FileDown className="h-6 w-6" strokeWidth={2} />
+              </span>
+              <div className="min-w-0">
+                <h2
+                  id="exportar-heading"
+                  className="font-serif text-xl font-bold leading-tight tracking-tight text-slate-900 sm:text-2xl"
+                >
+                  Visualizador e Exportação PDF
+                </h2>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+                  Confira a prévia final e baixe em PDF.
+                </p>
               </div>
             </div>
-            <div className="mt-6">
+            <div className="mt-7">
               <ResumeDownload />
             </div>
-          </section>
+          </Enter>
         </div>
       </div>
     </div>

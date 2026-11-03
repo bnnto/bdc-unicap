@@ -1,4 +1,14 @@
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ElementType,
+  type FormEvent,
+  type HTMLAttributes,
+  type ReactNode,
+} from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
@@ -44,20 +54,67 @@ import {
   type ResumeBlockData,
 } from "./resumeBlocks";
 import {
+  AlertTriangle,
   Award,
   Briefcase,
+  Check,
   Code,
   GraduationCap,
   Languages,
   Link2,
+  Loader2,
   Pencil,
   Plus,
   Save,
+  Sparkles,
   Trash2,
   User,
   X,
   type LucideIcon,
 } from "lucide-react";
+import { createPortal } from "react-dom";
+import { CustomSelect } from "../ui/CustomSelect";
+
+/* ==========================================================================
+   Tokens de design e movimento
+   --------------------------------------------------------------------------
+   Mesma linguagem da ProfilePage (SURFACE, curvas e ritmo do SKILL.md):
+   - ease-out forte  → entradas e feedback  (0.23, 1, 0.32, 1)
+   - ease-drawer     → morfismos de estado  (0.32, 0.72, 0, 1)
+   - ease-in-out     → movimento na tela    (0.77, 0, 0.175, 1)
+   Tudo que é transição de estado usa CSS transition (interrompível);
+   entradas pontuais usam WAAPI (roda fora da main thread).
+   ========================================================================== */
+
+/** Distância do topo para os elementos sticky (abaixo da navbar do portal). */
+const STICKY_TOP = "top-24";
+
+const SURFACE_BASE =
+  "rounded-3xl border border-transparent bg-white transition-shadow duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+
+const SURFACE = `${SURFACE_BASE} shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)]`;
+
+/** Bloco em edição: anel bordô + sombra tingida — "este é o foco agora". */
+const SURFACE_EDITING = `${SURFACE_BASE} shadow-[0_0_0_2px_#6b1426,0_1px_2px_rgba(15,23,42,0.04),0_20px_44px_-20px_rgba(107,20,38,0.35)] dark:shadow-[0_0_0_2px_#e9b8c3]`;
+
+const EASE = "ease-[cubic-bezier(0.32,0.72,0,1)]";
+const EASE_OUT = "ease-[cubic-bezier(0.23,1,0.32,1)]";
+
+/** Pressionável: feedback imediato no :active, retorno suave. */
+const PRESS = `transition-[background-color,border-color,color,box-shadow,transform,scale] duration-[450ms] ${EASE_OUT} active:scale-[0.97] active:duration-100 motion-reduce:[transition-property:background-color,border-color,color,opacity] motion-reduce:active:scale-100`;
+
+const NAV_INDICATOR =
+  "transition-[transform,width,height] duration-[450ms] ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none";
+
+/** Campo de texto/textarea/select — alinhado ao raio e foco do design system. */
+const FIELD = `w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-[border-color,box-shadow] duration-[300ms] ${EASE_OUT} hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1`;
+
+/** Cartão de item repetível (histórico, experiência, idioma, certificação). */
+const ITEM =
+  "rounded-2xl bg-slate-50 p-5 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]";
+
+/** Cross-fade de ícones (lápis ⇄ X): opacidade + rotação + blur leve. */
+const SWAP = `absolute inset-0 h-4 w-4 transition-[opacity,transform,rotate,scale,filter] duration-[450ms] ${EASE_OUT} motion-reduce:[transition-property:opacity]`;
 
 const BLOCK_DESCRIPTIONS = [
   "Seus dados pessoais e sua apresentação profissional",
@@ -80,9 +137,10 @@ const BLOCK_ICONS: LucideIcon[] = [
   Award, // 6 · Certificações
 ];
 
-// [UX COMBOBOX] Competências e idiomas agora usam o Combobox pesquisável
-// de `../ui/Combobox` — dicionário com centenas de termos não cabe num
-// select nativo. Os selects restantes (níveis etc.) mantêm o dropdown SVG.
+// [UX COMBOBOX] Competências e idiomas usam o Combobox pesquisável de
+// `../ui/Combobox` — dicionário com centenas de termos não cabe num select
+// nativo. O nível de idioma mantém o <select> nativo (teclado e leitor de
+// tela de graça), agora com chevron próprio.
 
 const STATUS_LABELS: Record<EnrollmentStatus, string> = {
   ativo: "Aluno ativo",
@@ -118,33 +176,648 @@ const EMPTY_EXPERIENCE: ExperienceDraft = {
 
 const EMPTY_ACADEMIC: AcademicDraft = { item: "", year: "" };
 
+/* ==========================================================================
+   Primitivos de movimento
+   ========================================================================== */
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
+/**
+ * Entrada pontual (WAAPI): opacidade + subida curta + escala a partir de
+ * 0.985 (nunca scale(0)). `fill: backwards` segura o estado inicial durante
+ * o delay. Reduced motion → só um fade curto (gentil, não zero).
+ */
+type EnterProps = HTMLAttributes<HTMLElement> & {
+  as?: ElementType;
+  delay?: number;
+  y?: number;
+};
+
+function Enter({ as: Tag = "div", delay = 0, y = 10, ...rest }: EnterProps) {
+  const ref = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el === null || typeof el.animate !== "function") return;
+    const reduce = prefersReducedMotion();
+    const animation = el.animate(
+      reduce
+        ? [{ opacity: 0 }, { opacity: 1 }]
+        : [
+            { opacity: 0, transform: `translateY(${y}px) scale(0.985)` },
+            { opacity: 1, transform: "translateY(0) scale(1)" },
+          ],
+      {
+        duration: reduce ? 150 : 560,
+        delay: reduce ? 0 : delay,
+        easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+        fill: "backwards",
+      },
+    );
+    return () => animation.cancel();
+    // Só na montagem: reordenar a lista não deve reanimar os irmãos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <Tag ref={ref} {...rest} />;
+}
+
+/** Valor que "assenta" no próximo frame — permite animar de 0 → valor na montagem. */
+function useSettled<T>(value: T, initial: T): T {
+  const [shown, setShown] = useState<T>(initial);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(value));
+    return () => cancelAnimationFrame(id);
+  }, [value]);
+  return shown;
+}
+
+function scrollToBlock(index: number): void {
+  const el = document.getElementById(`bloco-${BLOCO_IDS[index]}`);
+  if (el === null) return;
+  el.scrollIntoView({
+    behavior: prefersReducedMotion() ? "auto" : "smooth",
+    block: "start",
+  });
+}
+
+/* ==========================================================================
+   Componentes de apresentação
+   ========================================================================== */
+
+/** Anel de progresso: o traço corre de 0 até o valor ao montar e a cada mudança. */
+function ProgressRing({
+  percent,
+  complete,
+}: {
+  percent: number;
+  complete: boolean;
+}) {
+  const size = 112;
+  const stroke = 9;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const shown = useSettled(percent, 0);
+  return (
+    <div
+      className="relative shrink-0"
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={`Currículo ${percent}% preenchido`}
+    >
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="-rotate-90"
+        aria-hidden="true"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="rgba(255,255,255,0.16)"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={complete ? "#c89d3c" : "#ffffff"}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - shown / 100)}
+          className={`transition-[stroke-dashoffset,stroke] duration-[3300ms] ${EASE} motion-reduce:transition-none`}
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
+        {complete ? (
+          <Enter
+            key="done"
+            y={4}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#c89d3c] text-[#241703]"
+          >
+            <Check className="h-6 w-6" strokeWidth={3} aria-hidden="true" />
+          </Enter>
+        ) : (
+          <span className="font-serif text-3xl font-bold tabular-nums tracking-tight text-white">
+            {percent}
+            <span className="text-lg font-semibold text-white/70">%</span>
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Hero({
+  flags,
+  firstName,
+  hasProfile,
+  editingLabel,
+  onContinue,
+  onGoToEditing,
+}: {
+  flags: boolean[];
+  firstName: string;
+  hasProfile: boolean;
+  editingLabel: string | null;
+  onContinue: () => void;
+  onGoToEditing: () => void;
+}) {
+  const total = flags.length;
+  const doneCount = flags.filter(Boolean).length;
+  const percent = Math.round((doneCount / total) * 100);
+  const complete = doneCount === total;
+  const nextIndex = flags.findIndex((flag) => !flag);
+  const nextLabel =
+    nextIndex >= 0 ? (BLOCK_LABELS[nextIndex]?.label ?? "") : "";
+
+  const flagsKey = flags.map((flag) => (flag ? "1" : "0")).join("");
+  const shownKey = useSettled(flagsKey, "0".repeat(total));
+
+  let title = "Vamos montar seu currículo";
+  let subtitle =
+    "Comece pelos seus dados pessoais — o restante abre em seguida.";
+  if (complete) {
+    title = firstName.length > 0 ? `Tudo pronto, ${firstName}` : "Tudo pronto";
+    subtitle = "Seu currículo está completo e visível para os recrutadores.";
+  } else if (hasProfile) {
+    title = firstName.length > 0 ? `Olá, ${firstName}` : "Seu currículo";
+    subtitle = `${doneCount} de ${total} blocos preenchidos. Falta pouco para um perfil completo.`;
+  }
+
+  return (
+    <section
+      aria-label="Resumo do preenchimento do currículo"
+      className="relative overflow-hidden rounded-3xl bg-[linear-gradient(120deg,#4f0d1c,#6b1426_45%,#8f2238)] p-6 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_24px_48px_-24px_rgba(79,13,28,0.55)] sm:p-8"
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-16 -top-24 h-80 w-80 rounded-full bg-[radial-gradient(closest-side,rgba(200,157,60,0.32),transparent)]"
+      />
+      <div className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-8">
+        <ProgressRing percent={percent} complete={complete} />
+
+        <div className="min-w-0 flex-1">
+          <p className="mt-1 break-words font-serif text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl">
+            {title}
+          </p>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-white/80">
+            {subtitle}
+          </p>
+
+          {/* Segmentos: um por bloco, preenchem em cascata ao montar. */}
+          <ol className="mt-5 flex max-w-md gap-1.5" aria-hidden="true">
+            {Array.from({ length: total }, (_, i) => (
+              <li
+                key={i}
+                style={{ transitionDelay: `${i * 100}ms` }}
+                className={`h-1.5 flex-1 rounded-full transition-[background-color] duration-[700ms] ${EASE_OUT} motion-reduce:transition-none ${
+                  shownKey[i] === "1" ? "bg-[#c89d3c]" : "bg-white/20"
+                }`}
+              />
+            ))}
+          </ol>
+        </div>
+
+        <div className="shrink-0">
+          {editingLabel !== null ? (
+            <button
+              type="button"
+              onClick={onGoToEditing}
+              className={`inline-flex h-11 items-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-semibold text-white ring-1 ring-inset ring-white/25 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c89d3c] ${PRESS}`}
+            >
+              <Pencil className="h-4 w-4" aria-hidden="true" />
+              Editando {editingLabel}
+            </button>
+          ) : complete ? (
+            <Enter
+              y={4}
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-semibold text-white ring-1 ring-inset ring-white/25"
+            >
+              <Sparkles className="h-4 w-4 text-[#e6c98a]" aria-hidden="true" />
+              Currículo completo
+            </Enter>
+          ) : (
+            <button
+              type="button"
+              onClick={onContinue}
+              className={`inline-flex h-11 items-center gap-2 rounded-xl bg-[#ffffff] px-5 text-sm font-semibold text-[#6b1426] shadow-sm hover:bg-[#fdf2f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c89d3c] focus-visible:ring-offset-2 focus-visible:ring-offset-[#6b1426] ${PRESS}`}
+            >
+              {hasProfile ? `Continuar em ${nextLabel}` : "Preencher dados pessoais"}
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StatusPill({ done }: { done: boolean }) {
+  return (
+    <Enter
+      as="span"
+      key={done ? "done" : "todo"}
+      y={3}
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+        done ? "bg-success/10 text-success" : "bg-slate-100 text-slate-600"
+      }`}
+    >
+      {done ? <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" /> : null}
+      {done ? "Preenchido" : "Pendente"}
+    </Enter>
+  );
+}
+
+/** Grupo de campos com legenda — fieldset semântico, divisor opcional. */
+function Group({
+  title,
+  hint,
+  divider = false,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  divider?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <fieldset
+      className={`min-w-0 ${
+        divider ? "border-t border-slate-100 pt-8" : ""
+      }`}
+    >
+      <legend className="text-sm font-semibold text-slate-900">{title}</legend>
+      {hint !== undefined ? (
+        <p className="mt-0.5 text-xs text-slate-500">{hint}</p>
+      ) : null}
+      <div className="mt-4 flex flex-col gap-4">{children}</div>
+    </fieldset>
+  );
+}
+
+/** Pílula de escolha (rádio ou checkbox nativos — teclado e leitor de tela). */
+function ChoicePill({
+  type,
+  name,
+  value,
+  checked,
+  onChange,
+  children,
+}: {
+  type: "radio" | "checkbox";
+  name: string;
+  value: string;
+  checked: boolean;
+  onChange: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className="group relative cursor-pointer">
+      <input
+        type={type}
+        name={name}
+        value={value}
+        checked={checked}
+        onChange={onChange}
+        className="peer sr-only"
+      />
+      <span
+        className={`inline-flex select-none items-center gap-2.5 rounded-full border px-4 py-2.5 text-sm font-semibold peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 group-active:scale-[0.97] ${PRESS} ${
+          checked
+            ? "border-primary bg-[#FDF2F4] text-primary"
+            : "border-slate-300 bg-white text-slate-700 hover:border-primary"
+        }`}
+      >
+        <span
+          aria-hidden="true"
+          className={`grid h-[18px] w-[18px] shrink-0 place-items-center border transition-[background-color,border-color] duration-[300ms] ${EASE_OUT} ${
+            type === "radio" ? "rounded-full" : "rounded-[6px]"
+          } ${checked ? "border-primary bg-primary text-white" : "border-slate-300 bg-white"}`}
+        >
+          <Check
+            className={`h-3 w-3 transition-[opacity,transform,scale] duration-[300ms] ${EASE_OUT} ${
+              checked ? "scale-100 opacity-100" : "scale-75 opacity-0"
+            }`}
+            strokeWidth={3.5}
+          />
+        </span>
+        {children}
+      </span>
+    </label>
+  );
+}
+
+/** Medidor de caracteres: a barra cresce com `scaleX` (só transform). */
+function CharMeter({
+  id,
+  count,
+  max,
+  min,
+}: {
+  id?: string;
+  count: number;
+  max: number;
+  min?: number;
+}) {
+  const ratio = Math.min(count / max, 1);
+  const enough = min === undefined || count >= min;
+  return (
+    <div id={id} aria-live="polite" className="mt-2 flex items-center gap-3">
+      <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-100">
+        <div
+          style={{ transform: `scaleX(${ratio})` }}
+          className={`h-full origin-left rounded-full transition-[transform,background-color] duration-[450ms] ${EASE_OUT} motion-reduce:transition-none ${
+            enough ? "bg-success" : "bg-secondary"
+          }`}
+        />
+      </div>
+      <span className="shrink-0 text-xs tabular-nums text-slate-500">
+        {count}/{max} caracteres
+        {min !== undefined ? ` (mínimo ${min})` : ""}
+      </span>
+    </div>
+  );
+}
+
+/** Rótulo padrão de campo próprio (textarea) — igual ao do <Input>. */
+function FieldLabel({
+  htmlFor,
+  required = false,
+  children,
+}: {
+  htmlFor?: string;
+  required?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <label htmlFor={htmlFor} className="text-sm font-semibold text-slate-700">
+      {children}
+      {required ? (
+        <span className="ml-0.5 text-danger" aria-hidden="true">
+          *
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function RemoveButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-[#f87171] ${PRESS}`}
+    >
+      <Trash2 className="h-4 w-4" aria-hidden="true" />
+    </button>
+  );
+}
+
+/** "Adicionar…" — tile tracejado; o + gira 90° ao passar o mouse (só com mouse). */
+function AddTile({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`group flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 px-4 py-4 text-sm font-semibold text-slate-600 hover:border-primary hover:bg-[#FDF2F4] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${PRESS}`}
+    >
+      <Plus
+        className={`h-4 w-4 transition-[transform,rotate] duration-[450ms] ${EASE_OUT} [@media(hover:hover)]:group-hover:rotate-90`}
+        aria-hidden="true"
+      />
+      {children}
+    </button>
+  );
+}
+
+/** Cartão de item repetível com cabeçalho e botão de remover. */
+function ItemCard({
+  label,
+  removeLabel,
+  onRemove,
+  delay = 0,
+  children,
+}: {
+  label: string;
+  removeLabel: string;
+  onRemove: () => void;
+  delay?: number;
+  children: ReactNode;
+}) {
+  return (
+    <Enter delay={delay} className={ITEM}>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-slate-600">{label}</p>
+        <RemoveButton label={removeLabel} onClick={onRemove} />
+      </div>
+      {children}
+    </Enter>
+  );
+}
+
+/** Aviso de descarte: alertdialog modal, foco preso, Esc = continuar editando. */
+function DiscardDialog({
+  from,
+  to,
+  onKeep,
+  onDiscard,
+}: {
+  from: string;
+  to: string | null;
+  onKeep: () => void;
+  onDiscard: () => void;
+}) {
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+
+  // Entrada: o fundo escurece e o painel sobe de scale(0.96). Modal fica centralizado.
+  useLayoutEffect(() => {
+    const reduce = prefersReducedMotion();
+    const options = (duration: number): KeyframeAnimationOptions => ({
+      duration,
+      easing: "cubic-bezier(0.23, 1, 0.32, 1)",
+      fill: "backwards",
+    });
+    const a = backdropRef.current?.animate(
+      [{ opacity: 0 }, { opacity: 1 }],
+      options(reduce ? 120 : 320),
+    );
+    const b = panelRef.current?.animate(
+      reduce
+        ? [{ opacity: 0 }, { opacity: 1 }]
+        : [
+            { opacity: 0, transform: "scale(0.96) translateY(6px)" },
+            { opacity: 1, transform: "none" },
+          ],
+      options(reduce ? 120 : 440),
+    );
+    return () => {
+      a?.cancel();
+      b?.cancel();
+    };
+  }, []);
+
+  // A opção segura (continuar editando) recebe o foco.
+  useEffect(() => {
+    keepRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onKeep();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const buttons = panelRef.current?.querySelectorAll<HTMLElement>("button");
+      if (!buttons || buttons.length === 0) return;
+      const first = buttons[0]!;
+      const last = buttons[buttons.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onKeep]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div
+        ref={backdropRef}
+        aria-hidden="true"
+        onClick={onKeep}
+        className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
+      />
+      <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="discard-title"
+        aria-describedby="discard-desc"
+        className={`${SURFACE} relative w-full max-w-md p-6 sm:p-7`}
+      >
+        <span
+          aria-hidden="true"
+          className="flex h-12 w-12 items-center justify-center rounded-2xl bg-warning/10 text-warning"
+        >
+          <AlertTriangle className="h-6 w-6" />
+        </span>
+        <h2
+          id="discard-title"
+          className="mt-4 font-serif text-xl font-bold tracking-tight text-slate-900"
+        >
+          Descartar alterações?
+        </h2>
+        <p
+          id="discard-desc"
+          className="mt-2 text-sm leading-relaxed text-slate-600"
+        >
+          Você está editando “{from}” e as alterações ainda não foram salvas.{" "}
+          {to !== null
+            ? `Se abrir “${to}” agora, tudo o que você mudou será perdido.`
+            : "Se fechar agora, tudo o que você mudou será perdido."}
+        </p>
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onDiscard}
+            className={`inline-flex h-11 items-center justify-center rounded-xl bg-danger/10 px-5 text-sm font-semibold text-danger hover:bg-danger hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 dark:hover:text-white ${PRESS}`}
+          >
+            {to !== null ? "Descartar e trocar" : "Descartar e fechar"}
+          </button>
+          <button
+            ref={keepRef}
+            type="button"
+            onClick={onKeep}
+            className={`inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${PRESS}`}
+          >
+            Continuar editando
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex flex-col gap-6"
+    >
+      <span className="sr-only">Carregando currículo…</span>
+      <div className="h-48 animate-pulse rounded-3xl bg-slate-100 motion-reduce:animate-none" />
+      <div className="h-14 animate-pulse rounded-2xl bg-slate-100 motion-reduce:animate-none" />
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          style={{ animationDelay: `${i * 120}ms` }}
+          className="h-40 animate-pulse rounded-3xl bg-slate-100 motion-reduce:animate-none"
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ==========================================================================
+   ResumeForm
+   ========================================================================== */
+
 /**
  * Currículo Vitae (issue [S2-1] + REFATOR_ALUNO Etapa 2) — os 7 blocos do
  * construtor em um único formulário, com EDIÇÃO INLINE por bloco:
  *
- *  - Cada bloco nasce em modo de VISUALIZAÇÃO com um ícone de lápis
+ *  - Cada bloco nasce em modo de VISUALIZAÇÃO com um botão "Editar"
  *    (`aria-label="Editar <Bloco>"`), no canto superior direito.
- *  - Ao clicar no lápis, os campos de texto desse bloco específico
- *    tornam-se editáveis no próprio local; o bloco volta à visualização
- *    ao Salvar ou Cancelar.
+ *  - Ao clicar, os campos desse bloco tornam-se editáveis no próprio local;
+ *    o bloco volta à visualização ao Salvar ou Cancelar.
  *  - Salvar persiste via `students.saveResumeData` e
- *    `students.saveSkillsAndLanguages`; em caso de erro de servidor o
- *    erro vira Toast global (Etapa 1 do UX_REFINEMENT) e o rascunho
- *    permanece em edição.
- *  - Validação de campo (headline/resumo, anos, idiomas, competências)
- *    continua inline — painel "Corrija os pontos abaixo" (não sai do
- *    TDD: Etapa 5 do UX_REFINEMENT).
+ *    `students.saveSkillsAndLanguages`; erro de servidor vira Toast global
+ *    e o rascunho permanece em edição.
+ *  - Validação de campo continua inline — painel "Corrija os pontos abaixo".
  *
- * Persistência via `students.saveResumeData` e
- * `students.saveSkillsAndLanguages` (R7).
+ * [ONBOARDING_RECOVERY] Conta nova: o Bloco 1 NASCE ABERTO e grava via
+ * `students.upsertProfile`. Nenhum bloco é bloqueado — os demais orientam
+ * para o Bloco 1 enquanto o perfil não existe.
  *
- * [ONBOARDING_RECOVERY] Etapa 1 — fim do beco sem saída das contas novas:
- * sem perfil, o Bloco 1 ("Dados Pessoais & Apresentação") NASCE ABERTO e
- * grava via `students.upsertProfile` (upsert: cria o registro ou atualiza).
- * Nada manda o utilizador para o antigo "Meu Perfil" e nenhum bloco é
- * bloqueado — os demais orientam para o Bloco 1 enquanto o perfil não
- * existe. A apresentação (headline/resumo) só é exigida quando já há
- * currículo salvo, então a conta nova salva de primeira, sem erros.
+ * [UI_REDESIGN] Camada visual refeita (lógica intacta):
+ *  - Hero com anel de progresso e próximo passo sugerido.
+ *  - Navegação sticky com indicador deslizante + scroll-spy.
+ *  - Blocos em superfície, ring bordô no bloco em edição, barra de ações
+ *    translúcida fixa ao rodapé, foco devolvido ao botão ao fechar.
+ *  - Movimento: entradas pontuais em cascata curta, transições (não
+ *    keyframes) nos estados, feedback no :active, reduced-motion respeitado.
  */
 export function ResumeForm() {
   const profile: Doc<"students"> | null | undefined = useQuery(
@@ -188,6 +861,44 @@ export function ResumeForm() {
   const [errors, setErrors] = useState<string[]>([]);
   const [editingBlock, setEditingBlock] = useState<number | null>(null);
   const [pending, setPending] = useState(false);
+
+  // Aviso de descarte: bloco para o qual o usuário tentou ir ("close" = fechar).
+  const [pendingTarget, setPendingTarget] = useState<number | "close" | null>(
+    null,
+  );
+
+  // "Sujo" = o rascunho atual difere do que estava na tela ao abrir o bloco.
+  const draftKey = JSON.stringify([
+    headline, summary, experiences, academicHistory, githubUrl, lattesUrl,
+    linkedinUrl, portfolioUrl, skills, languages, projectsText, certifications,
+    fullName, enrollment, status, course, graduationYear, semester, location,
+    phone, availability,
+  ]);
+  const draftKeyRef = useRef(draftKey);
+  draftKeyRef.current = draftKey;
+  const baselineRef = useRef(draftKey);
+  useEffect(() => {
+    baselineRef.current = draftKeyRef.current;
+  }, [editingBlock]);
+  const isDirty = editingBlock !== null && draftKey !== baselineRef.current;
+
+  // ---- UI: navegação, foco e scroll ----
+  const ready = profile !== undefined;
+  const [active, setActive] = useState(0);
+  const activeRef = useRef(0);
+  const scrollLock = useRef(0);
+  const navListRef = useRef<HTMLUListElement>(null);
+  const navItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const toggleRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const focusOnOpen = useRef(false);
+  const [indicator, setIndicator] = useState<{
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  } | null>(null);
+  const [snap, setSnap] = useState(false); // true = reposiciona sem animar
 
   // Pré-preenche com o CV salvo (edição idempotente).
   useEffect(() => {
@@ -246,6 +957,102 @@ export function ResumeForm() {
       setEditingBlock((current) => current ?? 0);
     }
   }, [profile]);
+
+  // ---- Indicador deslizante da navegação ----
+  const measureIndicator = useCallback(() => {
+    const el = navItemRefs.current[activeRef.current];
+    if (!el) return;
+    setIndicator({
+      x: el.offsetLeft,
+      y: el.offsetTop,
+      w: el.offsetWidth,
+      h: el.offsetHeight,
+    });
+  }, []);
+
+  // Mede antes do paint: o indicador já nasce no lugar certo.
+  useLayoutEffect(() => {
+    activeRef.current = active;
+    measureIndicator();
+  }, [active, ready, measureIndicator]);
+
+  // Mudou o layout (breakpoint, rotação): reposiciona sem "voar" pela tela.
+  useEffect(() => {
+    const list = navListRef.current;
+    if (!list || typeof ResizeObserver === "undefined") return;
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      setSnap(true);
+      measureIndicator();
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() =>
+        requestAnimationFrame(() => setSnap(false)),
+      );
+    });
+    observer.observe(list);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, [measureIndicator, ready]);
+
+  // Em telas estreitas a faixa rola: mantém o item ativo centralizado.
+  useEffect(() => {
+    const list = navListRef.current;
+    const el = navItemRefs.current[active];
+    if (!list || !el || list.scrollWidth <= list.clientWidth) return;
+    list.scrollTo({
+      left: el.offsetLeft - (list.clientWidth - el.offsetWidth) / 2,
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
+  }, [active]);
+
+  // Scroll-spy: o bloco que ocupa o topo da área de leitura vira o ativo.
+  useEffect(() => {
+    if (!ready || typeof IntersectionObserver === "undefined") return;
+    const visible = new Set<number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const index = Number((entry.target as HTMLElement).dataset.block);
+          if (entry.isIntersecting) visible.add(index);
+          else visible.delete(index);
+        }
+        // Durante o scroll suave de um clique, ignora os blocos do caminho.
+        if (Date.now() < scrollLock.current || visible.size === 0) return;
+        setActive(Math.min(...Array.from(visible)));
+      },
+      { rootMargin: "-190px 0px -45% 0px" },
+    );
+    for (const block of BLOCK_LABELS) {
+      const el = document.getElementById(`bloco-${BLOCO_IDS[block.index]}`);
+      if (el !== null) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [ready]);
+
+  // Ao abrir um bloco por ação do usuário, o foco vai ao primeiro campo.
+  useEffect(() => {
+    if (editingBlock === null || !focusOnOpen.current) return;
+    focusOnOpen.current = false;
+    const section = document.getElementById(
+      `bloco-${BLOCO_IDS[editingBlock]}`,
+    );
+    section
+      ?.querySelector<HTMLElement>(
+        '[data-edit-panel] input:not([type="radio"]):not([type="checkbox"]):not([role="combobox"]), [data-edit-panel] textarea',
+      )
+      ?.focus({ preventScroll: true });
+  }, [editingBlock]);
+
+  // Erros de validação entram na tela: o painel rola até ficar visível.
+  useEffect(() => {
+    if (errors.length === 0) return;
+    errorRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+      block: "nearest",
+    });
+  }, [errors]);
 
   function updateExperience(
     index: number,
@@ -322,6 +1129,14 @@ export function ResumeForm() {
             }
           : language,
       ),
+    );
+  }
+
+  /** Devolve o foco ao botão do bloco que acabou de fechar. */
+  function restoreFocus(block: number | null): void {
+    if (block === null) return;
+    requestAnimationFrame(() =>
+      toggleRefs.current[block]?.focus({ preventScroll: true }),
     );
   }
 
@@ -447,8 +1262,10 @@ export function ResumeForm() {
         });
       }
       // Sucesso: o bloco volta à visualização (Etapa 2 — inline edit).
+      const closing = editingBlock;
       setEditingBlock(null);
       setErrors([]);
+      restoreFocus(closing);
       toast.success(
         createdProfile
           ? "Perfil criado com sucesso. Continue preenchendo o currículo."
@@ -464,6 +1281,7 @@ export function ResumeForm() {
   }
 
   function startEdit(block: number): void {
+    focusOnOpen.current = true;
     // [ONBOARDING_RECOVERY] Sem perfil, os demais blocos dependem do Bloco 1:
     // em vez de erro do servidor ("perfil não encontrado"), o próprio
     // formulário abre o Bloco 1 — o utilizador nunca sai da página.
@@ -471,7 +1289,7 @@ export function ResumeForm() {
       toast.info(
         "Preencha seus dados pessoais no Bloco 1 para liberar os demais blocos.",
       );
-      resetToProfile();
+      if (editingBlock !== 0) resetToProfile();
       setErrors([]);
       setEditingBlock(0);
       return;
@@ -485,22 +1303,42 @@ export function ResumeForm() {
   }
 
   function cancelEdit(): void {
+    const closing = editingBlock;
     resetToProfile();
     setErrors([]);
     setEditingBlock(null);
+    restoreFocus(closing);
   }
 
   /**
-   * [FINAL_UPGRADE Etapa 1.2] — o lápis é um BOTÃO LIGA/DESLIGA:
-   * clicar nele com o bloco já em edição fecha a edição (equivale a
-   * Cancelar) e volta à visualização.
+   * [FINAL_UPGRADE Etapa 1.2] — o botão é LIGA/DESLIGA: clicar nele com o
+   * bloco já em edição fecha a edição (equivale a Cancelar).
    */
   function toggleEdit(block: number): void {
     if (editingBlock === block) {
-      cancelEdit();
-    } else {
-      startEdit(block);
+      if (isDirty) setPendingTarget("close");
+      else cancelEdit();
+      return;
     }
+    // Conta nova: os outros blocos só redirecionam ao Bloco 1 (sem descarte).
+    if (editingBlock !== null && isDirty && profile !== null) {
+      setPendingTarget(block);
+      return;
+    }
+    startEdit(block);
+  }
+
+  function confirmDiscard(): void {
+    const target = pendingTarget;
+    setPendingTarget(null);
+    if (target === "close") cancelEdit();
+    else if (target !== null) startEdit(target);
+  }
+
+  function keepEditing(): void {
+    const target = pendingTarget;
+    setPendingTarget(null);
+    restoreFocus(typeof target === "number" ? target : editingBlock);
   }
 
   function resetToProfile(): void {
@@ -571,12 +1409,15 @@ export function ResumeForm() {
     }
   }
 
+  /** Navegação: rola até o bloco e marca o item já no clique. */
+  function jumpTo(index: number): void {
+    setActive(index);
+    scrollLock.current = Date.now() + 900;
+    scrollToBlock(index);
+  }
+
   if (profile === undefined) {
-    return (
-      <p className="text-sm text-slate-500" role="status" aria-live="polite">
-        Carregando currículo…
-      </p>
-    );
+    return <LoadingSkeleton />;
   }
 
   /**
@@ -601,50 +1442,165 @@ export function ResumeForm() {
     certifications,
   };
 
+  // Preenchimento por bloco — alimenta hero, navegação e selos de status.
+  const flags: boolean[] = [
+    fullName.trim().length > 0 &&
+      headline.trim().length > 0 &&
+      summary.trim().length > 0,
+    academicHistory.some((entry) => entry.item.trim().length > 0),
+    [linkedinUrl, portfolioUrl, githubUrl, lattesUrl].some(
+      (url) => url.trim().length > 0,
+    ),
+    skills.length > 0,
+    languages.some((language) => language.name.trim().length > 0),
+    experiences.some((exp) => exp.company.trim().length > 0) ||
+      projectsText.trim().length > 0,
+    certifications.some((item) => item.trim().length > 0),
+  ];
+  const nextIndex = flags.findIndex((flag) => !flag);
+  const firstName = (profile?.fullName ?? "").trim().split(/\s+/)[0] ?? "";
+  const editingLabel =
+    editingBlock !== null ? (BLOCK_LABELS[editingBlock]?.label ?? null) : null;
+
+  function continueFlow(): void {
+    const target = profile === null || nextIndex < 0 ? 0 : nextIndex;
+    jumpTo(target);
+    startEdit(target);
+  }
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-6"
-      aria-label="Formulário de currículo vitae"
-    >
-      {BLOCK_LABELS.map((block) => {
-        const isEditing = editingBlock === block.index;
-        return (
-          <section
-            key={block.index}
-            id={`bloco-${BLOCO_IDS[block.index]}`}
-            className="rounded-xl border border-slate-200 bg-white p-6 lg:p-8 shadow-level1 transition-all duration-300 ease-in-out hover:shadow-level2"
+    <div className="flex flex-col gap-6">
+      <Enter>
+        <Hero
+          flags={flags}
+          firstName={firstName}
+          hasProfile={profile !== null}
+          editingLabel={editingLabel}
+          onContinue={continueFlow}
+          onGoToEditing={() => {
+            if (editingBlock !== null) jumpTo(editingBlock);
+          }}
+        />
+      </Enter>
+
+      {/* Navegação: material translúcido fixo sob a navbar; o conteúdo rola
+          por baixo. O indicador desliza entre os itens (ease-in-out). */}
+      <Enter delay={100} className={`sticky ${STICKY_TOP} z-20`}>
+        <nav
+          aria-label="Blocos do currículo"
+          className="rounded-2xl bg-white/85 p-1.5 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_8px_24px_-12px_rgba(15,23,42,0.18)] backdrop-blur-xl backdrop-saturate-150 dark:bg-[#171b22]/85 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none"
+        >
+          <ul
+            ref={navListRef}
+            className="relative flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
-            {/* Cabeçalho do bloco: título + ícone de lápis. */}
-            <div className="space-y-8">
+            {indicator !== null ? (
+              <li
+                aria-hidden="true"
+                role="presentation"
+                className={`pointer-events-none absolute left-0 top-0 rounded-xl bg-[#FDF2F4] shadow-[inset_0_0_0_1px_rgba(107,20,38,0.12)] ${NAV_INDICATOR} ${
+                  snap ? "!transition-none" : ""
+                }`}
+                style={{
+                  width: indicator.w,
+                  height: indicator.h,
+                  transform: `translate(${indicator.x}px, ${indicator.y}px)`,
+                }}
+              />
+            ) : null}
+            {BLOCK_LABELS.map((block) => {
+              const Icon = BLOCK_ICONS[block.index]!;
+              const isActive = active === block.index;
+              const isDone = flags[block.index] === true;
+              return (
+                <li key={block.index} className="shrink-0 xl:flex-1">
+                  <button
+                    ref={(node) => {
+                      navItemRefs.current[block.index] = node;
+                    }}
+                    type="button"
+                    aria-current={isActive ? "true" : undefined}
+                    onClick={() => jumpTo(block.index)}
+                    className={`relative flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-[color,background-color,transform,scale] duration-[450ms] ${EASE_OUT} active:scale-[0.97] active:duration-100 motion-reduce:[transition-property:color,background-color] motion-reduce:active:scale-100 ${
+                      isActive
+                        ? "text-primary"
+                        : "text-slate-600 hover:text-slate-900 dark:hover:text-slate-100"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    {block.label}
+                    {/* Espaço sempre reservado: o selo entra sem empurrar o menu. */}
+                    <span
+                      aria-hidden="true"
+                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full bg-success text-white transition-[opacity,transform,scale] duration-[450ms] ${EASE_OUT} ${
+                        isDone ? "scale-100 opacity-100" : "scale-75 opacity-0"
+                      }`}
+                    >
+                      <Check className="h-2.5 w-2.5" strokeWidth={4} />
+                    </span>
+                    {isDone ? <span className="sr-only">(preenchido)</span> : null}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </Enter>
+
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-6"
+        aria-label="Formulário de currículo vitae"
+      >
+        {BLOCK_LABELS.map((block) => {
+          const isEditing = editingBlock === block.index;
+          const Icon = BLOCK_ICONS[block.index]!;
+          return (
+            <Enter
+              as="section"
+              key={block.index}
+              delay={200 + block.index * 90}
+              id={`bloco-${BLOCO_IDS[block.index]}`}
+              data-block={block.index}
+              className={`scroll-mt-44 p-6 sm:p-8 ${
+                isEditing ? SURFACE_EDITING : SURFACE
+              }`}
+            >
+              {/* Cabeçalho do bloco: ícone, título, status e botão de edição. */}
               <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-start gap-3">
+                <div className="flex min-w-0 items-start gap-4">
                   <span
                     aria-hidden="true"
-                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"
+                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-[background-color,color] duration-[600ms] ${EASE} ${
+                      isEditing
+                        ? "bg-primary text-white"
+                        : "bg-[#FDF2F4] text-primary"
+                    }`}
                   >
-                    {(() => {
-                      const Icon = BLOCK_ICONS[block.index]!;
-                      return <Icon className="h-5 w-5" strokeWidth={2} />;
-                    })()}
+                    <Icon className="h-6 w-6" strokeWidth={2} />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="font-serif text-lg font-bold text-primary">
-                      {block.index + 1}. {block.heading}
-                    </h2>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {BLOCK_DESCRIPTIONS[block.index]} — clique no lápis para
-                      editar neste local.
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                      <h2 className="font-serif text-xl font-bold leading-tight tracking-tight text-slate-900 sm:text-2xl">
+                        {block.index + 1}. {block.heading}
+                      </h2>
+                      <StatusPill done={flags[block.index] === true} />
+                    </div>
+                    <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-slate-500">
+                      {BLOCK_DESCRIPTIONS[block.index]}
                     </p>
                   </div>
                 </div>
                 <button
+                  ref={(node) => {
+                    toggleRefs.current[block.index] = node;
+                  }}
                   type="button"
                   onClick={() => toggleEdit(block.index)}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                  className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:px-4 ${PRESS} ${
                     isEditing
-                      ? "bg-primary text-white"
-                      : "bg-primary/5 text-primary hover:bg-primary hover:text-white"
+                      ? "bg-primary text-white hover:bg-primary-hover"
+                      : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
                   }`}
                   aria-label={
                     isEditing
@@ -658,11 +1614,25 @@ export function ResumeForm() {
                       : `Editar ${block.label}`
                   }
                 >
-                  {isEditing ? (
-                    <X className="h-5 w-5" aria-hidden="true" />
-                  ) : (
-                    <Pencil className="h-5 w-5" aria-hidden="true" />
-                  )}
+                  <span className="relative h-4 w-4" aria-hidden="true">
+                    <Pencil
+                      className={`${SWAP} ${
+                        isEditing
+                          ? "-rotate-90 scale-75 opacity-0 blur-[2px]"
+                          : "opacity-100"
+                      }`}
+                    />
+                    <X
+                      className={`${SWAP} ${
+                        isEditing
+                          ? "opacity-100"
+                          : "rotate-90 scale-75 opacity-0 blur-[2px]"
+                      }`}
+                    />
+                  </span>
+                  <span className="hidden sm:inline">
+                    {isEditing ? "Fechar" : "Editar"}
+                  </span>
                 </button>
               </div>
 
@@ -670,20 +1640,27 @@ export function ResumeForm() {
                   somente leitura (o mesmo usado pela página dedicada
                   do candidato no portal do recrutador). */}
               {!isEditing ? (
-                <ResumeBlockContent blockIndex={block.index} data={viewData} />
+                <Enter key="view" y={6} className="mt-7 min-w-0 [overflow-wrap:anywhere]">
+                  <ResumeBlockContent
+                    blockIndex={block.index}
+                    data={viewData}
+                  />
+                </Enter>
               ) : (
                 /* EDIÇÃO do bloco — campos no próprio local. */
-                <div className="space-y-4">
+                <Enter
+                  key="edit"
+                  y={8}
+                  data-edit-panel=""
+                  className="mt-7 flex flex-col gap-8"
+                >
                   {block.index === 0 && (
                     <>
                       {/* [ONBOARDING_RECOVERY] Dados pessoais editáveis no
                           Bloco 1: a conta nova cria o perfil por aqui (upsert)
                           — sem passar por nenhuma outra tela. */}
-                      <fieldset className="flex flex-col gap-3">
-                        <legend className="text-sm font-semibold text-slate-700">
-                          Dados pessoais
-                        </legend>
-                        <div className="grid gap-3 sm:grid-cols-2">
+                      <Group title="Dados pessoais">
+                        <div className="grid gap-4 sm:grid-cols-2">
                           <Input
                             label="Nome completo"
                             required
@@ -734,165 +1711,123 @@ export function ResumeForm() {
                             hint="Utilizado na exportação de currículo"
                           />
                         </div>
-                        <div className="flex flex-col gap-2">
-                          <p className="text-sm font-semibold text-slate-700">
-                            Status de vínculo
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {ENROLLMENT_STATUS.map((entry) => (
-                              <label
-                                key={entry}
-                                className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
-                                  status === entry
-                                    ? "border-primary bg-[#FDF2F4] font-semibold text-primary"
-                                    : "border-slate-300 bg-white text-slate-700 hover:border-primary"
-                                }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name="resume-status"
-                                  value={entry}
-                                  checked={status === entry}
-                                  onChange={() => setStatus(entry)}
-                                  className="accent-primary"
-                                />
-                                {STATUS_LABELS[entry]}
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <p className="text-sm font-semibold text-slate-700">
-                            Disponibilidade
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {AVAILABILITY.map((entry) => (
-                              <label
-                                key={entry}
-                                className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition-colors ${
-                                  availability.includes(entry)
-                                    ? "border-primary bg-[#FDF2F4] font-semibold text-primary"
-                                    : "border-slate-300 bg-white text-slate-700 hover:border-primary"
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  name="resume-availability"
-                                  value={entry}
-                                  checked={availability.includes(entry)}
-                                  onChange={() =>
-                                    setAvailability((current) =>
-                                      current.includes(entry)
-                                        ? current.filter(
-                                            (item) => item !== entry,
-                                          )
-                                        : [...current, entry],
-                                    )
-                                  }
-                                  className="accent-primary"
-                                />
-                                {AVAILABILITY_LABELS[entry]}
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      </fieldset>
+                      </Group>
 
-                      <Input
-                        label="Headline"
-                        required
-                        value={headline}
-                        onChange={(e) => setHeadline(e.target.value)}
-                        hint="Ex.: Estudante de Sistemas para Internet focado em back-end (10–120 caracteres)"
-                      />
-                      <div className="flex flex-col gap-1">
-                        <label
-                          htmlFor="resume-summary-edit"
-                          className="text-sm font-semibold text-slate-700"
-                        >
-                          Resumo profissional
-                          <span
-                            className="ml-0.5 text-danger"
-                            aria-hidden="true"
-                          >
-                            *
-                          </span>
-                        </label>
-                        <textarea
-                          id="resume-summary-edit"
-                          required
-                          rows={4}
-                          value={summary}
-                          onChange={(e) => setSummary(e.target.value)}
-                          placeholder="Quem você é, o que você faz e o que procura…"
-                          maxLength={SUMMARY_MAX}
-                          aria-describedby="resume-summary-count-edit"
-                          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-                        />
-                        <p
-                          id="resume-summary-count-edit"
-                          className="text-xs text-slate-500"
-                          aria-live="polite"
-                        >
-                          {summary.trim().length}/{SUMMARY_MAX} caracteres
-                          (mínimo {SUMMARY_MIN})
-                        </p>
-                      </div>
-                    </>
-                  )}
-                  {block.index === 1 && (
-                    <fieldset className="flex flex-col gap-3">
-                      <legend className="text-sm font-semibold text-slate-700 pb-3">
-                        Histórico acadêmico
-                      </legend>
-                      {academicHistory.map((entry, index) => (
-                        <div
-                          key={index}
-                          className="rounded border border-slate-200 bg-slate-50 p-6"
-                        >
-                          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-                            <div className="min-w-0">
-                              <Input
-                                label="Item"
-                                required
-                                value={entry.item}
-                                onChange={(e) =>
-                                  updateAcademic(index, "item", e.target.value)
-                                }
-                                hint="Ex.: Bacharelado em Direção — UNICAP (concluído)"
-                              />
-                            </div>
-                            <div className="w-28 shrink-0">
-                              <Input
-                                label="Ano"
-                                required
-                                inputMode="numeric"
-                                value={entry.year}
-                                onChange={(e) =>
-                                  updateAcademic(index, "year", e.target.value)
-                                }
-                              />
-                            </div>
-                          </div>
-                          <div className="mt-2 flex justify-end">
-                            <Button
-                              variant="secondary"
-                              onClick={() =>
-                                setAcademicHistory((list) =>
-                                  list.filter((_, i) => i !== index),
+                      <Group title="Status de vínculo" divider>
+                        <div className="flex flex-wrap gap-2">
+                          {ENROLLMENT_STATUS.map((entry) => (
+                            <ChoicePill
+                              key={entry}
+                              type="radio"
+                              name="resume-status"
+                              value={entry}
+                              checked={status === entry}
+                              onChange={() => setStatus(entry)}
+                            >
+                              {STATUS_LABELS[entry]}
+                            </ChoicePill>
+                          ))}
+                        </div>
+                      </Group>
+
+                      <Group
+                        title="Disponibilidade"
+                        hint="Marque todas que se aplicam."
+                        divider
+                      >
+                        <div className="flex flex-wrap gap-2">
+                          {AVAILABILITY.map((entry) => (
+                            <ChoicePill
+                              key={entry}
+                              type="checkbox"
+                              name="resume-availability"
+                              value={entry}
+                              checked={availability.includes(entry)}
+                              onChange={() =>
+                                setAvailability((current) =>
+                                  current.includes(entry)
+                                    ? current.filter((item) => item !== entry)
+                                    : [...current, entry],
                                 )
                               }
                             >
-                              <Trash2 className="h-4 w-4" aria-hidden="true" />
-                              Remover
-                            </Button>
-                          </div>
+                              {AVAILABILITY_LABELS[entry]}
+                            </ChoicePill>
+                          ))}
                         </div>
+                      </Group>
+
+                      <Group title="Apresentação profissional" divider>
+                        <Input
+                          label="Headline"
+                          required
+                          value={headline}
+                          onChange={(e) => setHeadline(e.target.value)}
+                          hint="Ex.: Estudante de Sistemas para Internet focado em back-end (10–120 caracteres)"
+                        />
+                        <div className="flex flex-col gap-1.5">
+                          <FieldLabel htmlFor="resume-summary-edit" required>
+                            Resumo profissional
+                          </FieldLabel>
+                          <textarea
+                            id="resume-summary-edit"
+                            required
+                            rows={5}
+                            value={summary}
+                            onChange={(e) => setSummary(e.target.value)}
+                            placeholder="Quem você é, o que você faz e o que procura…"
+                            maxLength={SUMMARY_MAX}
+                            aria-describedby="resume-summary-count-edit"
+                            className={`${FIELD} resize-y leading-relaxed`}
+                          />
+                          <CharMeter
+                            id="resume-summary-count-edit"
+                            count={summary.trim().length}
+                            max={SUMMARY_MAX}
+                            min={SUMMARY_MIN}
+                          />
+                        </div>
+                      </Group>
+                    </>
+                  )}
+
+                  {block.index === 1 && (
+                    <Group title="Histórico acadêmico">
+                      {academicHistory.map((entry, index) => (
+                        <ItemCard
+                          key={index}
+                          label={`Item ${index + 1}`}
+                          removeLabel="Remover"
+                          onRemove={() =>
+                            setAcademicHistory((list) =>
+                              list.filter((_, i) => i !== index),
+                            )
+                          }
+                        >
+                          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_7rem]">
+                            <Input
+                              label="Item"
+                              required
+                              value={entry.item}
+                              onChange={(e) =>
+                                updateAcademic(index, "item", e.target.value)
+                              }
+                              hint="Ex.: Bacharelado em Direção — UNICAP (concluído)"
+                            />
+                            <Input
+                              label="Ano"
+                              required
+                              inputMode="numeric"
+                              value={entry.year}
+                              onChange={(e) =>
+                                updateAcademic(index, "year", e.target.value)
+                              }
+                            />
+                          </div>
+                        </ItemCard>
                       ))}
                       {academicHistory.length < MAX_ACADEMIC ? (
-                        <Button
-                          className="mt-4"
-                          variant="secondary"
+                        <AddTile
                           onClick={() =>
                             setAcademicHistory((list) => [
                               ...list,
@@ -900,14 +1835,14 @@ export function ResumeForm() {
                             ])
                           }
                         >
-                          <Plus className="h-4 w-4" aria-hidden="true" />
                           Adicionar item ao histórico
-                        </Button>
+                        </AddTile>
                       ) : null}
-                    </fieldset>
+                    </Group>
                   )}
+
                   {block.index === 2 && (
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <Input
                         label="LinkedIn"
                         type="url"
@@ -942,54 +1877,67 @@ export function ResumeForm() {
                       />
                     </div>
                   )}
+
                   {block.index === 3 && (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex flex-wrap items-start gap-2">
-                        <div className="flex min-w-52 flex-1 flex-col gap-1">
-                          <label
-                            htmlFor="resume-skill-select"
-                            className="text-sm font-semibold text-slate-700"
+                    <div className="flex flex-col gap-5">
+                      <div className="flex flex-col gap-1.5">
+                        <FieldLabel htmlFor="resume-skill-select">
+                          Nova competência
+                        </FieldLabel>
+                        <div className="flex flex-wrap items-start gap-2">
+                          <div
+                            className="min-w-52 flex-1"
+                            onKeyDown={(e) => {
+                              // 1º Enter escolhe a opção (o Combobox já cuida); com a lista
+                              // fechada, Enter adiciona a competência e nunca salva o bloco.
+                              if (e.key !== "Enter" || e.defaultPrevented) return;
+                              e.preventDefault();
+                              addSkillDraft();
+                            }}
                           >
-                            Nova competência
-                          </label>
-                          {/* [DICIONARIO_FECHADO] combobox pesquisável: sem
-                              texto livre — só se confirma um termo do
-                              dicionário oficial. */}
-                          <Combobox
-                            ariaLabel="Nova competência"
-                            id="resume-skill-select"
-                            describedBy="resume-skill-hint"
-                            groups={skillGroupsForCombobox()}
-                            value={skillDraft}
-                            onSelect={setSkillDraft}
-                            placeholder="Selecione no dicionário oficial…"
-                          />
-                          <p
-                            id="resume-skill-hint"
-                            className="text-xs text-slate-500"
+                            {/* [DICIONARIO_FECHADO] combobox pesquisável: sem
+                                texto livre — só se confirma um termo do
+                                dicionário oficial. */}
+                            <Combobox
+                              ariaLabel="Nova competência"
+                              id="resume-skill-select"
+                              describedBy="resume-skill-hint"
+                              groups={skillGroupsForCombobox()}
+                              value={skillDraft}
+                              onSelect={setSkillDraft}
+                              placeholder="Selecione no dicionário oficial…"
+                            />
+                          </div>
+                          <Button
+                            variant="secondary"
+                            className="h-10 shrink-0"
+                            disabled={skillDraft.trim().length === 0}
+                            onClick={addSkillDraft}
                           >
-                            {skills.length}/{MAX_SKILLS} — só termos do
-                            dicionário oficial
-                          </p>
+                            <Plus className="h-4 w-4" aria-hidden="true" />
+                            Adicionar competência
+                          </Button>
                         </div>
-                        <Button
-                          variant="secondary"
-                          className="mt-6 h-10 shrink-0"
-                          disabled={skillDraft.trim().length === 0}
-                          onClick={addSkillDraft}
+                        <p
+                          id="resume-skill-hint"
+                          className="text-xs text-slate-500"
                         >
-                          <Plus className="h-4 w-4" aria-hidden="true" />
-                          Adicionar competência
-                        </Button>
+                          {skills.length}/{MAX_SKILLS} — só termos do
+                          dicionário oficial
+                        </p>
                       </div>
+
                       <div
                         className="flex flex-wrap gap-2"
                         aria-label="Competências atuais"
                       >
-                        {skills.map((skill) => (
-                          <span
+                        {skills.map((skill, index) => (
+                          <Enter
+                            as="span"
                             key={skill}
-                            className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                            y={4}
+                            delay={Math.min(index, 8) * 30}
+                            className="inline-flex items-center gap-1 rounded-full bg-[#FDF2F4] py-1 pl-3.5 pr-1 text-sm font-semibold text-primary shadow-[inset_0_0_0_1px_rgba(107,20,38,0.12)]"
                           >
                             {skill}
                             <button
@@ -998,181 +1946,148 @@ export function ResumeForm() {
                               onClick={() =>
                                 setSkills((list) => removeSkill(list, skill))
                               }
-                              className="text-slate-400 transition-colors hover:text-danger focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              className={`grid h-6 w-6 place-items-center rounded-full text-primary/70 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-[#e9b8c3] ${PRESS}`}
                             >
-                              ×
+                              <X className="h-3.5 w-3.5" aria-hidden="true" />
                             </button>
-                          </span>
+                          </Enter>
                         ))}
                       </div>
                     </div>
                   )}
-                  {block.index === 4 && (
-                    <div className="flex flex-col gap-3">
-                      {languages.map((language, index) => (
-                        <div
-                          key={index}
-                          className="flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-slate-50 p-6"
-                        >
-                          <div className="flex min-w-0 flex-1 flex-col gap-1">
-                            <label
-                              htmlFor={`resume-language-name-${index}`}
-                              className="text-sm font-semibold text-slate-700"
-                            >
-                              Idioma
-                              <span
-                                className="ml-0.5 text-danger"
-                                aria-hidden="true"
-                              >
-                                *
-                              </span>
-                            </label>
-                            <Combobox
-                              ariaLabel="Idioma"
-                              id={`resume-language-name-${index}`}
-                              required
-                              groups={languageGroupsForCombobox(index)}
-                              value={language.name}
-                              onSelect={(term) => updateLanguage(index, "name", term)}
-                              placeholder="Selecione o idioma…"
-                            />
-                          </div>
-                          
-                          <div className="flex w-44 shrink-0 flex-col gap-1">
-                            <label
-                              htmlFor={`language-level-${index}`}
-                              className="text-sm font-semibold text-slate-700"
-                            >
-                              Nível
-                            </label>
-                            <select
-                              id={`language-level-${index}`}
-                              value={language.level}
-                              onChange={(e) =>
-                                updateLanguage(index, "level", e.target.value)
-                              }
-                              className="w-full appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20fill=%22none%22%20viewBox=%220%200%2024%2024%22%20stroke-width=%222%22%20stroke=%22%2394a3b8%22%3E%3Cpath%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20d=%22M19%209l-7%207-7-7%22/%3E%3C/svg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[size:1.25em_1.25em] h-10 rounded-xl border border-slate-300 bg-white px-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-                            >
-                              {LANGUAGE_LEVELS.map((level) => (
-                                <option key={level} value={level}>
-                                  {LEVEL_LABELS[level]}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
 
-                          <div className="shrink-0">
-                            <Button
-                              className="h-10"
-                              variant="secondary"
+                  {block.index === 4 && (
+                    <div className="flex flex-col gap-4">
+                      {languages.map((language, index) => (
+                        <Enter key={index} className={ITEM}>
+                          <div className="flex flex-wrap items-end gap-4">
+                            <div className="flex min-w-52 flex-1 flex-col gap-1.5">
+                              <FieldLabel
+                                htmlFor={`resume-language-name-${index}`}
+                                required
+                              >
+                                Idioma
+                              </FieldLabel>
+                              <Combobox
+                                ariaLabel="Idioma"
+                                id={`resume-language-name-${index}`}
+                                required
+                                groups={languageGroupsForCombobox(index)}
+                                value={language.name}
+                                onSelect={(term) =>
+                                  updateLanguage(index, "name", term)
+                                }
+                                placeholder="Selecione o idioma…"
+                              />
+                            </div>
+
+                            <CustomSelect
+                              label="Nível"
+                              placeholder="Selecione o nível"
+                              value={language.level}
+                              onChange={(next) => updateLanguage(index, "level", next)}
+                              options={LANGUAGE_LEVELS.map((level) => ({
+                                value: level,
+                                label: LEVEL_LABELS[level],
+                              }))}
+                              className="w-full sm:w-48"
+                            />
+
+                            <RemoveButton
+                              label="Remover"
                               onClick={() =>
                                 setLanguages((list) =>
                                   list.filter((_, i) => i !== index),
                                 )
                               }
-                            >
-                              <Trash2 className="h-4 w-4" aria-hidden="true" />
-                              Remover
-                            </Button>
+                            />
                           </div>
-                        </div>
+                        </Enter>
                       ))}
                       {languages.length < MAX_LANGUAGES ? (
-                        <Button
-                          variant="secondary"
-                          className="mt-4"
-                          onClick={addLanguage}
-                        >
-                          <Plus className="h-4 w-4" aria-hidden="true" />
+                        <AddTile onClick={addLanguage}>
                           Adicionar idioma
-                        </Button>
+                        </AddTile>
                       ) : null}
                     </div>
                   )}
+
                   {block.index === 5 && (
-                    <div className="space-y-4">
-                      <fieldset className="flex flex-col gap-3">
-                        <legend className="text-sm font-semibold text-slate-700">
-                          Experiências profissionais
-                        </legend>
+                    <>
+                      <Group title="Experiências profissionais">
                         {experiences.map((exp, index) => (
-                          <div
+                          <ItemCard
                             key={index}
-                            className="flex flex-col gap-2 rounded border border-slate-200 bg-slate-50 p-3"
+                            label={`Experiência ${index + 1}`}
+                            removeLabel="Remover experiência"
+                            onRemove={() =>
+                              setExperiences((list) =>
+                                list.filter((_, i) => i !== index),
+                              )
+                            }
                           >
-                            <div className="grid gap-2 sm:grid-cols-3">
-                              <Input
-                                label="Empresa"
-                                required
-                                value={exp.company}
-                                onChange={(e) =>
-                                  updateExperience(
-                                    index,
-                                    "company",
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                              <Input
-                                label="Cargo"
-                                required
-                                value={exp.role}
-                                onChange={(e) =>
-                                  updateExperience(
-                                    index,
-                                    "role",
-                                    e.target.value,
-                                  )
-                                }
-                              />
-                              <Input
-                                label="Período"
-                                required
-                                value={exp.period}
-                                onChange={(e) =>
-                                  updateExperience(
-                                    index,
-                                    "period",
-                                    e.target.value,
-                                  )
-                                }
-                                hint="Ex.: 2023–2025 ou 2024–Atual"
-                              />
+                            <div className="flex flex-col gap-4">
+                              <div className="grid gap-4 sm:grid-cols-3">
+                                <Input
+                                  label="Empresa"
+                                  required
+                                  value={exp.company}
+                                  onChange={(e) =>
+                                    updateExperience(
+                                      index,
+                                      "company",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                                <Input
+                                  label="Cargo"
+                                  required
+                                  value={exp.role}
+                                  onChange={(e) =>
+                                    updateExperience(
+                                      index,
+                                      "role",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                                <Input
+                                  label="Período"
+                                  required
+                                  value={exp.period}
+                                  onChange={(e) =>
+                                    updateExperience(
+                                      index,
+                                      "period",
+                                      e.target.value,
+                                    )
+                                  }
+                                  hint="Ex.: 2023–2025 ou 2024–Atual"
+                                />
+                              </div>
+                              <label className="flex flex-col gap-1.5">
+                                <span className="text-sm font-semibold text-slate-700">
+                                  Descrição (opcional)
+                                </span>
+                                <textarea
+                                  rows={3}
+                                  value={exp.description}
+                                  onChange={(e) =>
+                                    updateExperience(
+                                      index,
+                                      "description",
+                                      e.target.value,
+                                    )
+                                  }
+                                  className={`${FIELD} resize-y leading-relaxed`}
+                                />
+                              </label>
                             </div>
-                            <label className="flex flex-col gap-1">
-                              <span className="text-sm font-semibold text-slate-700">
-                                Descrição (opcional)
-                              </span>
-                              <textarea
-                                rows={2}
-                                value={exp.description}
-                                onChange={(e) =>
-                                  updateExperience(
-                                    index,
-                                    "description",
-                                    e.target.value,
-                                  )
-                                }
-                                className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
-                              />
-                            </label>
-                            <Button
-                              variant="secondary"
-                              onClick={() =>
-                                setExperiences((list) =>
-                                  list.filter((_, i) => i !== index),
-                                )
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" aria-hidden="true" />
-                              Remover experiência
-                            </Button>
-                          </div>
+                          </ItemCard>
                         ))}
                         {experiences.length < MAX_EXPERIENCES ? (
-                          <Button
-                            className="mt-4"
-                            variant="secondary"
+                          <AddTile
                             onClick={() =>
                               setExperiences((list) => [
                                 ...list,
@@ -1180,132 +2095,154 @@ export function ResumeForm() {
                               ])
                             }
                           >
-                            <Plus className="h-4 w-4" aria-hidden="true" />+
                             Adicionar experiência
-                          </Button>
+                          </AddTile>
                         ) : null}
-                      </fieldset>
-                      <div className="flex flex-col gap-1">
-                        <label
-                          htmlFor="resume-projects-edit"
-                          className="text-sm font-semibold text-slate-700"
-                        >
+                      </Group>
+
+                      <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-8">
+                        <FieldLabel htmlFor="resume-projects-edit">
                           Projetos de Extensão (texto livre)
-                        </label>
+                        </FieldLabel>
                         <textarea
                           id="resume-projects-edit"
-                          rows={3}
+                          rows={4}
                           value={projectsText}
                           maxLength={PROJECTS_TEXT_MAX}
                           onChange={(e) => setProjectsText(e.target.value)}
                           placeholder="Ex.: Monitoria de Banco de Dados I (2024.2); Feira de Ciências — oficina de Python…"
-                          className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                          className={`${FIELD} resize-y leading-relaxed`}
                         />
-                        <p className="text-xs text-slate-500">
-                          {projectsText.trim().length}/{PROJECTS_TEXT_MAX}{" "}
-                          caracteres
-                        </p>
+                        <CharMeter
+                          count={projectsText.trim().length}
+                          max={PROJECTS_TEXT_MAX}
+                        />
                       </div>
-                    </div>
+                    </>
                   )}
+
                   {block.index === 6 && (
-                    <fieldset className="flex flex-col gap-3">
-                      <legend className="sr-only">
-                        Certificações e atividades
-                      </legend>
+                    <Group title="Certificações e atividades">
                       {certifications.map((item, index) => (
-                        <div
+                        <ItemCard
                           key={index}
-                          className="flex flex-col gap-2 rounded border border-slate-200 bg-slate-50 p-3"
+                          label={`Item ${index + 1}`}
+                          removeLabel="Remover"
+                          onRemove={() =>
+                            setCertifications((list) =>
+                              list.filter((_, i) => i !== index),
+                            )
+                          }
                         >
-                          <div className="flex-1">
-                            <Input
-                              label={`Certificação ${index + 1}`}
-                              required
-                              value={item}
-                              onChange={(e) =>
-                                setCertifications((list) =>
-                                  list.map((current, i) =>
-                                    i === index ? e.target.value : current,
-                                  ),
-                                )
-                              }
-                              hint="Ex.: Cisco CCNA, Excel Avançado, Scrum Fundamentals"
-                            />
-                          </div>
-                          <Button
-                            variant="secondary"
-                            onClick={() =>
+                          <Input
+                            label={`Certificação ${index + 1}`}
+                            required
+                            value={item}
+                            onChange={(e) =>
                               setCertifications((list) =>
-                                list.filter((_, i) => i !== index),
+                                list.map((current, i) =>
+                                  i === index ? e.target.value : current,
+                                ),
                               )
                             }
-                          >
-                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                            Remover
-                          </Button>
-                        </div>
+                            hint="Ex.: Cisco CCNA, Excel Avançado, Scrum Fundamentals"
+                          />
+                        </ItemCard>
                       ))}
                       {certifications.length < MAX_CERTIFICATIONS ? (
-                        <Button
-                          className="mt-4"
-                          variant="secondary"
+                        <AddTile
                           onClick={() =>
                             setCertifications((list) => [...list, ""])
                           }
                         >
-                          <Plus className="h-4 w-4" aria-hidden="true" />
                           Adicionar certificação
-                        </Button>
+                        </AddTile>
                       ) : null}
-                    </fieldset>
+                    </Group>
                   )}
 
                   {/* Erros de validação do bloco em edição — junto dos
                       campos e dos botões (nunca no topo da página). */}
                   {errors.length > 0 ? (
-                    <div
+                    <Enter
+                      key={errors.join("|")}
+                      y={6}
                       role="alert"
-                      className="rounded border border-danger bg-white px-3 py-2"
+                      className="scroll-mb-28 rounded-2xl border border-danger bg-danger/5 p-4"
                     >
-                      <p className="text-sm font-semibold text-danger">
-                        Corrija os pontos abaixo:
-                      </p>
-                      <ul className="mt-1 list-disc pl-5 text-sm text-danger">
-                        {errors.map((e) => (
-                          <li key={e}>{e}</li>
-                        ))}
-                      </ul>
-                    </div>
+                      <div ref={errorRef} className="flex items-start gap-3">
+                        <AlertTriangle
+                          className="mt-0.5 h-5 w-5 shrink-0 text-danger"
+                          aria-hidden="true"
+                        />
+                        <div>
+                          <p className="text-sm font-semibold text-danger">
+                            Corrija os pontos abaixo:
+                          </p>
+                          <ul className="mt-1 list-disc pl-5 text-sm text-danger">
+                            {errors.map((e) => (
+                              <li key={e}>{e}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </Enter>
                   ) : null}
 
-                  {/* Barra de ação do bloco em edição. */}
-                  <div className="flex items-center justify-end gap-3 border-t border-slate-200 pt-4">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={cancelEdit}
-                      disabled={pending}
-                    >
-                      <X className="h-4 w-4" aria-hidden="true" />
-                      Cancelar
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="primary"
-                      onClick={() => void persist()}
-                      disabled={pending}
-                    >
-                      <Save className="h-4 w-4" aria-hidden="true" />
-                      {pending ? "Salvando…" : "Salvar"}
-                    </Button>
+                  {/* Barra de ação do bloco em edição — translúcida e fixa ao
+                      rodapé enquanto o bloco estiver na tela. */}
+                  <div
+                    className={`sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl bg-white/90 px-4 py-3 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_12px_32px_-12px_rgba(15,23,42,0.25)] backdrop-blur-xl dark:bg-[#171b22]/90 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none`}
+                  >
+                    <p className="hidden text-xs text-slate-500 sm:block">
+                      As alterações só valem depois de salvar.
+                    </p>
+                    <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={cancelEdit}
+                        disabled={pending}
+                      >
+                        <X className="h-4 w-4" aria-hidden="true" />
+                        Cancelar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={() => void persist()}
+                        disabled={pending}
+                      >
+                        {pending ? (
+                          <Loader2
+                            className="h-4 w-4 animate-spin motion-reduce:animate-pulse"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Save className="h-4 w-4" aria-hidden="true" />
+                        )}
+                        {pending ? "Salvando…" : "Salvar"}
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                </Enter>
               )}
-            </div>
-          </section>
-        );
-      })}
-    </form>
+            </Enter>
+          );
+        })}
+      </form>
+      {pendingTarget !== null && editingBlock !== null ? (
+        <DiscardDialog
+          from={BLOCK_LABELS[editingBlock]?.label ?? "este bloco"}
+          to={
+            pendingTarget === "close"
+              ? null
+              : (BLOCK_LABELS[pendingTarget]?.label ?? null)
+          }
+          onKeep={keepEditing}
+          onDiscard={confirmDiscard}
+        />
+      ) : null}
+    </div>
   );
 }
