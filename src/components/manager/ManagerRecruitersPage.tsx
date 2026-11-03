@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { Check, ExternalLink, History, UserCheck, UserX, X } from "lucide-react";
@@ -50,6 +50,14 @@ const PRESS =
 const LINK =
   "inline-flex items-center gap-1 rounded-md font-semibold text-primary transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
+/** Primário estilo Apple, versão plana: cor sólida, realce de 1px e sombra curta. */
+const APPLE_PRIMARY =
+  "group !h-11 !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100";
+
+/** Destrutivo "tinted": fundo suave da cor, sem contorno forte. */
+const APPLE_DANGER =
+  "inline-flex h-11 items-center gap-2 rounded-xl bg-red-50 px-4 text-sm font-semibold text-red-700 shadow-[inset_0_0_0_1px_rgba(220,38,38,0.16)] transition-[background-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 motion-reduce:active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:shadow-[inset_0_0_0_1px_rgba(248,113,113,0.25)] dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-500/20";
+
 function initials(name: string) {
   return (
     name
@@ -62,6 +70,12 @@ function initials(name: string) {
 }
 
 function ListSkeleton() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setShow(true), 300);
+    return () => window.clearTimeout(id);
+  }, []);
+  if (!show) return null;
   return (
     <div role="status" aria-live="polite" className="animate-pulse space-y-3">
       <span className="sr-only">Carregando recrutadores…</span>
@@ -325,6 +339,7 @@ export function ManagerRecruitersPage() {
                     {row.status !== "aprovado" ? (
                       <Button
                         variant="primary"
+                        className={APPLE_PRIMARY}
                         disabled={busy}
                         onClick={() => void approve(row.userId)}
                       >
@@ -343,7 +358,7 @@ export function ManagerRecruitersPage() {
                             wasApproved: row.status === "aprovado",
                           })
                         }
-                        className={`inline-flex items-center gap-2 rounded-xl border border-red-300 px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:opacity-50 dark:border-red-400/40 dark:text-red-300 dark:hover:bg-red-500/10 ${PRESS}`}
+                        className={APPLE_DANGER}
                       >
                         <UserX className="h-4 w-4" aria-hidden="true" />
                         {row.status === "aprovado" ? "Revogar" : "Recusar"}

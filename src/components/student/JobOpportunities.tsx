@@ -69,6 +69,12 @@ const CARD = `${SURFACE} transition-[transform,box-shadow] duration-300 ease-[cu
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
 
+const APPLE_NEUTRAL =
+  "group !h-11 !gap-2 !rounded-xl !border-transparent !bg-slate-100 !px-4 !text-slate-700 !shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!bg-slate-200/70 active:!scale-[0.97] active:!duration-100 dark:!bg-[#2c1a21] dark:!text-[#e9b8c3] dark:!shadow-[inset_0_0_0_1px_rgba(233,184,195,0.22)] dark:hover:!bg-[#3a2029]";
+
+const APPLE_PRIMARY =
+  "group !h-11 !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100 disabled:active:!scale-100";
+
 /** Normaliza para comparar sem acento/caixa (mesma regra do SuperSearch). */
 function fold(text: string): string {
   return text
@@ -561,7 +567,7 @@ export function JobOpportunities() {
             {loaded ? "." : ""}
           </p>
           {hasActiveFilters ? (
-            <Button variant="secondary" onClick={clearAll}>
+            <Button variant="secondary" className={APPLE_NEUTRAL} onClick={clearAll}>
               <FilterX className="h-4 w-4" aria-hidden="true" />
               Limpar filtros
             </Button>
@@ -768,6 +774,7 @@ export function JobOpportunities() {
                   <div className="ml-auto flex flex-wrap items-center gap-2">
                     <Button
                       variant="secondary"
+                      className={APPLE_NEUTRAL}
                       disabled={reported}
                       aria-label={`Denunciar a vaga ${job.title}`}
                       onClick={() =>
@@ -779,6 +786,7 @@ export function JobOpportunities() {
                     </Button>
                     <Button
                       variant="primary"
+                      className={APPLE_PRIMARY}
                       disabled={applied || applying || !hasProfile || blocked}
                       title={
                         blocked

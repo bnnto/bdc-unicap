@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
@@ -9,12 +9,14 @@ import { JobForm } from "./JobForm";
 import { CONTRACT_LABELS, formatSalaryRange, isVerifiablePrerequisite } from "../../lib/job";
 import { renewalWindow } from "../../lib/jobExpiry";
 import {
+  Archive,
   Ban,
   Banknote,
   Briefcase,
   CalendarDays,
   Check,
   DoorOpen,
+  FilterX,
   Lock,
   MapPin,
   Pencil,
@@ -32,8 +34,13 @@ import {
   IconTile,
   MotionStyles,
   PageHeader,
+  PRESS,
   SURFACE,
 } from "./jobsUi";
+
+/* ------------------------------------------------------------------ */
+/* Constantes                                                           */
+/* ------------------------------------------------------------------ */
 
 /** [UI_OVERHAUL] Ícone por mudança de status no botão dinâmico. */
 const STATUS_BUTTON_ICON: Record<Doc<"jobs">["status"], ReactNode> = {
@@ -91,10 +98,60 @@ const NEXT_STATUS: Record<
   suspensa: [],
 };
 
+/** Curva forte de saída (skill: nunca ease-in em UI). */
+const EASE_OUT = "ease-[cubic-bezier(0.23,1,0.32,1)]";
+
+/** Presets dos botões de ação do card (mesma altura/raio; sombra tingida por variante). */
+const ACTION_BASE = "group !h-11 !gap-2 !rounded-xl !px-4";
+const ACTION_PRIMARY = `${ACTION_BASE} hover:!shadow-[0_12px_24px_-10px_rgba(107,20,38,0.2)]`;
+const ACTION_ACCENT = `${ACTION_BASE} hover:!shadow-[0_12px_24px_-10px_rgba(200,157,60,0.25)]`;
+const ACTION_SECONDARY = `${ACTION_BASE} shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:!shadow-[0_6px_16px_-8px_rgba(107,20,38,0.3)]`;
+const ACTION_DANGER = `${ACTION_BASE} hover:!shadow-[0_6px_16px_-8px_rgba(220,38,38,0.4)]`;
+
+/* ------------------------------------------------------------------ */
+/* Utilidades                                                           */
+/* ------------------------------------------------------------------ */
+
 function formatDay(timestamp: number | undefined): string {
   if (timestamp === undefined) return "—";
   return new Date(timestamp).toLocaleDateString("pt-BR");
 }
+
+/** Só vira `true` se `active` durar mais que `delayMs` (evita flash de skeleton). */
+function useDelayedFlag(active: boolean, delayMs = 300): boolean {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setShow(false);
+      return;
+    }
+    const id = window.setTimeout(() => setShow(true), delayMs);
+    return () => window.clearTimeout(id);
+  }, [active, delayMs]);
+  return show;
+}
+
+/** `true` após `delayMs` do mount — dispara transições de entrada (barras). */
+function useMountedFlag(delayMs: number): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setReady(true), delayMs);
+    return () => window.clearTimeout(id);
+  }, [delayMs]);
+  return ready;
+}
+
+type JobFilter = "all" | "aberta" | "fechada" | "outras";
+
+function matchesFilter(status: Doc<"jobs">["status"], filter: JobFilter) {
+  if (filter === "all") return true;
+  if (filter === "outras") return status !== "aberta" && status !== "fechada";
+  return status === filter;
+}
+
+/* ------------------------------------------------------------------ */
+/* Peças pequenas                                                       */
+/* ------------------------------------------------------------------ */
 
 /** Aviso de expiração/renovação (R4) exibido ao lado da data de expiração. */
 function ExpiryNote({ job }: { job: Doc<"jobs"> }) {
@@ -122,6 +179,47 @@ function ExpiryNote({ job }: { job: Doc<"jobs"> }) {
   return <>{` · ${renewal.daysLeft} dia(s) restante(s)`}</>;
 }
 
+/**
+ * Medidor de "vida útil" da vaga: a barra representa o tempo que ainda
+ * resta até a expiração (esvazia com o tempo). Muda de tom perto do fim.
+ * Anima só `transform` (scaleX), a partir de 0, depois que a lista entra.
+ */
+function LifecycleMeter({ job }: { job: Doc<"jobs"> }) {
+  const ready = useMountedFlag(900);
+  if (
+    job.status !== "aberta" ||
+    job.publishedAt === undefined ||
+    job.expiresAt === undefined
+  ) {
+    return null;
+  }
+  const now = Date.now();
+  const span = job.expiresAt - job.publishedAt;
+  const remaining =
+    span > 0 ? Math.min(1, Math.max(0, (job.expiresAt - now) / span)) : 0;
+  const renewal = renewalWindow(
+    { status: job.status, expiresAt: job.expiresAt },
+    now,
+  );
+  const tone = renewal.expired
+    ? "bg-rose-500"
+    : renewal.expiring
+      ? "bg-amber-500"
+      : "bg-primary";
+
+  return (
+    <div
+      aria-hidden="true"
+      className="mt-3 h-1 max-w-md overflow-hidden rounded-full bg-slate-100 dark:bg-white/10"
+    >
+      <div
+        className={`h-full w-full origin-left rounded-full ${tone} will-change-transform transition-transform !duration-[900ms] ${EASE_OUT} motion-reduce:transition-none`}
+        style={{ transform: `scaleX(${ready ? remaining : 0})` }}
+      />
+    </div>
+  );
+}
+
 /** Pílula de status com ponto colorido (tons explícitos para o dark mode). */
 function StatusPill({ status }: { status: Doc<"jobs">["status"] }) {
   return (
@@ -137,36 +235,107 @@ function StatusPill({ status }: { status: Doc<"jobs">["status"] }) {
   );
 }
 
-/** Indicador do resumo no topo da lista. */
+/** Metadado em pílula discreta (contrato, salário, local). */
+function MetaChip({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-a11y-slate-600 ring-1 ring-slate-200/70 dark:bg-white/5 dark:ring-white/10">
+      <span aria-hidden="true" className="text-primary">
+        {icon}
+      </span>
+      {children}
+    </span>
+  );
+}
+
+const STAT_ICON_TONE = {
+  primary:
+    "bg-[#FDF2F4] text-primary ring-primary/15 dark:bg-primary/15",
+  green:
+    "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/20",
+  amber:
+    "bg-amber-50 text-amber-700 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/20",
+  rose: "bg-rose-50 text-rose-700 ring-rose-600/20 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-400/20",
+} as const;
+
+/**
+ * Indicador do resumo no topo da lista — e também o filtro: clicar
+ * filtra a lista por status (aria-pressed). Resposta imediata no press.
+ */
 function StatTile({
   label,
   value,
-  dot,
+  icon,
+  tone,
+  active,
+  onClick,
 }: {
   label: string;
-  value: number | null;
-  dot?: string;
+  value: number;
+  icon: ReactNode;
+  tone: keyof typeof STAT_ICON_TONE;
+  active: boolean;
+  onClick: () => void;
 }) {
   return (
-    <div className={`${SURFACE} px-5 py-4`}>
-      <p className="flex items-center gap-2 text-xs font-medium text-a11y-slate-500">
-        {dot !== undefined ? (
-          <span
-            aria-hidden="true"
-            className={`h-2 w-2 rounded-full ${dot}`}
-          />
-        ) : null}
-        {label}
-      </p>
-      <p className="mt-1.5 font-serif text-3xl font-bold leading-none tracking-tight tabular-nums text-primary">
-        {value ?? "—"}
-      </p>
-    </div>
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`${SURFACE} ${PRESS} flex w-full items-center gap-3.5 px-5 py-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-px ${
+        active ? "!border-primary" : ""
+      }`}
+    >
+      <span
+        aria-hidden="true"
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${STAT_ICON_TONE[tone]}`}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0">
+        <span className="block text-xs font-medium text-a11y-slate-500">
+          {label}
+        </span>
+        <span className="mt-1 block font-serif text-3xl font-bold leading-none tracking-tight tabular-nums text-primary">
+          {value}
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/**
+ * Entrada de cada item da lista. Na primeira carga: cascata lenta
+ * (jb-rise, 70ms entre itens). Depois (filtros, novas vagas): entrada
+ * rápida (jb-quick, 300ms, sem atraso). O modo é decidido UMA vez no
+ * mount, para a classe não mudar e reiniciar a animação.
+ */
+function Reveal({
+  intro,
+  index,
+  children,
+}: {
+  intro: boolean;
+  index: number;
+  children: ReactNode;
+}) {
+  const [isIntro] = useState(intro);
+  return (
+    <li
+      className={isIntro ? "jb-rise" : "jb-quick"}
+      style={
+        isIntro
+          ? { animationDelay: `${300 + Math.min(index, 6) * 70}ms` }
+          : undefined
+      }
+    >
+      {children}
+    </li>
   );
 }
 
 /** Esqueleto da lista: mesma silhueta do card, sem layout shift. */
 function JobsSkeleton() {
+  const bone = "bg-slate-100 dark:bg-white/10";
   return (
     <div role="status" aria-live="polite" className="flex flex-col gap-5">
       <span className="sr-only">Carregando vagas…</span>
@@ -177,19 +346,25 @@ function JobsSkeleton() {
           className={`${SURFACE} animate-pulse p-7 motion-reduce:animate-none`}
         >
           <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 space-y-3">
-              <div className="h-5 w-1/3 rounded-full bg-slate-100 dark:bg-white/10" />
-              <div className="h-3 w-1/2 rounded-full bg-slate-100 dark:bg-white/10" />
+            <div className="flex flex-1 items-start gap-4">
+              <div className={`h-11 w-11 rounded-2xl ${bone}`} />
+              <div className="flex-1 space-y-3">
+                <div className={`h-5 w-1/3 rounded-full ${bone}`} />
+                <div className="flex gap-2">
+                  <div className={`h-6 w-24 rounded-full ${bone}`} />
+                  <div className={`h-6 w-28 rounded-full ${bone}`} />
+                </div>
+              </div>
             </div>
-            <div className="h-7 w-20 rounded-full bg-slate-100 dark:bg-white/10" />
+            <div className={`h-7 w-20 rounded-full ${bone}`} />
           </div>
           <div className="mt-6 space-y-2.5">
-            <div className="h-3 w-full rounded-full bg-slate-100 dark:bg-white/10" />
-            <div className="h-3 w-4/5 rounded-full bg-slate-100 dark:bg-white/10" />
+            <div className={`h-3 w-full rounded-full ${bone}`} />
+            <div className={`h-3 w-4/5 rounded-full ${bone}`} />
           </div>
           <div className="mt-6 flex gap-2">
-            <div className="h-10 w-36 rounded-xl bg-slate-100 dark:bg-white/10" />
-            <div className="h-10 w-24 rounded-xl bg-slate-100 dark:bg-white/10" />
+            <div className={`h-10 w-36 rounded-xl ${bone}`} />
+            <div className={`h-10 w-24 rounded-xl ${bone}`} />
           </div>
         </div>
       ))}
@@ -197,14 +372,19 @@ function JobsSkeleton() {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Painel                                                               */
+/* ------------------------------------------------------------------ */
+
 /**
  * Painel do recrutador (issues [S3-1]/[S3-2]): CRUD de vagas persistidas
  * em `jobs` (CA 1 de S3-1) com ciclo de vida aberta/fechada/encerrada,
  * prazo de expiração R4 (publicação, aviso e renovação de 30 dias).
  *
- * Visual: cabeçalho editorial, resumo por status e cards com hierarquia
- * clara (título serifado, metadados com ícone, prazo, pré-requisitos e
- * ações). Lógica, mutations e fluxos de confirmação inalterados.
+ * Visual: cabeçalho editorial, resumo clicável por status (filtro) com
+ * barra de distribuição, cards com trilho de status, medidor de prazo,
+ * metadados em pílulas e ações agrupadas (seguras à esquerda, destrutivas
+ * à direita). Lógica, mutations e fluxos de confirmação inalterados.
  */
 export function JobsPanel({
   onViewCandidates,
@@ -235,6 +415,19 @@ export function JobsPanel({
   const [pendingDelete, setPendingDelete] = useState<Doc<"jobs">["_id"] | null>(
     null,
   );
+  const [filter, setFilter] = useState<JobFilter>("all");
+
+  // Skeleton só aparece se o carregamento realmente demorar.
+  const showSkeleton = useDelayedFlag(jobs === undefined, 300);
+
+  // Janela da cascata de entrada: depois dela, itens novos entram rápido.
+  const [introActive, setIntroActive] = useState(true);
+  const jobsLoaded = jobs !== undefined;
+  useEffect(() => {
+    if (!jobsLoaded) return;
+    const id = window.setTimeout(() => setIntroActive(false), 1800);
+    return () => window.clearTimeout(id);
+  }, [jobsLoaded]);
 
   async function handleStatus(
     jobId: Doc<"jobs">["_id"],
@@ -251,6 +444,15 @@ export function JobsPanel({
     } finally {
       setActionPending(null);
     }
+  }
+
+  function requestStatus(jobId: Doc<"jobs">["_id"], next: SettableStatus) {
+    if (next === "aberta") {
+      // Reabrir é reversível — direto, sem confirmação.
+      void handleStatus(jobId, next);
+      return;
+    }
+    setPendingStatus({ jobId, status: next });
   }
 
   async function handleDelete(jobId: Doc<"jobs">["_id"]) {
@@ -302,17 +504,18 @@ export function JobsPanel({
     );
   }
 
-  const total = jobs?.length ?? null;
-  const openCount =
-    jobs !== undefined ? jobs.filter((j) => j.status === "aberta").length : null;
-  const closedCount =
+  const counts =
     jobs !== undefined
-      ? jobs.filter((j) => j.status === "fechada").length
+      ? {
+          total: jobs.length,
+          open: jobs.filter((j) => j.status === "aberta").length,
+          closed: jobs.filter((j) => j.status === "fechada").length,
+        }
       : null;
   const otherCount =
-    total !== null && openCount !== null && closedCount !== null
-      ? total - openCount - closedCount
-      : null;
+    counts !== null ? counts.total - counts.open - counts.closed : 0;
+  const visibleJobs =
+    jobs !== undefined ? jobs.filter((j) => matchesFilter(j.status, filter)) : [];
 
   return (
     <div className="pb-16 pt-2">
@@ -321,31 +524,75 @@ export function JobsPanel({
         title="Minhas vagas"
         description="Publique oportunidades, acompanhe prazos e abra o pipeline de candidatos de cada vaga."
         actions={
-          <Button variant="primary" onClick={() => setMode({ kind: "new" })}>
-            <Plus className="h-4 w-4" aria-hidden="true" />
+          <Button
+            variant="primary"
+            className="group !h-12 !gap-2.5 !rounded-xl !pl-3 !pr-5 !text-[0.9375rem] shadow-[0_8px_20px_-8px_rgba(107,20,38,0.55)] hover:shadow-[0_12px_24px_-8px_rgba(107,20,38,0.6)]"
+            onClick={() => setMode({ kind: "new" })}
+          >
+            <span
+              aria-hidden="true"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:group-hover:rotate-90"
+            >
+              <Plus className="h-4 w-4" />
+            </span>
             Publicar nova vaga
           </Button>
         }
       />
 
-      {jobs !== undefined && jobs.length > 0 ? (
-        <div
-          className="jb-rise mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4"
-          style={{ animationDelay: "200ms" }}
-        >
-          <StatTile label="Total de vagas" value={total} />
-          <StatTile label="Abertas" value={openCount} dot="bg-emerald-500" />
-          <StatTile label="Fechadas" value={closedCount} dot="bg-amber-500" />
-          <StatTile
-            label="Encerradas e outras"
-            value={otherCount}
-            dot="bg-rose-500"
-          />
+      {counts !== null && counts.total > 0 ? (
+        <div className="jb-rise mb-8" style={{ animationDelay: "200ms" }}>
+          <div
+            role="group"
+            aria-label="Filtrar vagas por status"
+            className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+          >
+            <StatTile
+              label="Total de vagas"
+              value={counts.total}
+              icon={<Briefcase className="h-[18px] w-[18px]" />}
+              tone="primary"
+              active={filter === "all"}
+              onClick={() => setFilter("all")}
+            />
+            <StatTile
+              label="Abertas"
+              value={counts.open}
+              icon={<DoorOpen className="h-[18px] w-[18px]" />}
+              tone="green"
+              active={filter === "aberta"}
+              onClick={() =>
+                setFilter((cur) => (cur === "aberta" ? "all" : "aberta"))
+              }
+            />
+            <StatTile
+              label="Fechadas"
+              value={counts.closed}
+              icon={<Lock className="h-[18px] w-[18px]" />}
+              tone="amber"
+              active={filter === "fechada"}
+              onClick={() =>
+                setFilter((cur) => (cur === "fechada" ? "all" : "fechada"))
+              }
+            />
+            <StatTile
+              label="Encerradas e outras"
+              value={otherCount}
+              icon={<Archive className="h-[18px] w-[18px]" />}
+              tone="rose"
+              active={filter === "outras"}
+              onClick={() =>
+                setFilter((cur) => (cur === "outras" ? "all" : "outras"))
+              }
+            />
+          </div>
         </div>
       ) : null}
 
       {jobs === undefined ? (
-        <JobsSkeleton />
+        showSkeleton ? (
+          <JobsSkeleton />
+        ) : null
       ) : jobs.length === 0 ? (
         /* [UX-P3] H4-2 — empty state com CTA real (não só instrução textual). */
         <div className={`jb-fade ${SURFACE} px-6 py-10`}>
@@ -359,19 +606,55 @@ export function JobsPanel({
             }}
           />
         </div>
+      ) : visibleJobs.length === 0 ? (
+        <div
+          role="status"
+          className={`jb-quick ${SURFACE} flex flex-col items-center px-6 py-14 text-center`}
+        >
+          <span
+            aria-hidden="true"
+            className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#FDF2F4] text-primary ring-1 ring-primary/15 dark:bg-primary/15"
+          >
+            <FilterX className="h-6 w-6" />
+          </span>
+          <p className="mt-4 font-serif text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Nenhuma vaga neste filtro
+          </p>
+          <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-a11y-slate-500">
+            Você não tem vagas com esse status no momento.
+          </p>
+          <Button
+            variant="secondary"
+            className="mt-5"
+            onClick={() => setFilter("all")}
+          >
+            Ver todas as vagas
+          </Button>
+        </div>
       ) : (
-        <ul className="flex flex-col gap-5">
-          {jobs.map((job, index) => {
+        <ul className="flex flex-col gap-5" aria-label="Minhas vagas">
+          {visibleJobs.map((job, index) => {
             const busy = actionPending === String(job._id);
             const underReview =
               job.status === "em_revisao" || job.status === "suspensa";
+            const options = NEXT_STATUS[job.status];
+            const safeOptions = options.filter((o) => o.value !== "encerrada");
+            const dangerOptions = options.filter((o) => o.value === "encerrada");
+            const canDelete =
+              job.status === "encerrada" || job.status === "suspensa";
+            const hasDanger = dangerOptions.length > 0 || canDelete;
+
             return (
-              <li
-                key={job._id}
-                className="jb-rise"
-                style={{ animationDelay: `${300 + Math.min(index, 6) * 130}ms` }}
-              >
-                <article className={`${SURFACE} ${CARD_HOVER} p-6 sm:p-7`}>
+              <Reveal key={job._id} intro={introActive} index={index}>
+                <article
+                  className={`${SURFACE} ${CARD_HOVER} relative overflow-hidden p-6 sm:p-7`}
+                >
+                  {/* Trilho de status: leitura instantânea na varredura. */}
+                  <span
+                    aria-hidden="true"
+                    className={`absolute inset-y-7 left-2.5 w-[3px] rounded-full ${STATUS_DOT[job.status]} opacity-50`}
+                  />
+
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="flex min-w-0 items-start gap-4">
                       <IconTile size="lg">
@@ -381,34 +664,22 @@ export function JobsPanel({
                         <h3 className="break-words font-serif text-xl font-bold leading-snug tracking-tight text-primary">
                           {job.title}
                         </h3>
-                        <p className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[0.8125rem] text-a11y-slate-600">
-                          <span className="inline-flex items-center gap-1.5">
-                            <Briefcase
-                              className="h-3.5 w-3.5 text-primary"
-                              aria-hidden="true"
-                            />
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          <MetaChip icon={<Briefcase className="h-3.5 w-3.5" />}>
                             {CONTRACT_LABELS[job.contractType]}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <Banknote
-                              className="h-3.5 w-3.5 text-primary"
-                              aria-hidden="true"
-                            />
+                          </MetaChip>
+                          <MetaChip icon={<Banknote className="h-3.5 w-3.5" />}>
                             {formatSalaryRange(
                               job.salaryMin ?? null,
                               job.salaryMax ?? null,
                             )}
-                          </span>
+                          </MetaChip>
                           {job.location !== undefined ? (
-                            <span className="inline-flex items-center gap-1.5">
-                              <MapPin
-                                className="h-3.5 w-3.5 text-primary"
-                                aria-hidden="true"
-                              />
+                            <MetaChip icon={<MapPin className="h-3.5 w-3.5" />}>
                               {job.location}
-                            </span>
+                            </MetaChip>
                           ) : null}
-                        </p>
+                        </div>
                       </div>
                     </div>
                     <StatusPill status={job.status} />
@@ -418,22 +689,25 @@ export function JobsPanel({
                     {job.description}
                   </p>
 
-                  <p className="mt-4 flex flex-wrap items-center gap-x-1 text-xs text-a11y-slate-500">
-                    <CalendarDays
-                      className="mr-1 h-3.5 w-3.5 text-slate-400"
-                      aria-hidden="true"
-                    />
-                    <span>
-                      Publicada em {formatDay(job.publishedAt)} · expira em{" "}
-                      {formatDay(job.expiresAt)}
-                      <ExpiryNote job={job} />
-                    </span>
-                  </p>
+                  <div className="mt-5">
+                    <p className="flex flex-wrap items-center gap-x-1 text-xs text-a11y-slate-500">
+                      <CalendarDays
+                        className="mr-1 h-3.5 w-3.5 text-slate-400"
+                        aria-hidden="true"
+                      />
+                      <span className="tabular-nums">
+                        Publicada em {formatDay(job.publishedAt)} · expira em{" "}
+                        {formatDay(job.expiresAt)}
+                        <ExpiryNote job={job} />
+                      </span>
+                    </p>
+                    <LifecycleMeter job={job} />
+                  </div>
 
                   {underReview ? (
                     <div
                       role="status"
-                      className="mt-4 flex w-fit max-w-full items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"
+                      className="mt-5 flex w-fit max-w-full items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"
                     >
                       <ShieldAlert
                         className="mt-0.5 h-4 w-4 shrink-0"
@@ -459,29 +733,39 @@ export function JobsPanel({
                     </div>
                   ) : null}
 
-                  <ul
-                    className="mt-5 flex flex-wrap gap-2"
-                    aria-label="Pré-requisitos"
-                  >
-                    {job.prerequisites.map((p, i) => (
-                      <li key={`${p.item}-${i}`}>
-                        <span
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
-                            p.required && isVerifiablePrerequisite(p)
-                              ? "bg-[#FDF2F4] text-primary ring-primary/25 dark:bg-primary/15"
-                              : "bg-slate-50 text-slate-700 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10"
-                          }`}
-                        >
-                          {p.item}
-                          {!isVerifiablePrerequisite(p)
-                            ? " · informativo"
-                            : p.required
-                              ? " · obrigatório"
-                              : " · opcional"}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  {job.prerequisites.length > 0 ? (
+                    <div className="mt-6">
+                      <p
+                        aria-hidden="true"
+                        className="text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-a11y-slate-500"
+                      >
+                        Pré-requisitos
+                      </p>
+                      <ul
+                        className="mt-2.5 flex flex-wrap gap-2"
+                        aria-label="Pré-requisitos"
+                      >
+                        {job.prerequisites.map((p, i) => (
+                          <li key={`${p.item}-${i}`}>
+                            <span
+                              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
+                                p.required && isVerifiablePrerequisite(p)
+                                  ? "bg-[#FDF2F4] text-primary ring-primary/25 dark:bg-primary/15"
+                                  : "bg-slate-50 text-slate-700 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10"
+                              }`}
+                            >
+                              {p.item}
+                              {!isVerifiablePrerequisite(p)
+                                ? " · informativo"
+                                : p.required
+                                  ? " · obrigatório"
+                                  : " · opcional"}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
 
                   <div
                     className={`mt-6 flex flex-wrap items-center gap-2 border-t ${DIVIDER} pt-5`}
@@ -491,6 +775,7 @@ export function JobsPanel({
                     {onViewCandidates !== undefined ? (
                       <Button
                         variant="primary"
+                        className={ACTION_PRIMARY}
                         onClick={() => onViewCandidates(job._id)}
                       >
                         <Users className="h-4 w-4" aria-hidden="true" />
@@ -500,54 +785,67 @@ export function JobsPanel({
                     {job.status === "aberta" || job.status === "fechada" ? (
                       <Button
                         variant="accent"
+                        className={ACTION_ACCENT}
                         disabled={busy}
                         onClick={() => void handleRenew(job._id)}
                         title="Reativa o prazo de 30 dias desta vaga"
                       >
-                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                        <RefreshCw
+                          className="h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:group-hover:rotate-180"
+                          aria-hidden="true"
+                        />
                         Renovar (30 dias)
                       </Button>
                     ) : null}
                     <Button
                       variant="secondary"
                       disabled={busy}
+                      className={ACTION_SECONDARY}
                       onClick={() => setMode({ kind: "edit", job })}
                     >
                       <Pencil className="h-4 w-4" aria-hidden="true" />
                       Editar
                     </Button>
-                    {NEXT_STATUS[job.status].map((option) => (
+                    {safeOptions.map((option) => (
                       <Button
                         key={option.value}
-                        variant={
-                          option.value === "encerrada" ? "danger" : "secondary"
-                        }
-                        disabled={busy}
-                        onClick={() => {
-                          if (option.value === "aberta") {
-                            // Reabrir é reversível — direto, sem confirmação.
-                            void handleStatus(job._id, option.value);
-                            return;
-                          }
-                          setPendingStatus({
-                            jobId: job._id,
-                            status: option.value,
-                          });
-                        }}
+                        variant="secondary"
+                        className={ACTION_SECONDARY}
+                        disabled={busy} 
+                        onClick={() => requestStatus(job._id, option.value)}
                       >
                         {STATUS_BUTTON_ICON[option.value]}
                         {option.label}
                       </Button>
                     ))}
-                    {job.status === "encerrada" || job.status === "suspensa" ? (
-                      <Button
-                        variant="danger"
-                        disabled={busy}
-                        onClick={() => setPendingDelete(job._id)}
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        Excluir
-                      </Button>
+
+                    {/* Ações destrutivas isoladas à direita, longe do clique rápido. */}
+                    {hasDanger ? (
+                      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                        {dangerOptions.map((option) => (
+                          <Button
+                            key={option.value}
+                            variant="danger"
+                            className={ACTION_DANGER}
+                            disabled={busy}
+                            onClick={() => requestStatus(job._id, option.value)}
+                          >
+                            {STATUS_BUTTON_ICON[option.value]}
+                            {option.label}
+                          </Button>
+                        ))}
+                        {canDelete ? (
+                          <Button
+                            variant="danger"
+                            className={ACTION_DANGER}
+                            disabled={busy}
+                            onClick={() => setPendingDelete(job._id)}
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" />
+                            Excluir
+                          </Button>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
 
@@ -555,6 +853,12 @@ export function JobsPanel({
                     <div
                       role="dialog"
                       aria-labelledby={`confirm-status-${job._id}`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          e.stopPropagation();
+                          setPendingStatus(null);
+                        }
+                      }}
                       className="jb-quick mt-5 rounded-2xl border border-amber-500/40 bg-amber-50 p-4 dark:border-amber-400/30 dark:bg-amber-500/10"
                     >
                       <div className="flex items-start gap-3">
@@ -611,6 +915,12 @@ export function JobsPanel({
                     <div
                       role="dialog"
                       aria-labelledby={`confirm-delete-${job._id}`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          e.stopPropagation();
+                          setPendingDelete(null);
+                        }
+                      }}
                       className="jb-quick mt-5 rounded-2xl border border-rose-500/40 bg-rose-50 p-4 dark:border-rose-400/30 dark:bg-rose-500/10"
                     >
                       <div className="flex items-start gap-3">
@@ -654,7 +964,7 @@ export function JobsPanel({
                     </div>
                   ) : null}
                 </article>
-              </li>
+              </Reveal>
             );
           })}
         </ul>

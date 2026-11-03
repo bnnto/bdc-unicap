@@ -289,6 +289,55 @@ body {
   outline-color: #ffffff;
 }
 
+/* Hover da navbar e do rodapé da landing. Regras próprias para o tema escuro
+   (o bordô #6b1426 some sobre #171b22) e gated a mouse (sem falso hover no toque). */
+.nav-link,
+.foot-link {
+  transition: color 150ms ease, text-decoration-color 150ms ease;
+}
+/* Traço dourado que cresce do centro no hover (só transform). */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.2rem;
+  height: 2px;
+  border-radius: 9999px;
+  background-color: theme("colors.secondary");
+  transform: scaleX(0);
+  transition: transform 250ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-link::after { transition: none; }
+}
+.foot-link {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-link:hover {
+    color: theme("colors.primary");
+  }
+  .nav-link:hover::after {
+    transform: scaleX(1);
+  }
+  .dark .nav-link:hover {
+    color: #ffffff;
+  }
+  .foot-link:hover {
+    color: #0f172a;
+    text-decoration-color: currentColor;
+  }
+  .dark .foot-link:hover {
+    color: #ffffff;
+  }
+}
+
 /* Conteúdo entra devagar ao trocar de visão (global).
    O contêiner `.view-enter` faz um fade e cada filho direto sobe em cascata,
    dando tempo para o olho acompanhar. O próprio contêiner NÃO se desloca,
@@ -356,4 +405,53 @@ body {
 .badge-pop { animation: badge-pop 320ms cubic-bezier(0.23, 1, 0.32, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   .badge-pop { animation: view-enter-fade 200ms ease-out both; }
+}
+
+@keyframes auth-swap {
+  from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+.auth-swap { animation: auth-swap 280ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+/* Anéis do painel de marca e anel do "e-mail enviado": desenham uma vez
+   (os elementos usam pathLength=1). */
+@keyframes auth-draw { to { stroke-dashoffset: 0; } }
+.auth-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: auth-draw 1600ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* "Pop" curto (começa em 0.6, nunca em 0). */
+@keyframes auth-pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.auth-pop { animation: auth-pop 320ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+/* Tremida de erro (±6px, 360ms). */
+@keyframes auth-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+.auth-shake { animation: auth-shake 360ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+
+/* Termo de LGPD: o texto entra suave ao abrir o <details>. */
+details[open] > .auth-details-body {
+  animation: auth-swap 240ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-swap,
+  details[open] > .auth-details-body {
+    animation-name: view-enter-fade;
+    animation-duration: 200ms;
+  }
+  .auth-draw { animation: none; stroke-dashoffset: 0; }
+  .auth-pop,
+  .auth-shake { animation: none; }
 }

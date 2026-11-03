@@ -1,4 +1,10 @@
-import { useId, useState, type FormEvent } from "react";
+import {
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { toast } from "sonner";
 import { friendlyErrorMessage } from "../../lib/toastMessages";
@@ -7,7 +13,7 @@ import { PASSWORD_RESET_PATH } from "../../lib/passwordReset";
 import { passwordRules, PASSWORD_MAX_LENGTH } from "../../lib/auth";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Eye, EyeOff, KeyRound, LogIn } from "lucide-react";
+import { ChevronRight, KeyRound, Loader2, LogIn, UserPlus } from "lucide-react";
 import { RoleSelect } from "./RoleSelect";
 import { type PublicSignupRole } from "../../lib/roles";
 import {
@@ -15,6 +21,15 @@ import {
   validateRecruiterWebsite,
 } from "../../lib/recruiterSignup";
 import { CONSENT_TERM, CONSENT_TERM_VERSION } from "../../lib/consentTerm";
+import {
+  AuthCard,
+  AuthShell,
+  Collapse,
+  PasswordMeter,
+  PasswordToggle,
+  joinPt,
+  useShake,
+} from "./authUi";
 
 /**
  * Página de autenticação (issue [S1-1]): entrada única com abas Entrar/Criar
@@ -24,11 +39,23 @@ import { CONSENT_TERM, CONSENT_TERM_VERSION } from "../../lib/consentTerm";
  * [UX_REFINEMENT Etapa 1] — erros de autenticação saem das caixas cruas
  * (`[CONVEX A(auth:signIn)]…`) e viram Toast global com mensagem
  * amigável (H9-2: o campo senha nunca carrega o erro).
+ *
+ * Redesign: layout em duas colunas (AuthShell), entrada em cascata, troca de
+ * modo com crossfade, medidor de senha, dica do que falta para criar a conta
+ * e tremida curta quando o envio falha.
  */
+
+const MODES = ["signIn", "signUp"] as const;
+type Mode = (typeof MODES)[number];
+const MODE_LABEL: Record<Mode, string> = {
+  signIn: "Entrar",
+  signUp: "Criar conta",
+};
+
 export function AuthPage() {
   const authActions = useAuthActions();
   const signIn = authActions?.signIn;
-  const [mode, setMode] = useState<"signIn" | "signUp">("signIn");
+  const [mode, setMode] = useState<Mode>("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -45,12 +72,37 @@ export function AuthPage() {
   /** [UX_QUICK_WIN] — olhinho alterna password/texto no campo senha. */
   const [showPassword, setShowPassword] = useState(false);
   const consentErrorId = useId();
+  const hintId = useId();
+  const shake = useShake();
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const lastHint = useRef("");
 
   // Requisitos de senha (mesma regra do servidor, em src/lib/auth.ts).
   const rules = passwordRules(password, { email, name });
   const passwordOk = rules.every((rule) => rule.ok);
-  // A lista só aparece no cadastro e depois que a pessoa começa a digitar.
+  // O medidor só aparece no cadastro e depois que a pessoa começa a digitar.
   const showPasswordRules = mode === "signUp" && password.length > 0;
+
+  // O que ainda impede o botão "Criar conta" (dica sob o botão).
+  const missing: string[] = [];
+  if (mode === "signUp") {
+    if (!passwordOk) missing.push("atender aos requisitos da senha");
+    if (isRecruiterSignUp && !linkedinCheck.ok)
+      missing.push("informar um LinkedIn válido");
+    if (isRecruiterSignUp && !websiteCheck.ok) missing.push("corrigir o site");
+    if (!consentAccepted) missing.push("aceitar o termo de LGPD");
+  }
+  const touched = email.length > 0 || name.length > 0 || password.length > 0;
+  const showMissing = mode === "signUp" && touched && missing.length > 0;
+  if (showMissing) lastHint.current = `Para continuar, falta ${joinPt(missing)}.`;
+
+  function onTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const next = event.key === "ArrowLeft" || event.key === "Home" ? 0 : 1;
+    setMode(MODES[next]);
+    tabRefs.current[next]?.focus();
+  }
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -58,14 +110,17 @@ export function AuthPage() {
     event.preventDefault();
     if (mode === "signUp" && !passwordOk) {
       toast.error("A senha não atende a todos os requisitos.");
+      shake.trigger();
       return;
     }
     if (isRecruiterSignUp && !linkedinCheck.ok) {
       toast.error(linkedinCheck.error);
+      shake.trigger();
       return;
     }
     if (isRecruiterSignUp && !websiteCheck.ok) {
       toast.error(websiteCheck.error);
+      shake.trigger();
       return;
     }
     setPending(true);
@@ -108,59 +163,58 @@ export function AuthPage() {
     } catch (err) {
       // [UX_REFINEMENT] Toast amigável — nunca a mensagem crua do servidor.
       toast.error(friendlyErrorMessage(err));
+      shake.trigger();
     } finally {
       setPending(false);
     }
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas px-4 py-10">
-      <header className="mb-8 text-center">
-        <p className="font-serif text-xs uppercase tracking-widest text-a11y-secondary">
-          Universidade Católica de Pernambuco
-        </p>
-        <h1 className="mt-2 font-serif text-3xl font-bold text-primary">
-          Banco de Currículos
-        </h1>
-      </header>
-
-      {/* [S8-2]: main único da página (o App não aninha outro) e destino do skip-link. */}
-      <main
-        id="conteudo"
-        tabIndex={-1}
-        aria-label="Autenticação"
-        className="w-full max-w-md outline-none"
-      >
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-level2">
+    // [S8-2]: o AuthShell renderiza o main único (#conteudo, destino do skip-link).
+    <AuthShell ariaLabel="Autenticação">
+      <AuthCard>
+        <div className={shake.className} onAnimationEnd={shake.onAnimationEnd}>
+          {/* Abas Entrar / Criar conta — indicador desliza (só transform). */}
           <div
             role="tablist"
             aria-label="Modo de autenticação"
-            className="relative mb-6 grid grid-cols-2 rounded border border-slate-200 bg-canvas p-1"
+            onKeyDown={onTabKeyDown}
+            className="rise relative mb-7 grid grid-cols-2 rounded-full bg-slate-100 p-1 [animation-delay:120ms]"
           >
-            {/* Indicador que desliza entre as abas */}
             <span
               aria-hidden="true"
-              className={`absolute left-1 top-1 h-[calc(100%-0.5rem)] w-[calc(50%-0.25rem)] rounded bg-primary shadow-level1 transition-transform duration-300 ease-out ${
+              className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-primary shadow-level1 transition-transform duration-[280ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${
                 mode === "signUp" ? "translate-x-full" : "translate-x-0"
               }`}
             />
-            {(["signIn", "signUp"] as const).map((m) => (
+            {MODES.map((m, index) => (
               <button
                 key={m}
+                ref={(node) => {
+                  tabRefs.current[index] = node;
+                }}
                 role="tab"
                 type="button"
                 aria-selected={mode === m}
                 aria-controls="painel-auth"
+                tabIndex={mode === m ? 0 : -1}
                 onClick={() => setMode(m)}
-                className={`relative z-10 rounded px-3 py-2 text-sm font-semibold transition-colors duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
+                className={`relative z-10 h-10 rounded-full px-3 text-sm font-semibold transition-[transform,color] !duration-200 ease-out active:scale-[0.97] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                   mode === m
                     ? "text-white"
-                    : "text-slate-600 hover:text-primary"
+                    : "text-slate-600 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary"
                 }`}
               >
-                {m === "signIn" ? "Entrar" : "Criar conta"}
+                {MODE_LABEL[m]}
               </button>
             ))}
+          </div>
+
+          {/* Título e subtítulo trocam com crossfade a cada modo. */}
+          <div key={mode} className="auth-swap mb-6">
+            <h1 className="font-serif text-3xl font-bold leading-tight tracking-[-0.02em] text-primary">
+              {mode === "signIn" ? "Bem-vindo(a) de volta" : "Crie sua conta"}
+            </h1>
           </div>
 
           <form
@@ -188,7 +242,7 @@ export function AuthPage() {
                   required={mode === "signUp"}
                 />
                 {role === "recrutador" ? (
-                  <>
+                  <div className="auth-swap flex flex-col gap-4">
                     <Input
                       label="LinkedIn"
                       type="url"
@@ -211,17 +265,20 @@ export function AuthPage() {
                         tabIndex={isRecruiterSignUp ? 0 : -1}
                       />
                       {website.trim().length > 0 && !websiteCheck.ok ? (
-                        <p role="alert" className="text-xs text-red-700">
+                        <p
+                          role="alert"
+                          className="auth-swap text-xs font-medium text-danger"
+                        >
                           {websiteCheck.error}
                         </p>
                       ) : null}
                     </div>
-                  </>
+                  </div>
                 ) : null}
               </div>
             </Collapse>
 
-            <div className="flex flex-col gap-4 pb-4">
+            <div className="rise flex flex-col gap-4 pb-4 [animation-delay:260ms]">
               <Input
                 label="E-mail"
                 type="email"
@@ -242,46 +299,13 @@ export function AuthPage() {
                   mode === "signUp" ? "new-password" : "current-password"
                 }
                 trailing={
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((visible) => !visible)}
-                    className="rounded p-1 text-slate-400 transition-colors hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <span className="sr-only">
-                      {showPassword ? "Ocultar senha" : "Mostrar senha"}
-                    </span>
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" aria-hidden="true" />
-                    ) : (
-                      <Eye className="h-4 w-4" aria-hidden="true" />
-                    )}
-                  </button>
+                  <PasswordToggle
+                    visible={showPassword}
+                    onToggle={setShowPassword}
+                  />
                 }
               />
-              {showPasswordRules ? (
-                <ul
-                  aria-label="Requisitos da senha"
-                  aria-live="polite"
-                  className="-mt-2 flex flex-col gap-1 text-xs"
-                >
-                  {rules.map((rule) => (
-                    <li
-                      key={rule.id}
-                      className={
-                        rule.ok
-                          ? "font-medium text-success"
-                          : "text-a11y-slate-500"
-                      }
-                    >
-                      <span aria-hidden="true">{rule.ok ? "✓" : "○"}</span>{" "}
-                      {rule.label}
-                      <span className="sr-only">
-                        {rule.ok ? " (atendido)" : " (pendente)"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+              <PasswordMeter rules={rules} show={showPasswordRules} />
             </div>
 
             <Collapse open={mode === "signUp"}>
@@ -295,69 +319,68 @@ export function AuthPage() {
               </div>
             </Collapse>
 
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={
-                pending ||
-                (mode === "signUp" &&
-                  (!consentAccepted ||
-                    !passwordOk ||
-                    !linkedinOk ||
-                    !websiteOk))
-              }
-              aria-describedby={
-                mode === "signUp" && !consentAccepted
-                  ? consentErrorId
-                  : undefined
-              }
-            >
-              <LogIn className="h-4 w-4" aria-hidden="true" />
-              {pending
-                ? "Processando…"
-                : mode === "signIn"
-                  ? "Entrar"
-                  : "Criar conta"}
-            </Button>
+            <div className="rise flex flex-col [animation-delay:340ms]">
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={
+                  pending ||
+                  (mode === "signUp" &&
+                    (!consentAccepted ||
+                      !passwordOk ||
+                      !linkedinOk ||
+                      !websiteOk))
+                }
+                aria-describedby={
+                  mode === "signUp" && !consentAccepted
+                    ? consentErrorId
+                    : showMissing
+                      ? hintId
+                      : undefined
+                }
+              >
+                {pending ? (
+                  <Loader2
+                    className="h-4 w-4 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                ) : mode === "signIn" ? (
+                  <LogIn className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
+                )}
+                {pending ? "Processando…" : MODE_LABEL[mode]}
+              </Button>
+            </div>
+
+            {/* O que falta para liberar o botão de cadastro. */}
+            <Collapse open={showMissing}>
+              <p
+                id={hintId}
+                aria-live="polite"
+                className="pt-3 text-center text-xs leading-relaxed text-a11y-slate-500"
+              >
+                {lastHint.current}
+              </p>
+            </Collapse>
 
             <Collapse open={mode === "signIn"}>
-              <p className="pt-4 text-center text-sm">
+              <p className="pt-5 text-center text-sm">
                 <button
                   type="button"
                   onClick={() => navigateTo(PASSWORD_RESET_PATH)}
-                  className="inline-flex items-center gap-1 font-semibold text-primary underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="group inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-semibold text-primary transition-[background-color,transform] !duration-150 active:scale-[0.97] motion-reduce:active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#FDF2F4] [@media(hover:hover)_and_(pointer:fine)]:dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  tabIndex={mode === "signIn" ? 0 : -1}
                 >
                   <KeyRound className="h-4 w-4" aria-hidden="true" />
-                  Esqueci minha senha
+                  Esqueci minha senha 
                 </button>
               </p>
             </Collapse>
           </form>
         </div>
-      </main>
-    </div>
-  );
-}
-
-/** Expande/recolhe com animação de altura + fade, sem desmontar o conteúdo. */
-function Collapse({
-  open,
-  children,
-}: {
-  open: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      aria-hidden={!open}
-      className={`grid transition-[grid-template-rows,opacity,visibility] duration-300 ease-in-out ${
-        open
-          ? "visible grid-rows-[1fr] opacity-100"
-          : "invisible grid-rows-[0fr] opacity-0"
-      }`}
-    >
-      <div className="-mx-1 overflow-hidden px-1">{children}</div>
-    </div>
+      </AuthCard>
+    </AuthShell>
   );
 }
 
@@ -369,9 +392,9 @@ type ConsentCheckboxProps = {
 };
 
 /**
- * Checkbox obrigatória de aceite do termo LGPD simplificada e mais compacta.
- * Bloqueia o submit até o aceite e dá acesso ao texto integral do termo
- * vigente em <details> acessível (sem dependências externas).
+ * Checkbox obrigatória de aceite do termo LGPD. Bloqueia o submit até o
+ * aceite e dá acesso ao texto integral do termo vigente em <details>
+ * acessível (sem dependências externas). O "check" se desenha ao marcar.
  */
 function ConsentCheckbox({
   checked,
@@ -380,26 +403,54 @@ function ConsentCheckbox({
   enabled,
 }: ConsentCheckboxProps) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 mt-1">
-      <label className="flex cursor-pointer items-center gap-2 text-sm text-a11y-slate-700">
+    <div className="mt-1 flex flex-col gap-3 rounded-2xl bg-slate-50 p-4">
+      <label className="group flex cursor-pointer items-start gap-3 text-sm text-a11y-slate-700">
         <input
           type="checkbox"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
           required={enabled}
-          className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-primary"
+          className="peer sr-only"
           aria-required={enabled}
           tabIndex={enabled ? 0 : -1}
         />
+        <span
+          aria-hidden="true"
+          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border-2 transition-[background-color,border-color,transform] duration-200 ease-out group-active:scale-90 motion-reduce:group-active:scale-100 peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 ${
+            checked
+              ? "border-primary bg-primary"
+              : "border-slate-300 bg-white"
+          }`}
+        >
+          <svg viewBox="0 0 16 16" className="h-3 w-3 text-white" fill="none">
+            <path
+              d="M3 8.5l3.2 3.2L13 5"
+              pathLength={1}
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="transition-[stroke-dashoffset] duration-[250ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+              style={{
+                strokeDasharray: 1,
+                strokeDashoffset: checked ? 0 : 1,
+              }}
+            />
+          </svg>
+        </span>
         <span id={errorId} className="font-medium text-slate-800">
           Li e aceito os termos de LGPD ({CONSENT_TERM_VERSION})
         </span>
       </label>
-      <details className="group ml-6">
-        <summary className="cursor-pointer text-xs font-semibold text-primary hover:underline outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 rounded-sm w-fit">
+      <details className="group ml-8">
+        <summary className="flex w-fit cursor-pointer list-none items-center gap-1 rounded-sm text-xs font-semibold text-primary outline-none transition-transform !duration-150 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 [&::-webkit-details-marker]:hidden">
+          <ChevronRight
+            className="h-3.5 w-3.5 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] [details[open]_&]:rotate-90"
+            aria-hidden="true"
+          />
           Ler o termo completo
         </summary>
-        <pre className="mt-3 max-h-40 overflow-y-auto whitespace-pre-wrap rounded border border-slate-200 bg-white p-3 font-sans text-xs leading-relaxed text-slate-600 shadow-inner">
+        <pre className="auth-details-body mt-3 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-xl bg-white p-3 font-sans text-xs leading-relaxed text-slate-600 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
           {CONSENT_TERM}
         </pre>
       </details>

@@ -52,6 +52,19 @@ function localDaysAgo(todayStart: number, days: number): number {
   return date.getTime();
 }
 
+function useDelayedFlag(active: boolean, delayMs = 300): boolean {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setShow(false);
+      return;
+    }
+    const id = window.setTimeout(() => setShow(true), delayMs);
+    return () => window.clearTimeout(id);
+  }, [active, delayMs]);
+  return show;
+}
+
 const PERIOD_OPTIONS = [
   { value: "", label: "Todo o período" },
   { value: "30", label: "Últimos 30 dias" },
@@ -68,6 +81,19 @@ const STATUS_OPTIONS = [
 
 const SURFACE =
   "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+
+/** Botões estilo Apple: sem elevação no hover, realce interno de 1px, press de 0.97. */
+const APPLE_PRESS =
+  "hover:!translate-y-0 active:!scale-[0.97]";
+
+/** Ação primária (Atualizar): bordô com brilho sutil no topo. */
+const APPLE_PRIMARY = `${APPLE_PRESS} group !h-11 !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100]`;
+
+/** Itens "fantasma" dentro do controle segmentado (CSV, Excel). */
+const APPLE_GHOST = `${APPLE_PRESS} !h-9 !rounded-full !px-3.5 !text-[0.8125rem] !border-transparent !bg-transparent !text-slate-700 !shadow-none hover:!bg-white hover:!shadow-[0_1px_3px_rgba(15,23,42,0.14)] dark:!text-slate-200 dark:hover:!bg-white/10 dark:hover:!shadow-none`;
+
+/** Destaque dentro do controle segmentado (PDF): dourado com realce. */
+const APPLE_GOLD = `${APPLE_PRESS} !h-9 !rounded-full !px-4 !text-[0.8125rem] bg-gradient-to-b from-white/25 to-transparent !shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_1px_2px_rgba(122,90,22,0.25)]`;
 
 function GrowBar({
   percent,
@@ -295,6 +321,7 @@ export function OperationalPanel() {
   const tth = tthQuery.data;
   const funnel = funnelQuery.data;
   const rankings = rankingsQuery.data;
+  const showSkeleton = useDelayedFlag(summary === undefined, 300);
   const refreshing =
     summaryQuery.stale ||
     tthQuery.stale ||
@@ -302,7 +329,7 @@ export function OperationalPanel() {
     rankingsQuery.stale;
 
   if (summary === undefined) {
-    return <DashboardSkeleton />;
+    return showSkeleton ? <DashboardSkeleton /> : null;
   }
 
   const report = buildOperationalReport({
@@ -390,12 +417,13 @@ export function OperationalPanel() {
           </p>
         </div>
         <div
-          className="flex flex-wrap gap-2"
+          className="inline-flex items-center gap-1 rounded-full bg-slate-100/80 p-1 ring-1 ring-black/[0.04] backdrop-blur dark:bg-white/5 dark:ring-white/10"
           role="group"
           aria-label="Exportar relatório com os filtros atuais"
         >
           <Button
             variant="secondary"
+            className={APPLE_GHOST}
             onClick={() => exportReport("csv")}
             disabled={!exportReady}
             title="Planilha CSV (Excel/LibreOffice) com os indicadores filtrados"
@@ -405,6 +433,7 @@ export function OperationalPanel() {
           </Button>
           <Button
             variant="secondary"
+            className={APPLE_GHOST}
             onClick={() => exportReport("xlsx")}
             disabled={!exportReady}
             title="Pasta de trabalho Excel (.xlsx) com os indicadores filtrados"
@@ -414,6 +443,7 @@ export function OperationalPanel() {
           </Button>
           <Button
             variant="accent"
+            className={APPLE_GOLD}
             onClick={printPdf}
             disabled={!exportReady}
             title="Relatório em PDF com o template institucional UNICAP"
@@ -474,11 +504,11 @@ export function OperationalPanel() {
               className="w-full sm:w-52"
             />
             <Button
-                className="h-10 shrink-0"
+                className={APPLE_PRIMARY}
                 variant="primary"
                 onClick={applyFilters}
             >
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            <RefreshCw className="h-4 w-4 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:group-hover:rotate-180" aria-hidden="true" />
             Atualizar
             </Button>
             {filtersActive ? (

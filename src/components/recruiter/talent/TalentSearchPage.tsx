@@ -113,6 +113,14 @@ const PRESS =
 const CARD_HOVER =
   "transition-shadow duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] [@media(hover:hover)_and_(pointer:fine)]:hover:shadow-[0_0_0_1px_rgba(15,23,42,0.1),0_2px_4px_rgba(15,23,42,0.05),0_24px_48px_-20px_rgba(15,23,42,0.22)]";
 
+/** Primário estilo Apple (versão plana): cor sólida, realce de 1px e sombra curta. */
+const APPLE_PRIMARY =
+  "group !h-11 !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100 disabled:active:!scale-100";
+
+/** Secundário "tinted" neutro: ação segura, sem competir com o primário. */
+const APPLE_NEUTRAL =
+  "group !h-11 !gap-2 !rounded-xl !border-transparent !bg-slate-100 !px-4 !text-slate-700 !shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!bg-slate-200/70 active:!scale-[0.97] active:!duration-100 dark:!bg-[#2c1a21] dark:!text-[#e9b8c3] dark:!shadow-[inset_0_0_0_1px_rgba(233,184,195,0.22)] dark:hover:!bg-[#3a2029]";
+
 const INPUT_CLASS =
   "h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-900 transition-colors duration-150 placeholder:text-a11y-slate-500 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
 
@@ -188,6 +196,20 @@ function useDebouncedValue<T>(value: T, delay = 300): T {
     return () => clearTimeout(id);
   }, [value, delay]);
   return debounced;
+}
+
+/** Só vira `true` se `active` durar mais que `delayMs` (evita flash de skeleton). */
+function useDelayedFlag(active: boolean, delayMs = 300): boolean {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setShow(false);
+      return;
+    }
+    const id = window.setTimeout(() => setShow(true), delayMs);
+    return () => window.clearTimeout(id);
+  }, [active, delayMs]);
+  return show;
 }
 
 /** Iniciais: primeira + segunda palavra, ignorando espaços duplicados. */
@@ -679,13 +701,18 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
         <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-5 dark:border-white/10">
           <Button
             variant="secondary"
-            onClick={() => navigateTo(candidateProfilePath(talent.studentId))}
+            className={APPLE_NEUTRAL}
+            onClick={() => {
+              navigateTo(candidateProfilePath(talent.studentId));
+              window.scrollTo(0, 0);
+            }}
           >
             <Eye className="h-4 w-4" aria-hidden="true" />
             Visualizar Perfil &amp; CV
           </Button>
           <Button
             variant="primary"
+            className={APPLE_PRIMARY}
             disabled={!talent.contactAllowed}
             title={
               talent.contactAllowed ? undefined : "O aluno não autorizou contato"
@@ -902,6 +929,7 @@ export function TalentSearchPage() {
   // Mantém a lista anterior na tela enquanto a nova carrega (sem piscar).
   const { data: result, stale } = useStableQuery(query);
 
+  const showSkeleton = useDelayedFlag(result === undefined, 300);  
   function clearAll() {
     setSearch("");
     setCourse("");
@@ -1112,10 +1140,14 @@ export function TalentSearchPage() {
             </p>
             <Button
               variant="secondary"
+              className={`${APPLE_NEUTRAL} disabled:active:!scale-100`}
               onClick={clearAll}
               disabled={!hasAnyFilter}
             >
-              <X className="h-4 w-4" aria-hidden="true" />
+              <X
+                className="h-4 w-4 transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:group-hover:rotate-90"
+                aria-hidden="true"
+              />
               Limpar
             </Button>
           </div>
@@ -1427,7 +1459,7 @@ export function TalentSearchPage() {
           </div>
 
           {result === undefined ? (
-            <ResultsSkeleton />
+            showSkeleton ? <ResultsSkeleton /> : null
           ) : result.items.length === 0 ? (
             /* CORREÇÃO AQUI: Fundo transparente escuro e borda suave no dark mode */
             <div
@@ -1449,7 +1481,7 @@ export function TalentSearchPage() {
                 </p>
               ) : null}
               {hasAnyFilter ? (
-                <Button variant="secondary" className="mt-6" onClick={clearAll}>
+                <Button variant="secondary" className={`${APPLE_NEUTRAL} mt-6`} onClick={clearAll}>
                   <FilterX className="h-4 w-4" aria-hidden="true" />
                   Limpar filtros
                 </Button>

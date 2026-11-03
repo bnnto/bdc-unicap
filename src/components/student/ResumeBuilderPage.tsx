@@ -49,7 +49,7 @@ const EASE = "ease-[cubic-bezier(0.32,0.72,0,1)]";
 const EASE_OUT = "ease-[cubic-bezier(0.23,1,0.32,1)]";
 
 /** Troca de ícone: opacidade + escala + blur leve (nunca scale(0)). */
-const ICON_SWAP = `col-start-1 row-start-1 h-5 w-5 transition-[opacity,transform,scale,filter] duration-300 ${EASE_OUT} motion-reduce:[transition-property:opacity]`;
+const ICON_SWAP = `col-start-1 row-start-1 h-5 w-5 transition-[opacity,transform,scale,filter]  -300 ${EASE_OUT} motion-reduce:[transition-property:opacity]`;
 
 function prefersReducedMotion(): boolean {
   return (
@@ -82,7 +82,7 @@ function Enter({ as: Tag = "div", delay = 0, y = 10, ...rest }: EnterProps) {
             { opacity: 1, transform: "translateY(0) scale(1)" },
           ],
       {
-        duration: reduce ? 150 : 380,
+        duration: reduce ? 150 : 560,
         delay: reduce ? 0 : delay,
         easing: "cubic-bezier(0.23, 1, 0.32, 1)",
         fill: "backwards",
@@ -142,7 +142,7 @@ function SwitchRow({
         <span className="flex min-w-0 items-center gap-3">
           <span
             aria-hidden="true"
-            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-[background-color,color] duration-[450ms] ${EASE} ${
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl transition-[background-color,color] duration-[600ms] ${EASE} ${
               checked
                 ? "bg-[#FDF2F4] text-primary"
                 : "bg-slate-100 text-slate-500"
@@ -179,7 +179,7 @@ function SwitchRow({
           />
           <span
             aria-hidden="true"
-            className={`block h-7 w-12 rounded-full bg-slate-300 transition-colors duration-[450ms] ${EASE} peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-disabled:opacity-50 after:absolute after:left-0.5 after:top-0.5 after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-[450ms] after:content-[''] after:ease-[cubic-bezier(0.32,0.72,0,1)] peer-checked:after:translate-x-5 motion-reduce:after:transition-none`}
+            className={`block h-7 w-12 rounded-full bg-slate-300 transition-colors duration-[600ms] ${EASE} peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 peer-disabled:opacity-50 after:absolute after:left-0.5 after:top-0.5 after:h-6 after:w-6 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-[600ms] after:content-[''] after:ease-[cubic-bezier(0.32,0.72,0,1)] peer-checked:after:translate-x-5 motion-reduce:after:transition-none`}
           />
         </span>
       </label>
@@ -259,7 +259,7 @@ export function ResumeBuilderPage() {
         {/* SIDEBAR — fixa/sticky na rolagem (Etapa 2.1). */}
         <aside className="flex flex-col gap-6 lg:sticky lg:top-24">
           {/* Cartão de identidade. */}
-          <Enter delay={60}>
+          <Enter delay={90}>
             <section className={`${SURFACE} overflow-hidden`}>
               <div
                 aria-hidden="true"
@@ -342,7 +342,7 @@ export function ResumeBuilderPage() {
           </Enter>
 
           {/* Privacidade (R2) — Público vs Privado + consentimento de contato. */}
-          <Enter delay={120}>
+          <Enter delay={180}>
             <section
               aria-label="Privacidade do currículo"
               className={`${SURFACE} flex flex-col gap-6 p-6`}

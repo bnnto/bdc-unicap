@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   Briefcase,
   Building2,
-  ChevronDown,
   ClipboardList,
   Download,
   Filter,
@@ -17,11 +16,13 @@ import {
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "../ui/button";
+import { CustomSelect } from "../ui/CustomSelect";
 import { buildManagerKpis, partnerStatus } from "../../lib/managerDashboard";
 import { buildOperationalReport } from "../../lib/operationalPanel";
 import { downloadReport } from "../../lib/reportExport";
 import { printOperationalReport } from "../../lib/reportPrint";
 import { normalizeDashboardFilters } from "../../lib/dashboardFilters";
+import { useStableQuery } from "../../lib/useStableQuery";
 
 /**
  * Painel Estratégico de Carreiras & Empregabilidade (papel gestor).
@@ -73,8 +74,18 @@ const PARTNER_STATUS_LABELS: Record<
 const SURFACE =
   "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
 
-const FIELD =
-  "h-10 w-full appearance-none rounded-xl border border-slate-300 bg-white pl-3.5 pr-10 text-sm text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
+/** Botões estilo Apple: sem elevação no hover, realce interno de 1px, press de 0.97. */
+const APPLE_PRESS =
+  "hover:!translate-y-0 active:!scale-[0.97]";
+
+/** Ação primária (Atualizar): bordô com brilho sutil no topo. */
+const APPLE_PRIMARY = `${APPLE_PRESS} group !h-11 !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100]`;
+
+/** Itens "fantasma" dentro do controle segmentado (CSV, Excel). */
+const APPLE_GHOST = `${APPLE_PRESS} !h-9 !rounded-full !px-3.5 !text-[0.8125rem] !border-transparent !bg-transparent !text-slate-700 !shadow-none hover:!bg-white hover:!shadow-[0_1px_3px_rgba(15,23,42,0.14)] dark:!text-slate-200 dark:hover:!bg-white/10 dark:hover:!shadow-none`;
+
+/** Destaque dentro do controle segmentado (PDF): dourado com realce. */
+const APPLE_GOLD = `${APPLE_PRESS} !h-9 !rounded-full !px-4 !text-[0.8125rem] bg-gradient-to-b from-white/25 to-transparent !shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_1px_2px_rgba(122,90,22,0.25)]`;
 
 /** Barra que cresce ao montar e re-anima a partir do valor atual quando o
  *  percentual muda (transição CSS: interruptível, sem salto). */
@@ -227,47 +238,6 @@ function KpiCell({
   );
 }
 
-function SelectField({
-  label,
-  value,
-  onChange,
-  placeholder,
-  options,
-  className,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  options: { value: string; label: string }[];
-  className: string;
-}) {
-  return (
-    <label className={`flex flex-col gap-1.5 ${className}`}>
-      <span className="text-xs font-medium text-slate-500">{label}</span>
-      <span className="relative block">
-        <select
-          aria-label={label}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={FIELD}
-        >
-          <option value="">{placeholder}</option>
-          {options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <ChevronDown
-          aria-hidden="true"
-          className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-        />
-      </span>
-    </label>
-  );
-}
-
 /** Linha "rótulo + barra + percentual" usada por curso e reprovações. */
 function BarRow({
   label,
@@ -304,6 +274,20 @@ function BarRow({
   );
 }
 
+/** Só vira `true` se `active` durar mais que `delayMs` (evita flash de skeleton). */
+function useDelayedFlag(active: boolean, delayMs = 300): boolean {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setShow(false);
+      return;
+    }
+    const id = window.setTimeout(() => setShow(true), delayMs);
+    return () => window.clearTimeout(id);
+  }, [active, delayMs]);
+  return show;
+}
+
 function DashboardSkeleton() {
   return (
     <div role="status" aria-live="polite" className="animate-pulse space-y-6">
@@ -330,21 +314,70 @@ export function ManagerDashboard() {
   // As queries de insights aceitam apenas `course`.
   const managerFilters = { course: filters.course };
 
-  const summary = useQuery(api.operational.operationalSummary, filters);
-  const tth = useQuery(api.operational.timeToHireStats, filters);
-  const funnel = useQuery(api.operational.pipelineFunnel, filters);
-  const talentPool = useQuery(api.students.talentPoolCount, {});
-  const rejectionsData = useQuery(
-    api.manager.getRejectionInsights,
-    managerFilters,
+  const summaryQ = useStableQuery(
+    useQuery(api.operational.operationalSummary, filters),
   );
-  const skillsRadar = useQuery(api.manager.getSkillsRadar, managerFilters);
-  const engagement = useQuery(api.manager.getEngagementMetrics, managerFilters);
-  const courseEmployability = useQuery(
-    api.manager.getEmployabilityByCourse,
-    managerFilters,
+  const tthQ = useStableQuery(
+    useQuery(api.operational.timeToHireStats, filters),
   );
-  const partnerCompanies = useQuery(api.manager.getPartnerCompanies, {});
+  const funnelQ = useStableQuery(
+    useQuery(api.operational.pipelineFunnel, filters),
+  );
+  const talentPoolQ = useStableQuery(
+    useQuery(api.students.talentPoolCount, {}),
+  );
+  const rejectionsQ = useStableQuery(
+    useQuery(api.manager.getRejectionInsights, managerFilters),
+  );
+  const skillsRadarQ = useStableQuery(
+    useQuery(api.manager.getSkillsRadar, managerFilters),
+  );
+  const engagementQ = useStableQuery(
+    useQuery(api.manager.getEngagementMetrics, managerFilters),
+  );
+  const courseEmployabilityQ = useStableQuery(
+    useQuery(api.manager.getEmployabilityByCourse, managerFilters),
+  );
+  const partnerCompaniesQ = useStableQuery(
+    useQuery(api.manager.getPartnerCompanies, {}),
+  );
+
+  const summary = summaryQ.data;
+  const tth = tthQ.data;
+  const funnel = funnelQ.data;
+  const talentPool = talentPoolQ.data;
+  const rejectionsData = rejectionsQ.data;
+  const skillsRadar = skillsRadarQ.data;
+  const engagement = engagementQ.data;
+  const courseEmployability = courseEmployabilityQ.data;
+  const partnerCompanies = partnerCompaniesQ.data;
+
+  const refreshing = [
+    summaryQ,
+    tthQ,
+    funnelQ,
+    talentPoolQ,
+    rejectionsQ,
+    skillsRadarQ,
+    engagementQ,
+    courseEmployabilityQ,
+    partnerCompaniesQ,
+  ].some((q) => q.stale);
+
+  const showSkeleton = useDelayedFlag(
+    [
+      summary,
+      tth,
+      funnel,
+      talentPool,
+      rejectionsData,
+      skillsRadar,
+      engagement,
+      courseEmployability,
+      partnerCompanies,
+    ].some((q) => q === undefined),
+    300,
+  );
 
   if (
     summary === undefined ||
@@ -357,7 +390,7 @@ export function ManagerDashboard() {
     courseEmployability === undefined ||
     partnerCompanies === undefined
   ) {
-    return <DashboardSkeleton />;
+    return showSkeleton ? <DashboardSkeleton /> : null;
   }
 
   const kpis = buildManagerKpis({
@@ -401,7 +434,9 @@ export function ManagerDashboard() {
       data-testid="manager-dashboard"
       role="region"
       aria-label="Painel estratégico"
-      className="space-y-8 px-1 pb-16 pt-6"
+      className={`space-y-8 px-1 pb-16 pt-6 transition-opacity duration-200 ${
+        refreshing ? "opacity-60" : "opacity-100"
+      }`}
     >
       {/* Cabeçalho: título grande, subtítulo curto, exportações à direita. */}
       <header className="rise flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
@@ -415,28 +450,31 @@ export function ManagerDashboard() {
           </p>
         </div>
         <div
-          className="flex flex-wrap gap-2"
+          className="inline-flex items-center gap-1 rounded-full bg-slate-100/80 p-1 ring-1 ring-black/[0.04] backdrop-blur dark:bg-white/5 dark:ring-white/10"
           role="group"
           aria-label="Exportações do painel"
         >
           <Button
             variant="secondary"
+            className={APPLE_GHOST}
             onClick={exportCsv}
             title="Planilha CSV com os indicadores filtrados"
           >
-            <Download className="h-4 w-4" aria-hidden="true" />
+            <Download className="h-4 w-4 text-primary" aria-hidden="true" />
             Planilha (CSV)
           </Button>
           <Button
             variant="secondary"
+            className={APPLE_GHOST}
             onClick={exportXlsx}
             title="Pasta de trabalho Excel (.xlsx) com os indicadores filtrados"
           >
-            <Download className="h-4 w-4" aria-hidden="true" />
+            <Download className="h-4 w-4 text-primary" aria-hidden="true" />
             Excel
           </Button>
           <Button
             variant="accent"
+            className={APPLE_GOLD}
             onClick={exportPdf}
             title="Relatório em PDF com o template institucional UNICAP"
           >
@@ -452,33 +490,39 @@ export function ManagerDashboard() {
         role="group"
         aria-label="Filtros do painel estratégico"
       >
-        <SelectField
+        <CustomSelect
           label="Curso"
           value={draftCourse}
           onChange={setDraftCourse}
           placeholder="Todos os cursos"
-          options={COURSE_OPTIONS.map((c) => ({ value: c, label: c }))}
+          options={[
+            { value: "", label: "Todos os cursos" },
+            ...COURSE_OPTIONS.map((c) => ({ value: c, label: c })),
+          ]}
           className="w-full sm:w-64"
         />
-        <SelectField
+        <CustomSelect
           label="Semestre"
           value={draftSemester}
           onChange={setDraftSemester}
           placeholder="Todos os semestres"
-          options={SEMESTER_OPTIONS.map((s) => ({
-            value: s,
-            label: `${s}º semestre`,
-          }))}
+          options={[
+            { value: "", label: "Todos os semestres" },
+            ...SEMESTER_OPTIONS.map((s) => ({ value: s, label: `${s}º semestre` })),
+          ]}
           className="w-full sm:w-52"
         />
         <Button
-          className="h-10 shrink-0"
+          className={APPLE_PRIMARY}
           variant="primary"
           onClick={() =>
             setApplied({ course: draftCourse, semester: draftSemester })
           }
         >
-          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          <RefreshCw
+            className="h-4 w-4 transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none [@media(hover:hover)_and_(pointer:fine)]:group-hover:rotate-180"
+            aria-hidden="true"
+          />
           Atualizar
         </Button>
         {applied.semester !== "" ? (
