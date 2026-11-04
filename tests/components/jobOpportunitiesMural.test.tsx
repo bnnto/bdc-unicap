@@ -1,10 +1,11 @@
 /**
- * [REFACTOR_ALUNO Etapa 3] — Mural de Oportunidades estilo LinkedIn:
+ * [REFACTOR_ALUNO Etapa 3] Mural de Oportunidades estilo LinkedIn:
  * busca por cargo/skill, filtros (contrato, localidade, salário), cards
  * detalhados com destaque do Percentual de Compatibilidade (R8, score
  * vindo do servidor) e candidatura em um clique.
  */
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("convex/react", () => ({
@@ -24,6 +25,10 @@ vi.mock("../../convex/_generated/api", () => ({
     students: {
       myProfile: "query:students.myProfile",
     },
+    reports: {
+      myReportedJobIds: "query:reports.myReportedJobIds",
+      reportJob: "mut:reports.reportJob",
+    },
   },
 }));
 
@@ -37,6 +42,12 @@ function cardsOf(feed: HTMLElement): HTMLElement[] {
     if (child instanceof HTMLLIElement) cards.push(child);
   }
   return cards;
+}
+
+/** Abre um filtro (botão com aria-label) e escolhe uma opção da lista. */
+async function escolherFiltro(botao: RegExp, opcao: RegExp) {
+  await userEvent.click(screen.getByRole("button", { name: botao }));
+  await userEvent.click(screen.getByRole("button", { name: opcao }));
 }
 
 const mockedUseQuery = vi.mocked(useQuery);
@@ -86,6 +97,7 @@ beforeEach(() => {
     if (query === "query:applications.openJobs") return [ESTAGIO, CLT];
     if (query === "query:applications.myApplications") return [];
     if (query === "query:students.myProfile") return PROFILE;
+    if (query === "query:reports.myReportedJobIds") return [];
     return undefined;
   }) as never);
   mockedUseMutation.mockImplementation(((mutation: unknown) =>
@@ -94,20 +106,20 @@ beforeEach(() => {
       : vi.fn().mockResolvedValue({})) as never);
 });
 
-describe("Mural estilo LinkedIn — filtros (Etapa 3.2)", () => {
+describe("Mural estilo LinkedIn: filtros (Etapa 3.2)", () => {
   it("busca por cargo/skill + filtros de contrato, localidade e salário", () => {
     render(<JobOpportunities />);
     expect(
-      screen.getByRole("searchbox", { name: /buscar vagas/i }),
+      screen.getByRole("combobox", { name: /buscar vagas/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("combobox", { name: /tipo de contrato/i }),
+      screen.getByRole("button", { name: /tipo de contrato/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("combobox", { name: /localidade/i }),
+      screen.getByRole("button", { name: /localidade/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("combobox", { name: /salário mínimo/i }),
+      screen.getByRole("button", { name: /salário mínimo/i }),
     ).toBeInTheDocument();
   });
 
@@ -130,10 +142,9 @@ describe("Mural estilo LinkedIn — filtros (Etapa 3.2)", () => {
   });
 
   it("busca filtra o feed em tempo real", async () => {
-    const { userEvent } = await import("@testing-library/user-event");
     render(<JobOpportunities />);
     await userEvent.type(
-      screen.getByRole("searchbox", { name: /buscar vagas/i }),
+      screen.getByRole("combobox", { name: /buscar vagas/i }),
       "analista",
     );
     const feed = screen.getByRole("list", { name: /vagas encontradas/i });
@@ -145,24 +156,16 @@ describe("Mural estilo LinkedIn — filtros (Etapa 3.2)", () => {
   });
 
   it("filtro de contrato esconde vagas de outro tipo", async () => {
-    const { userEvent } = await import("@testing-library/user-event");
     render(<JobOpportunities />);
-    await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: /tipo de contrato/i }),
-      "clt",
-    );
+    await escolherFiltro(/tipo de contrato/i, /clt/i);
     const feed = screen.getByRole("list", { name: /vagas encontradas/i });
     expect(cardsOf(feed)).toHaveLength(1);
     expect(within(feed).getByText("Analista de Dados Jr")).toBeInTheDocument();
   });
 
   it("salário mínimo esconde vagas abaixo do piso", async () => {
-    const { userEvent } = await import("@testing-library/user-event");
     render(<JobOpportunities />);
-    await userEvent.selectOptions(
-      screen.getByRole("combobox", { name: /salário mínimo/i }),
-      "3000",
-    );
+    await escolherFiltro(/salário mínimo/i, /3\.?000/);
     const feed = screen.getByRole("list", { name: /vagas encontradas/i });
     const cards = cardsOf(feed);
     expect(cards).toHaveLength(1);
@@ -172,11 +175,15 @@ describe("Mural estilo LinkedIn — filtros (Etapa 3.2)", () => {
   });
 });
 
-describe("Mural estilo LinkedIn — destaque de compatibilidade (Etapa 3.4)", () => {
-  it("cada card destaca o percentual de compatibilidade", () => {
+describe("Mural estilo LinkedIn: destaque de compatibilidade (Etapa 3.4)", () => {
+  it("cada card mostra o percentual de compatibilidade", () => {
     render(<JobOpportunities />);
-    expect(screen.getByText("88% de compatibilidade")).toBeInTheDocument();
-    expect(screen.getByText("41% de compatibilidade")).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Compatibilidade de 88%" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Compatibilidade de 41%" }),
+    ).toBeInTheDocument();
   });
 
   it("o percentual vem do servidor em openJobs (R8)", () => {
@@ -189,9 +196,8 @@ describe("Mural estilo LinkedIn — destaque de compatibilidade (Etapa 3.4)", ()
   });
 });
 
-describe("Mural estilo LinkedIn — candidatura e pré-requisitos", () => {
+describe("Mural estilo LinkedIn: candidatura e pré-requisitos", () => {
   it("candidatura em um clique com feedback de sucesso", async () => {
-    const { userEvent } = await import("@testing-library/user-event");
     render(<JobOpportunities />);
     const feed = screen.getByRole("list", { name: /vagas encontradas/i });
     const card = cardsOf(feed)[0]!;
@@ -208,21 +214,24 @@ describe("Mural estilo LinkedIn — candidatura e pré-requisitos", () => {
     mockedUseQuery.mockImplementation(((query: unknown) => {
       if (query === "query:applications.openJobs")
         return [
-          { ...ESTAGIO, prerequisites: [{ item: "COBOL", required: true }] },
+          { ...ESTAGIO, prerequisites: [{ item: "SQL", required: true }] },
         ];
       if (query === "query:applications.myApplications") return [];
-      if (query === "query:students.myProfile")
-        return { ...PROFILE, skills: ["React"] };
+      if (query === "query:students.myProfile") return PROFILE;
+      if (query === "query:reports.myReportedJobIds") return [];
       return undefined;
     }) as never);
     render(<JobOpportunities />);
     const feed = screen.getByRole("list", { name: /vagas encontradas/i });
     const card = cardsOf(feed)[0]!;
     expect(within(card).getByRole("alert")).toHaveTextContent(
-      /requisito obrigatório não atendido: COBOL/i,
+      /requisito obrigatório não atendido: SQL/i,
     );
-    expect(
-      within(card).getByRole("button", { name: /candidatar-se/i }),
-    ).toBeDisabled();
+    const botao = within(card).getByRole("button", { name: /candidatar-se/i });
+    expect(botao).toBeDisabled();
+    expect(botao).toHaveAttribute(
+      "title",
+      expect.stringMatching(/requisitos obrigatórios/i),
+    );
   });
 });

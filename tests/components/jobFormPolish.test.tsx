@@ -8,7 +8,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("convex/react", () => ({
-  useMutation: vi.fn(),
+  useQuery: vi.fn(() => undefined),
+  useMutation: vi.fn(() => vi.fn()),
 }));
 
 vi.mock("../../convex/_generated/api", () => ({
@@ -16,6 +17,9 @@ vi.mock("../../convex/_generated/api", () => ({
     jobs: {
       upsertJob: "mut:jobs.upsertJob",
       createJob: "mut:jobs.createJob",
+    },
+    jobInsights: {
+      countEligibleStudents: "query:jobInsights.countEligibleStudents",
     },
   },
 }));
@@ -44,8 +48,8 @@ async function fillValidForm() {
     "Apoio no desenvolvimento de aplicações web da universidade com mentoria.",
   );
   await userEvent.type(
-    screen.getByLabelText(/Pré-requisito 1/i),
-    "Conclusão de 60% do curso",
+    screen.getByLabelText("Competência do pré-requisito 1"),
+    "React",
   );
 }
 
@@ -70,21 +74,16 @@ describe("JobForm — polimento (UX-P3)", () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
-  it("H6-1 — campo de idioma vincula datalist de sugestões", () => {
+  it("H6-1 — campo de idioma é combobox do dicionário de idiomas", async () => {
     render(<JobForm initial={null} onDone={onDone} />);
 
-    const languageInput = screen.getByLabelText("Idioma exigido");
-    expect(languageInput).toHaveAttribute("list", "job-language-options");
-
-    const datalist = document.getElementById("job-language-options");
-    expect(datalist).not.toBeNull();
-    const options = datalist?.querySelectorAll("option") ?? [];
-    const values = Array.from(options).map((option) =>
-      option.getAttribute("value"),
-    );
-    expect(values).toContain("Inglês");
-    expect(values).toContain("Libras");
-    expect(values.length).toBeGreaterThanOrEqual(5);
+    const languageInput = screen.getByRole("combobox", {
+      name: "Idioma exigido",
+    });
+    await userEvent.type(languageInput, "Ingl");
+    expect(
+      screen.getByRole("option", { name: "Inglês" }),
+    ).toBeInTheDocument();
   });
 
   it("validation errors continuam bloqueando o retorno à lista", async () => {

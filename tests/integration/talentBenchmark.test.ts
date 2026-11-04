@@ -128,7 +128,7 @@ describe("S8-3 — benchmark do Banco de Talentos com 10k+ currículos", () => {
       const started = performance.now();
       const result = await asRecruiter(t, recruiterId).query(
         api.students.searchTalent,
-        { availability: "estagio", course: "Ciência da Computação", page: 0 },
+        { availability: ["estagio"], course: "Ciência da Computação", page: 0 },
       );
       const elapsed = performance.now() - started;
 

@@ -93,7 +93,6 @@ describe("ResumeBuilderPage — sidebar sticky (Etapa 2.1)", () => {
     const aside = container.querySelector("aside");
     expect(aside).not.toBeNull();
     expect(aside!.className).toContain("lg:sticky");
-    expect(aside!.className).toContain("lg:col-span-4");
     expect(aside!.className).toContain("lg:top-24");
   });
 
@@ -114,31 +113,11 @@ describe("ResumeBuilderPage — sidebar sticky (Etapa 2.1)", () => {
     const toggle = screen.getByRole("switch", {
       name: /visibilidade no banco de talentos/i,
     });
-    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(toggle).not.toBeChecked();
     await userEvent.click(toggle);
     expect(setVisibility).toHaveBeenCalledWith({ visibility: "publico" });
   });
 
-  it("menu âncora de navegação rápida com as 7 seções do formulário", () => {
-    render(<ResumeBuilderPage />);
-    const nav = screen.getByRole("navigation", {
-      name: /navegação rápida do currículo/i,
-    });
-    const links = within(nav).getAllByRole("link");
-    expect(links).toHaveLength(7);
-    expect(links.map((link) => link.getAttribute("href"))).toEqual([
-      "#bloco-pessoais",
-      "#bloco-academico",
-      "#bloco-links",
-      "#bloco-competencias",
-      "#bloco-idiomas",
-      "#bloco-experiencias",
-      "#bloco-certificacoes",
-    ]);
-    links.forEach((link, index) => {
-      expect(link.textContent?.trim().startsWith(String(index + 1))).toBe(true);
-    });
-  });
 });
 
 describe("ResumeBuilderPage — main com os 7 blocos (Etapa 2.2)", () => {

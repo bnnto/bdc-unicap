@@ -156,10 +156,10 @@ describe("OperationalPanel — exportação dos relatórios (S6-1)", () => {
   it("oferece download CSV e Excel do relatório atual", () => {
     render(<OperationalPanel />);
     expect(
-      screen.getByRole("button", { name: /baixar csv/i }),
+      screen.getByRole("button", { name: /planilha \(csv\)/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /baixar excel/i }),
+      screen.getByRole("button", { name: /^excel$/i }),
     ).toBeInTheDocument();
   });
 
@@ -167,7 +167,7 @@ describe("OperationalPanel — exportação dos relatórios (S6-1)", () => {
     const { blobs } = spyDownload();
     render(<OperationalPanel />);
 
-    await userEvent.click(screen.getByRole("button", { name: /baixar csv/i }));
+    await userEvent.click(screen.getByRole("button", { name: /planilha \(csv\)/i }));
 
     await waitFor(() => expect(blobs).toHaveLength(1));
     const blob = blobs[0];
@@ -189,7 +189,7 @@ describe("OperationalPanel — exportação dos relatórios (S6-1)", () => {
     render(<OperationalPanel />);
 
     await userEvent.click(
-      screen.getByRole("button", { name: /baixar excel/i }),
+      screen.getByRole("button", { name: /^excel$/i }),
     );
 
     await waitFor(() => expect(blobs).toHaveLength(1));
@@ -205,7 +205,7 @@ describe("OperationalPanel — exportação dos relatórios (S6-1)", () => {
   it("nome do arquivo usa slug + data de hoje", async () => {
     const { downloads } = spyDownload();
     render(<OperationalPanel />);
-    await userEvent.click(screen.getByRole("button", { name: /baixar csv/i }));
+    await userEvent.click(screen.getByRole("button", { name: /planilha \(csv\)/i }));
     expect(downloads[0]).toMatch(
       /^relatorio-operacional-unicap-\d{4}-\d{2}-\d{2}\.csv$/,
     );
@@ -221,7 +221,7 @@ describe("OperationalPanel — exportação PDF (S6-2)", () => {
   it("oferece o botão Baixar PDF no painel", () => {
     render(<OperationalPanel />);
     expect(
-      screen.getByRole("button", { name: /baixar pdf/i }),
+      screen.getByRole("button", { name: /relatório pdf/i }),
     ).toBeInTheDocument();
   });
 
@@ -229,7 +229,7 @@ describe("OperationalPanel — exportação PDF (S6-2)", () => {
     const printSpy = vi.spyOn(window, "print").mockImplementation(() => {});
     render(<OperationalPanel />);
 
-    await userEvent.click(screen.getByRole("button", { name: /baixar pdf/i }));
+    await userEvent.click(screen.getByRole("button", { name: /relatório pdf/i }));
 
     // PDF nativo: prévia renderizada + window.print() chamado.
     expect(printSpy).toHaveBeenCalledTimes(1);

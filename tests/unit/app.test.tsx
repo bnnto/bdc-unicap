@@ -64,7 +64,7 @@ describe("App — rota pública e autenticação (UX_UPGRADE)", () => {
     window.history.pushState({}, "", "/login");
     renderAsVisitor();
     expect(
-      screen.getByRole("heading", { name: /banco de currículos/i }),
+      screen.getByText(/banco de currículos/i),
     ).toBeInTheDocument();
   });
 

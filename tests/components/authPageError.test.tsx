@@ -38,7 +38,7 @@ describe("AuthPage — erros de login via Toast amigável (Etapa 1)", () => {
     render(<AuthPage />);
 
     await userEvent.type(screen.getByLabelText(/E-mail/i), "aluno@unicap.br");
-    await userEvent.type(screen.getByLabelText(/Senha/i), "senha-errada");
+    await userEvent.type(screen.getByLabelText(/^senha/i), "senha-errada");
     await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
     expect(toast.error).toHaveBeenCalledWith("E-mail ou senha incorretos.");
@@ -53,7 +53,7 @@ describe("AuthPage — erros de login via Toast amigável (Etapa 1)", () => {
     ).toBe(false);
 
     // O campo senha NÃO carrega o erro de credenciais (H9-2).
-    const password = screen.getByLabelText(/Senha/i);
+    const password = screen.getByLabelText(/^senha/i);
     expect(password).not.toHaveAttribute("aria-invalid");
     expect(password).not.toHaveAttribute("aria-describedby");
   });
@@ -63,7 +63,7 @@ describe("AuthPage — erros de login via Toast amigável (Etapa 1)", () => {
     render(<AuthPage />);
 
     await userEvent.type(screen.getByLabelText(/E-mail/i), "aluno@unicap.br");
-    await userEvent.type(screen.getByLabelText(/Senha/i), "senha-correta");
+    await userEvent.type(screen.getByLabelText(/^senha/i), "senha-correta");
     await userEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
     expect(toast.success).toHaveBeenCalled();

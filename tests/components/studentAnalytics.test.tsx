@@ -64,17 +64,16 @@ describe("[FINAL_UPGRADE] Estatísticas do Meu Perfil (dashboard)", () => {
     expect(screen.getByText("50%")).toBeInTheDocument(); // taxa de sucesso
     expect(screen.getByText("12")).toBeInTheDocument(); // visualizações
     expect(screen.getByText("65%")).toBeInTheDocument(); // média de match
-    expect(
-      screen.getAllByText("4").length, // total (stats + KPI vazio não colide)
-    ).toBeGreaterThan(0);
+    expect(document.body).toHaveTextContent(/4 no total/i);
   });
 
   it("mostra a distribuição por etapa em chips", () => {
     render(<MyApplicationsPage />);
-    expect(screen.getByText(/entrevista:\s*1/i)).toBeInTheDocument();
-    expect(screen.getByText(/aprovado:\s*1/i)).toBeInTheDocument();
-    expect(screen.getByText(/reprovado:\s*1/i)).toBeInTheDocument();
-    expect(screen.getByText(/inscrito:\s*0/i)).toBeInTheDocument();
+
+    expect(document.body).toHaveTextContent(/entrevista\s*1/i);
+    expect(document.body).toHaveTextContent(/aprovado\s*1/i);
+    expect(document.body).toHaveTextContent(/reprovado\s*1/i);
+    expect(document.body).toHaveTextContent(/inscrito\s*0/i);
   });
 
   it("enquanto carrega mostra traços, sem números inventados", () => {

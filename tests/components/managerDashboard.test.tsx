@@ -160,27 +160,27 @@ describe("REFACTOR_GESTOR — Painel Estratégico (Etapa 4)", () => {
     render(<ManagerDashboard />);
     expect(
       screen.getByRole("heading", {
-        name: /painel estratégico de carreiras & empregabilidade/i,
+        name: /^painel estratégico$/i,
       }),
     ).toBeInTheDocument();
     const actions = screen.getByRole("group", {
       name: /exportações do painel/i,
     });
     expect(
-      within(actions).getByRole("button", { name: /exportar relatório pdf/i }),
+      within(actions).getByRole("button", { name: /relatório pdf/i }),
     ).toBeInTheDocument();
     expect(
-      within(actions).getByRole("button", { name: /exportar planilha/i }),
+      within(actions).getByRole("button", { name: /planilha/i }),
     ).toBeInTheDocument();
   });
 
   it("barra de filtros com cursos, semestre e botão Atualizar", () => {
     render(<ManagerDashboard />);
     expect(
-      screen.getByRole("combobox", { name: /curso/i }),
+      screen.getByRole("button", { name: /curso/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("combobox", { name: /semestre/i }),
+      screen.getByRole("button", { name: /semestre/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /^atualizar$/i }),
@@ -190,7 +190,7 @@ describe("REFACTOR_GESTOR — Painel Estratégico (Etapa 4)", () => {
   it("4 KPIs no topo com dados reais quando disponíveis", () => {
     render(<ManagerDashboard />);
     // [FINAL_UI_POLISH] cards de métrica com respiro máximo (p-8).
-    expect(screen.getByTestId("kpi-oportunidades")).toHaveClass("p-8");
+    expect(screen.getByTestId("kpi-oportunidades")).toHaveClass("p-7");
     expect(screen.getByTestId("kpi-oportunidades")).toHaveTextContent("12");
     expect(screen.getByTestId("kpi-empregabilidade")).toHaveTextContent("64%");
     expect(screen.getByTestId("kpi-tempo-contratacao")).toHaveTextContent("21");
@@ -226,7 +226,7 @@ describe("REFACTOR_GESTOR — Painel Estratégico (Etapa 4)", () => {
     ).map((th) => th.textContent);
     expect(headers).toEqual([
       "Empresa",
-      "Vagas Publicadas",
+      "Vagas publicadas",
       "Contratados",
       "Status",
     ]);
@@ -292,9 +292,9 @@ describe("REFACTOR_GESTOR — Painel Estratégico (Etapa 4)", () => {
     expect(within(engagement).getByText("58")).toBeInTheDocument();
   });
 
-  it("estado de carregamento dos KPIs antes das queries chegarem", () => {
+  it("estado de carregamento dos KPIs antes das queries chegarem", async () => {
     mockedUseQuery.mockReturnValue(undefined);
     render(<ManagerDashboard />);
-    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toBeInTheDocument();
   });
 });

@@ -111,7 +111,7 @@ describe("JobsPanel — ação 'Ver Candidatos' (Master-Detail)", () => {
 
 describe("RecruiterJobsPage — Master-Detail (lista ⇄ Kanban)", () => {
   it("a página abre SÓ com a lista de vagas (sem Kanban escondido no fluxo)", () => {
-    render(<RecruiterJobsPage />);
+    render(<RecruiterJobsPage jobId={null} />);
 
     expect(screen.getByText("Minhas vagas")).toBeInTheDocument();
     // O board (Kanban) não é buscado nem renderizado até escolher a vaga.
@@ -123,7 +123,7 @@ describe("RecruiterJobsPage — Master-Detail (lista ⇄ Kanban)", () => {
   });
 
   it("'Ver Candidatos' troca a tela para o Kanban daquela vaga", async () => {
-    render(<RecruiterJobsPage />);
+    render(<RecruiterJobsPage jobId={null} />);
 
     await userEvent.click(
       screen.getByRole("button", { name: /ver candidatos/i }),
@@ -140,7 +140,7 @@ describe("RecruiterJobsPage — Master-Detail (lista ⇄ Kanban)", () => {
   });
 
   it("'Voltar para Minhas Vagas' retorna à lista e fecha o Kanban", async () => {
-    render(<RecruiterJobsPage />);
+    render(<RecruiterJobsPage jobId={null} />);
 
     await userEvent.click(
       screen.getByRole("button", { name: /ver candidatos/i }),

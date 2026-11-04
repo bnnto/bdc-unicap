@@ -34,7 +34,6 @@ import {
   FileText,
   GraduationCap,
   Kanban,
-  ShieldCheck,
   Target,
 } from "lucide-react";
 

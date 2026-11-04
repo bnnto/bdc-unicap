@@ -1,12 +1,8 @@
 /**
- * [PERFIL_E_LGPD] Página /perfil — central de configurações e
- * segurança. Testa a presença das seções e o comportamento dos
- * controles: toggles de acessibilidade (persistência + efeito no
- * documento), kill switch de sessões, notificações, portabilidade JSON
- * e o botão vermelho de exclusão com confirmação "EXCLUIR".
- *
- * `convex/react`, `@convex-dev/auth/react` e a api gerada são mockados
- * (sentinelas estáveis contra os proxies do Convex).
+ * [PERFIL_E_LGPD] Página /perfil: central de configurações em abas
+ * (Perfil, Aparência, Notificações, Sessões, Privacidade). Só um painel
+ * fica na tela por vez, então cada teste clica na aba antes de procurar
+ * o controle dela.
  */
 import {
   fireEvent,
@@ -16,7 +12,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("convex/react", () => ({
   useQuery: vi.fn(),
@@ -37,11 +33,19 @@ vi.mock("../../convex/_generated/api", () => ({
     users: {
       listMySessions: "query:users.listMySessions",
       getMyDataExport: "query:users.getMyDataExport",
-      updateMyProfile: "mut:users.updateMyProfile",
       updateMyNotificationPrefs: "mut:users.updateMyNotificationPrefs",
       revokeOtherSessions: "mut:users.revokeOtherSessions",
       recordMySession: "mut:users.recordMySession",
       deleteMyAccount: "mut:users.deleteMyAccount",
+      generateAvatarUploadUrl: "mut:users.generateAvatarUploadUrl",
+      saveAvatar: "mut:users.saveAvatar",
+      removeAvatar: "mut:users.removeAvatar",
+    },
+    students: {
+      myBannerUrl: "query:students.myBannerUrl",
+      generateBannerUploadUrl: "mut:students.generateBannerUploadUrl",
+      saveBanner: "mut:students.saveBanner",
+      removeBanner: "mut:students.removeBanner",
     },
   },
 }));
@@ -65,7 +69,7 @@ const sessionsFixture = [
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   },
   {
-    // Sem User-Agent registrado (fallback humano — nunca o ID cru).
+    // Sem User-Agent registrado (fallback humano, nunca o ID cru).
     sessionId: "sess-celular",
     createdAt: Date.now() - 5000,
     expiresAt: Date.now() + 20 * 24 * 60 * 60 * 1000,
@@ -92,9 +96,11 @@ const exportFixture = {
   vagasPublicadas: [],
 };
 
-const updateMyProfile = vi
+const generateAvatarUploadUrl = vi
   .fn()
-  .mockResolvedValue({ image: "data:image/png;base64,AA" });
+  .mockResolvedValue("https://upload.test/avatar");
+const saveAvatar = vi.fn().mockResolvedValue({ ok: true });
+const removeAvatar = vi.fn().mockResolvedValue({ ok: true });
 const updateMyNotificationPrefs = vi
   .fn()
   .mockResolvedValue({ jobAlerts: false, applicationUpdates: true });
@@ -103,6 +109,21 @@ const revokeOtherSessions = vi
   .mockResolvedValue({ revoked: 1, keptCurrent: true });
 const recordMySession = vi.fn().mockResolvedValue({ recorded: true });
 const deleteMyAccount = vi.fn().mockResolvedValue({ ok: true });
+
+const MUTATIONS: Record<string, ReturnType<typeof vi.fn>> = {
+  "mut:users.generateAvatarUploadUrl": generateAvatarUploadUrl,
+  "mut:users.saveAvatar": saveAvatar,
+  "mut:users.removeAvatar": removeAvatar,
+  "mut:users.updateMyNotificationPrefs": updateMyNotificationPrefs,
+  "mut:users.revokeOtherSessions": revokeOtherSessions,
+  "mut:users.recordMySession": recordMySession,
+  "mut:users.deleteMyAccount": deleteMyAccount,
+  "mut:students.generateBannerUploadUrl": vi
+    .fn()
+    .mockResolvedValue("https://upload.test/banner"),
+  "mut:students.saveBanner": vi.fn().mockResolvedValue({ ok: true }),
+  "mut:students.removeBanner": vi.fn().mockResolvedValue({ ok: true }),
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -114,17 +135,15 @@ beforeEach(() => {
   mockedUseQuery.mockImplementation(((query: unknown) => {
     if (query === "query:users.listMySessions") return sessionsFixture;
     if (query === "query:users.getMyDataExport") return exportFixture;
+    if (query === "query:students.myBannerUrl") return null;
     return undefined;
   }) as never);
-  mockedUseMutation.mockImplementation(((mutation: unknown) => {
-    if (mutation === "mut:users.updateMyProfile") return updateMyProfile;
-    if (mutation === "mut:users.updateMyNotificationPrefs")
-      return updateMyNotificationPrefs;
-    if (mutation === "mut:users.revokeOtherSessions")
-      return revokeOtherSessions;
-    if (mutation === "mut:users.recordMySession") return recordMySession;
-    return deleteMyAccount;
-  }) as never);
+  mockedUseMutation.mockImplementation(((mutation: unknown) =>
+    MUTATIONS[String(mutation)] ?? vi.fn()) as never);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 function renderPerfil() {
@@ -148,27 +167,40 @@ function renderPerfil() {
   );
 }
 
-describe("ProfilePage — presença das seções (Etapa 1/2/3)", () => {
-  it("renderiza as quatro seções centrais com h1 único", () => {
+/** Clica numa aba do menu lateral (o nome é o texto exato do botão). */
+async function irPara(aba: string) {
+  await userEvent.click(screen.getByRole("button", { name: aba }));
+}
+
+describe("ProfilePage: estrutura em abas", () => {
+  it("abre em Perfil e mostra o painel de cada aba, um por vez", async () => {
     renderPerfil();
     expect(
       screen.getByRole("heading", { level: 1, name: /configurações/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /identidade e conta/i }),
+      screen.getByRole("heading", { level: 2, name: "Seu perfil" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /acessibilidade/i }),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: "Perfil" }),
+    ).toHaveAttribute("aria-current", "page");
+    // Controles de outras abas não aparecem na aba Perfil.
     expect(
-      screen.getByRole("heading", { name: /segurança/i }),
-    ).toBeInTheDocument();
-    // [00a0f51] secção renomeada de "LGPD" para "Privacidade".
-    expect(
-      screen.getByRole("heading", { name: /privacidade/i }),
-    ).toBeInTheDocument();
-    // Botão de sair (Etapa 1.1).
-    expect(screen.getByRole("button", { name: /^sair$/i })).toBeInTheDocument();
+      screen.queryByRole("switch", { name: /alto contraste/i }),
+    ).not.toBeInTheDocument();
+
+    const abas: Array<[string, string]> = [
+      ["Aparência", "Aparência e acessibilidade"],
+      ["Notificações", "Notificações"],
+      ["Sessões", "Sessões recentes"],
+      ["Privacidade", "Privacidade e dados"],
+    ];
+    for (const [aba, titulo] of abas) {
+      await irPara(aba);
+      expect(
+        screen.getByRole("heading", { level: 2, name: titulo }),
+      ).toBeInTheDocument();
+    }
   });
 
   it("landmark main único com id do skip-link (#conteudo)", () => {
@@ -177,34 +209,39 @@ describe("ProfilePage — presença das seções (Etapa 1/2/3)", () => {
     expect(mains).toHaveLength(1);
     expect(mains[0]).toHaveAttribute("id", "conteudo");
   });
+
+  it("container da página usa a largura total do portal (1440px)", () => {
+    renderPerfil();
+    const main = screen.getByRole("main");
+    expect(main.className).toContain("max-w-[1440px]");
+  });
 });
 
-describe("ProfilePage — acessibilidade: tema, contraste e fontes (Etapa 1)", () => {
-  it("toggle Modo escuro liga a classe dark no documento e persiste", async () => {
-    const user = userEvent.setup();
+describe("ProfilePage: aparência e acessibilidade (aba Aparência)", () => {
+  it("escolher Escuro aplica a classe dark no documento e persiste", async () => {
     renderPerfil();
+    await irPara("Aparência");
 
-    const toggle = screen.getByRole("switch", { name: /modo escuro/i });
-    expect(toggle).toHaveAttribute("aria-checked", "false");
-
-    await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-checked", "true");
+    const escuro = screen.getByRole("radio", { name: /escuro/i });
+    await userEvent.click(escuro);
+    expect(escuro).toBeChecked();
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as {
       theme?: string;
     };
     expect(stored.theme).toBe("dark");
 
-    await user.click(toggle);
+    await userEvent.click(screen.getByRole("radio", { name: /claro/i }));
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
-  it("toggle Modo de alto contraste aplica a classe high-contrast", async () => {
-    const user = userEvent.setup();
+  it("switch de alto contraste aplica a classe high-contrast", async () => {
     renderPerfil();
+    await irPara("Aparência");
 
     const toggle = screen.getByRole("switch", { name: /alto contraste/i });
-    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-checked", "true");
     expect(document.documentElement.classList.contains("high-contrast")).toBe(
       true,
@@ -212,28 +249,29 @@ describe("ProfilePage — acessibilidade: tema, contraste e fontes (Etapa 1)", (
   });
 
   it("controles de fonte aumentam e diminuem o tamanho raiz", async () => {
-    const user = userEvent.setup();
     renderPerfil();
+    await irPara("Aparência");
 
-    const increase = screen.getByRole("button", { name: /aumentar fonte/i });
-    const decrease = screen.getByRole("button", { name: /diminuir fonte/i });
+    const increase = screen.getByRole("button", { name: "Aumentar fonte" });
+    const decrease = screen.getByRole("button", { name: "Diminuir fonte" });
     // No mínimo: diminuir começa desabilitado.
     expect(decrease).toBeDisabled();
 
-    await user.click(increase);
+    await userEvent.click(increase);
     expect(document.documentElement.style.fontSize).toBe("112.5%");
-    await user.click(increase);
+    await userEvent.click(increase);
     expect(document.documentElement.style.fontSize).toBe("125%");
     expect(increase).toBeDisabled(); // no máximo
 
-    await user.click(decrease);
+    await userEvent.click(decrease);
     expect(document.documentElement.style.fontSize).toBe("112.5%");
   });
 });
 
-describe("ProfilePage — segurança: kill switch de sessões (Etapa 2)", () => {
-  it("humaniza as sessões: navegador+SO, sem IDs criptográficos crus", () => {
+describe("ProfilePage: sessões (aba Sessões)", () => {
+  it("humaniza as sessões: navegador e SO, sem IDs crus", async () => {
     renderPerfil();
+    await irPara("Sessões");
     expect(screen.getByText("Chrome no Windows")).toBeInTheDocument();
     expect(screen.getByText(/você está aqui/i)).toBeInTheDocument();
     expect(
@@ -241,12 +279,6 @@ describe("ProfilePage — segurança: kill switch de sessões (Etapa 2)", () => 
     ).toBeInTheDocument();
     expect(screen.queryByText(/sess-celular/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/sess-atual/i)).not.toBeInTheDocument();
-  });
-
-  it("container da página usa a largura total do portal (1440px)", () => {
-    renderPerfil();
-    const main = screen.getByRole("main");
-    expect(main.className).toContain("max-w-[1440px]");
   });
 
   it("registra o User-Agent da sessão atual na montagem", async () => {
@@ -259,26 +291,27 @@ describe("ProfilePage — segurança: kill switch de sessões (Etapa 2)", () => 
     expect((args.userAgent as string).length).toBeGreaterThan(0);
   });
 
-  it("botão encerrar sessões chama o kill switch e confirma por toast", async () => {
-    const user = userEvent.setup();
+  it("botão Encerrar nos outros dispositivos chama o kill switch e confirma por toast", async () => {
     renderPerfil();
-
-    await user.click(
+    await irPara("Sessões");
+    await userEvent.click(
       screen.getByRole("button", {
-        name: /encerrar sessão em todos os outros dispositivos/i,
+        name: /encerrar nos outros dispositivos/i,
       }),
     );
     expect(revokeOtherSessions).toHaveBeenCalledOnce();
     expect(toast.success).toHaveBeenCalledWith("1 sessão encerrada.");
   });
+});
 
-  it("switches de notificação persistem as preferências no usuário", async () => {
-    const user = userEvent.setup();
+describe("ProfilePage: notificações (aba Notificações)", () => {
+  it("switch de alertas de vagas persiste a preferência no usuário", async () => {
     renderPerfil();
+    await irPara("Notificações");
 
     const jobAlerts = screen.getByRole("switch", { name: /alertas de vagas/i });
     expect(jobAlerts).toHaveAttribute("aria-checked", "true");
-    await user.click(jobAlerts);
+    await userEvent.click(jobAlerts);
     expect(updateMyNotificationPrefs).toHaveBeenCalledWith({
       jobAlerts: false,
       applicationUpdates: true,
@@ -286,27 +319,29 @@ describe("ProfilePage — segurança: kill switch de sessões (Etapa 2)", () => 
   });
 });
 
-describe("ProfilePage — LGPD: portabilidade e exclusão (Etapa 3)", () => {
-  it("exportar meus dados dispara o download do JSON", async () => {
+describe("ProfilePage: privacidade e dados (aba Privacidade)", () => {
+  it("Exportar (JSON) dispara o download do arquivo", async () => {
     const clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
-    const user = userEvent.setup();
     renderPerfil();
+    await irPara("Privacidade");
 
-    await user.click(
-      screen.getByRole("button", { name: /exportar meus dados/i }),
+    await userEvent.click(
+      screen.getByRole("button", { name: /exportar \(json\)/i }),
     );
     expect(clickSpy).toHaveBeenCalledOnce();
-    expect(toast.success).toHaveBeenCalledWith("Dados exportados com sucesso.");
+    expect(toast.success).toHaveBeenCalledWith(
+      "Dados exportados com sucesso.",
+    );
     clickSpy.mockRestore();
   });
 
   it("modal de exclusão exige digitar EXCLUIR e cancelar não exclui", async () => {
-    const user = userEvent.setup();
     renderPerfil();
+    await irPara("Privacidade");
 
-    await user.click(screen.getByRole("button", { name: /excluir conta/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Excluir conta" }));
     const dialog = screen.getByRole("dialog", {
       name: /excluir conta permanentemente/i,
     });
@@ -315,11 +350,14 @@ describe("ProfilePage — LGPD: portabilidade e exclusão (Etapa 3)", () => {
     });
     expect(confirm).toBeDisabled();
 
-    await user.type(within(dialog).getByLabelText(/digite EXCLUIR/i), "apagar");
+    await userEvent.type(
+      within(dialog).getByLabelText(/digite EXCLUIR/i),
+      "apagar",
+    );
     expect(confirm).toBeDisabled();
     expect(deleteMyAccount).not.toHaveBeenCalled();
 
-    await user.click(
+    await userEvent.click(
       within(dialog).getByRole("button", { name: /^cancelar$/i }),
     );
     expect(
@@ -329,14 +367,14 @@ describe("ProfilePage — LGPD: portabilidade e exclusão (Etapa 3)", () => {
   });
 
   it("confirmação com EXCLUIR exclui a conta e volta para a vitrine", async () => {
-    const user = userEvent.setup();
     renderPerfil();
+    await irPara("Privacidade");
 
-    await user.click(screen.getByRole("button", { name: /excluir conta/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Excluir conta" }));
     const dialog = screen.getByRole("dialog", {
       name: /excluir conta permanentemente/i,
     });
-    await user.type(
+    await userEvent.type(
       within(dialog).getByLabelText(/digite EXCLUIR/i),
       "EXCLUIR",
     );
@@ -344,7 +382,7 @@ describe("ProfilePage — LGPD: portabilidade e exclusão (Etapa 3)", () => {
       name: /sim, excluir minha conta/i,
     });
     expect(confirm).toBeEnabled();
-    await user.click(confirm);
+    await userEvent.click(confirm);
 
     await waitFor(() => {
       expect(deleteMyAccount).toHaveBeenCalledOnce();
@@ -353,35 +391,43 @@ describe("ProfilePage — LGPD: portabilidade e exclusão (Etapa 3)", () => {
   });
 });
 
-describe("ProfilePage — foto de perfil (Etapa 1.1)", () => {
-  it("arquivo além do limite mostra erro sem chamar a mutation", async () => {
+describe("ProfilePage: foto de perfil (aba Perfil)", () => {
+  it("arquivo acima de 2MB mostra erro sem enviar nada", async () => {
     renderPerfil();
-    const input = screen.getByLabelText(/alterar foto do perfil/i);
-    const bigFile = new File([new Uint8Array(500 * 1024)], "grande.png", {
+    const input = screen.getByLabelText(/adicionar foto|trocar foto/i);
+    const bigFile = new File([new Uint8Array(3 * 1024 * 1024)], "grande.png", {
       type: "image/png",
     });
     fireEvent.change(input, { target: { files: [bigFile] } });
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(
-        "Imagem muito grande — o limite é 400KB.",
+        "Imagem muito grande — o limite é 2MB.",
       );
     });
-    expect(updateMyProfile).not.toHaveBeenCalled();
+    expect(generateAvatarUploadUrl).not.toHaveBeenCalled();
+    expect(saveAvatar).not.toHaveBeenCalled();
   });
 
-  it("arquivo válido vira data URL e grava no usuário", async () => {
+  it("arquivo válido é enviado ao storage e salvo no perfil", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ storageId: "st_1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
     renderPerfil();
-    const input = screen.getByLabelText(/alterar foto do perfil/i);
+    const input = screen.getByLabelText(/adicionar foto|trocar foto/i);
     const file = new File(["abc"], "avatar.png", { type: "image/png" });
     fireEvent.change(input, { target: { files: [file] } });
 
     await waitFor(() => {
-      expect(updateMyProfile).toHaveBeenCalledOnce();
+      expect(saveAvatar).toHaveBeenCalledWith({ storageId: "st_1" });
     });
-    const args = updateMyProfile.mock.calls[0]?.[0] as {
-      image?: string;
-    };
-    expect(args.image).toMatch(/^data:image\/png;base64,/);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://upload.test/avatar",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(toast.success).toHaveBeenCalledWith("Foto de perfil atualizada.");
   });
 });

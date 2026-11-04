@@ -102,6 +102,16 @@ async function pickComboTerm(combo: HTMLElement, term: string) {
   );
 }
 
+/** Abre a lista digitando uma letra (funciona mesmo com openOnFocus={false}). */
+async function abrirComLetra(combo: HTMLElement, letra: string): Promise<string[]> {
+  await userEvent.click(combo);
+  await userEvent.clear(combo);
+  await userEvent.type(combo, letra);
+  return within(screen.getByRole("listbox"))
+    .getAllByRole("option")
+    .map((option) => option.textContent ?? "");
+}
+
 describe("ResumeForm — dicionário fechado nos blocos 4 e 5", () => {
   it("bloco de competências abre como combobox do dicionário", async () => {
     render(<ResumeForm />);
@@ -115,13 +125,13 @@ describe("ResumeForm — dicionário fechado nos blocos 4 e 5", () => {
       screen.queryByRole("textbox", { name: /nova competência/i }),
     ).toBeNull();
 
-    const offered = await openComboOptions(combo);
+    const offered = await abrirComLetra(combo, "i");
     for (const skill of offered) {
       expect(SKILLS_DICTIONARY).toContain(skill);
     }
     // Já cadastradas saem da lista de escolha (sem duplicar).
     expect(offered).not.toContain("React");
-    expect(offered).toContain("Docker");
+    expect(offered).toContain("TypeScript");
   });
 
   it("campo Idioma do bloco de idiomas é combobox da whitelist", async () => {
@@ -159,7 +169,7 @@ describe("Banco de Talentos — filtro de competências fechado", () => {
       screen.queryByRole("textbox", { name: /nova competência/i }),
     ).toBeNull();
 
-    const offered = await openComboOptions(combo);
+    const offered = await abrirComLetra(combo, "i");
     expect(offered.length).toBeGreaterThan(0);
     for (const skill of offered) {
       expect(SKILLS_DICTIONARY).toContain(skill);
@@ -176,9 +186,11 @@ describe("Banco de Talentos — filtro de competências fechado", () => {
       name: "Nova competência",
     });
     await pickComboTerm(combo, "Unity");
-    await userEvent.click(
-      within(skillsGroup).getByRole("button", { name: /adicionar/i }),
-    );
+    expect(
+      within(skillsGroup).getByRole("button", {
+        name: /remover competência unity/i,
+      }),
+    ).toBeInTheDocument();
 
     expect(
       within(skillsGroup).getByRole("button", {
@@ -186,8 +198,9 @@ describe("Banco de Talentos — filtro de competências fechado", () => {
       }),
     ).toBeInTheDocument();
     // Já escolhida sai das opções; o resto do dicionário continua.
-    const after = await openComboOptions(
+    const after = await abrirComLetra(
       within(skillsGroup).getByRole("combobox", { name: "Nova competência" }),
+      "n",
     );
     expect(after).not.toContain("Unity");
     expect(after).toContain("Blender");

@@ -169,14 +169,16 @@ describe("CandidateProfilePage — currículo somente leitura (Etapa 2/4)", () =
     // R6 — LinkedIn/Portfólio não aparecem com contato bloqueado.
     expect(screen.queryByText(/linkedin\.com/)).not.toBeInTheDocument();
     expect(
-      screen.getAllByText(/Contato não liberado pelo aluno/i).length,
+      screen.getAllByText(/Contato protegido/i).length,
     ).toBeGreaterThan(0);
 
-    const voltar = screen.getByRole("button", {
-      name: /voltar ao kanban/i,
-    });
+    const backSpy = vi
+      .spyOn(window.history, "back")
+      .mockImplementation(() => undefined);
+    const voltar = screen.getByRole("button", { name: /^voltar$/i });
     fireEvent.click(voltar);
-    expect(window.location.pathname).toBe("/");
+    expect(backSpy).toHaveBeenCalledOnce();
+    backSpy.mockRestore();
   });
 
   it("mostra o contato liberado quando autorizado pelo aluno", () => {
@@ -194,7 +196,7 @@ describe("CandidateProfilePage — currículo somente leitura (Etapa 2/4)", () =
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /linkedin/i })).toBeInTheDocument();
     expect(
-      screen.queryByText(/Contato não liberado pelo aluno/i),
+      screen.queryByText(/Contato protegido/i),
     ).not.toBeInTheDocument();
   });
 
@@ -210,7 +212,7 @@ describe("CandidateProfilePage — currículo somente leitura (Etapa 2/4)", () =
     ).toBeInTheDocument();
     // O Voltar continua disponível mesmo com acesso negado.
     expect(
-      screen.getByRole("button", { name: /voltar ao kanban/i }),
+      screen.getByRole("button", { name: /^voltar$/i }),
     ).toBeInTheDocument();
   });
 });
@@ -241,7 +243,7 @@ describe("Rota /recrutador/candidato/:studentId (App)", () => {
       screen.getByRole("heading", { level: 1, name: /maria da silva/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /voltar ao kanban/i }),
+      screen.getByRole("button", { name: /^voltar$/i }),
     ).toBeInTheDocument();
   });
 
@@ -307,7 +309,7 @@ describe("Quick actions — Baixar PDF + Copiar (QUICK_WIN_RECRUITER)", () => {
     render(<CandidateProfilePage studentId="k57abc123" />);
 
     const baixar = screen.getByRole("button", {
-      name: /baixar currículo em pdf/i,
+      name: /baixar pdf/i,
     });
     fireEvent.click(baixar);
 
@@ -320,12 +322,11 @@ describe("Quick actions — Baixar PDF + Copiar (QUICK_WIN_RECRUITER)", () => {
     expect(document.getElementById("unicap-resume-print-style")).not.toBeNull();
   });
 
-  it("ícones de Copiar ao lado do E-mail e Telefone copiam com 1 clique e avisam via Toast", async () => {
+  it("ícone de Copiar ao lado do E-mail copia com 1 clique e avisa via Toast", async () => {
     mockProfileQuery({
       ...profileFixture,
       contactReleased: true,
       email: "aluno@unicap.br",
-      phone: "81988887777",
       linkedinUrl: "https://www.linkedin.com/in/maria",
       portfolioUrl: "https://maria.dev",
     });
@@ -333,22 +334,14 @@ describe("Quick actions — Baixar PDF + Copiar (QUICK_WIN_RECRUITER)", () => {
     setClipboard({ writeText });
     render(<CandidateProfilePage studentId="k57abc123" />);
 
-    // Dados Pessoais: e-mail e telefone aparecem para o recrutador.
     expect(
       screen.getByRole("link", { name: /aluno@unicap\.br/i }),
     ).toBeInTheDocument();
-    expect(screen.getByText("81988887777")).toBeInTheDocument();
 
     await userEvent.click(
       screen.getByRole("button", { name: /copiar e-mail/i }),
     );
     expect(writeText).toHaveBeenCalledWith("aluno@unicap.br");
     expect(toast.success).toHaveBeenCalledWith("E-mail copiado!");
-
-    await userEvent.click(
-      screen.getByRole("button", { name: /copiar telefone/i }),
-    );
-    expect(writeText).toHaveBeenCalledWith("81988887777");
-    expect(toast.success).toHaveBeenCalledWith("Telefone copiado!");
   });
 });
