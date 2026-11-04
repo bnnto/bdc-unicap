@@ -1,13 +1,15 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
   test: {
+    env: { TZ: "UTC" },
     environment: "jsdom",
     globals: true,
     setupFiles: ["./tests/setup.ts"],
     include: ["tests/**/*.test.{ts,tsx}"],
+    exclude: [...configDefaults.exclude, "**/*.perf.test.ts"],
     css: false,
     coverage: {
       provider: "v8",
