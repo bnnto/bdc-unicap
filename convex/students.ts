@@ -78,7 +78,7 @@ function toProfileArgs(raw: {
   };
 }
 
-/** Perfil do aluno autenticado (ou null). */
+/** Perfil do aluno autenticado (ou null), já com o e-mail da conta. */
 export const myProfile = query({
   args: {},
   handler: async (ctx) => {
@@ -86,12 +86,12 @@ export const myProfile = query({
     if (identity === null) return null;
     const user = await getCurrentUser(ctx);
     if (user === null) return null;
-    return (
-      (await ctx.db
-        .query("students")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .unique()) ?? null
-    );
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    if (student === null) return null;
+    return { ...student, email: user.email ?? null };
   },
 });
 
@@ -170,6 +170,7 @@ export const upsertProfile = mutation({
       throw new Error(validation.errors.join(" "));
     }
     const profile = validation.normalized;
+    const phone = args.phone?.trim() || undefined;
 
     // [S1-5] + [DICIONARIO_FECHADO] — só competências do dicionário
     // oficial entram; termo livre é REJEITADO com erro de validação e a
@@ -217,7 +218,7 @@ export const upsertProfile = mutation({
         location: profile.location,
         linkedinUrl: profile.linkedinUrl,
         portfolioUrl: profile.portfolioUrl,
-        phone: profile.phone,
+        phone: phone,
         availability: profile.availability,
         skills,
         languages,
@@ -236,7 +237,7 @@ export const upsertProfile = mutation({
       location: profile.location,
       linkedinUrl: profile.linkedinUrl,
       portfolioUrl: profile.portfolioUrl,
-      phone: profile.phone,
+      phone: phone,
       availability: profile.availability,
       skills,
       languages,
