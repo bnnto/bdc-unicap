@@ -8,19 +8,20 @@
  */
 
 /**
- * Folha A4 com identidade bordô/dourado; aplicação fica intocada na tela.
+ * Folha A4 de coluna única, paleta bordô/dourado, fonte Aptos.
  *
- * [REFACTOR_ALUNO Etapa 2.3 — CORREÇÃO CRÍTICA] O PDF deve ser o
- * “espelho exato” do visualizador:
- * 1. `print-color-adjust: exact` (prefixo webkit + padrão) em tudo — sem
- *    isso o navegador descarta os fundos (banda bordô, chips) e o layout
- *    “perde o design”;
- * 2. `display: flex` e `display: grid` REAFIRMADOS dentro de
- *    `@media print` — cabeçalho e grid de duas colunas não colapsam;
- * 3. `break-inside: avoid` em itens/seções — nada de cortes no meio de
- *    experiências ou cabeçalhos órfãos;
- * 4. a aplicação inteira some, exceto #unicap-resume-print-root, que
- *    recebe o MESMO markup da prévia (.unicap-resume-doc).
+ * [CV_LAYOUT_V2] Sem banda de cabeçalho e sem coluna lateral. Aptos não
+ * existe no Google Fonts: a pilha cai para Calibri/Arial em máquinas sem
+ * Office moderno ou Windows 11.
+ *
+ * O PDF deve ser o “espelho exato” do visualizador:
+ * 1. `print-color-adjust: exact` — sem isso o navegador descarta os fundos
+ *    (chips de competências) e o layout “perde o design”;
+ * 2. `display: flex` REAFIRMADO dentro de `@media print` (chips);
+ * 3. `break-inside: avoid` em itens e `break-after: avoid` em títulos — nada
+ *    de cortes no meio de experiências nem de títulos órfãos;
+ * 4. a aplicação inteira some, exceto #unicap-resume-print-root, que recebe
+ *    o MESMO markup da prévia (.unicap-resume-doc).
  */
 export const RESUME_PRINT_CSS = `
 #unicap-resume-print-root {
@@ -31,7 +32,7 @@ export const RESUME_PRINT_CSS = `
     size: A4;
     margin: 0;
   }
-  /* 1. Força as cores de fundo no PDF (Etapa 2.3). */
+  /* 1. Força as cores de fundo no PDF. */
   *,
   *::before,
   *::after {
@@ -58,37 +59,19 @@ export const RESUME_PRINT_CSS = `
     max-width: none !important;
     width: 100% !important;
     margin: 0 !important;
-    padding: 16mm 14mm !important;
-    font-size: 12px !important;
-  }
-  .unicap-resume-header {
-    display: flex !important;
-    align-items: flex-end !important;
-    justify-content: space-between !important;
-    background: #6b1426 !important;
-    border-radius: 0 !important;
-  }
-  .unicap-resume-identity {
-    display: block !important;
-  }
-  .unicap-resume-grid {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) !important;
-    gap: 16px !important;
-    align-items: start !important;
-  }
-  .unicap-resume-grid--single {
-    grid-template-columns: minmax(0, 1fr) !important;
+    padding: 18mm 16mm !important;
   }
   .unicap-resume-chips {
     display: flex !important;
     flex-wrap: wrap !important;
-    gap: 4px !important;
+    gap: 0 !important;
   }
-  /* 3. Sem cortes no meio de blocos nem títulos órfãos. */
-  .unicap-resume-header,
+  .unicap-resume-section-title {
+    display: flex !important;
+    align-items: center !important;
+  }
+  /* 3. Sem cortes no meio de itens nem títulos órfãos. */
   .unicap-resume-identity,
-  .unicap-resume-section,
   .unicap-resume-item {
     break-inside: avoid;
     page-break-inside: avoid;
@@ -96,10 +79,6 @@ export const RESUME_PRINT_CSS = `
   .unicap-resume-section-title {
     break-after: avoid;
     page-break-after: avoid;
-  }
-  .unicap-resume-col {
-    break-inside: auto;
-    page-break-inside: auto;
   }
   a {
     color: #6b1426 !important;
@@ -110,127 +89,97 @@ export const RESUME_PRINT_CSS = `
   background: #ffffff !important;
   border: 1px solid #e2e8f0;
   box-sizing: border-box;
-  color: #1e293b !important; 
-  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
-  font-size: 12.5px;
-  line-height: 1.55;
+  color: #1e293b !important;
+  font-family: Aptos, Calibri, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
   margin: 0 auto;
   max-width: 210mm;
-  padding: 10mm;
+  overflow-wrap: anywhere;
+  padding: 12mm;
+  word-break: break-word;
 }
-.unicap-resume-doc .unicap-resume-header {
-  align-items: flex-end;
-  background: #6b1426;
-  border-radius: 4px;
-  display: flex;
-  justify-content: space-between;
-  padding: 12px 16px;
-}
-.unicap-resume-doc .unicap-resume-brand {
-  color: #ffffff;
-  font-family: Merriweather, Georgia, serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  margin: 0;
-}
-.unicap-resume-doc .unicap-resume-doc-title {
-  color: #c89d3c;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  margin: 2px 0 0;
-  text-transform: uppercase;
-}
-.unicap-resume-doc .unicap-resume-acronym {
-  color: #c89d3c;
-  font-family: Merriweather, Georgia, serif;
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  margin: 0;
-}
-.unicap-resume-doc .unicap-resume-identity {
-  border-bottom: 2.5px solid #6b1426;
-  padding: 28px 0 12px;
+.unicap-resume-doc * {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .unicap-resume-doc .unicap-resume-name {
-  color: #6b1426;
-  font-family: Merriweather, Georgia, serif;
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 1.2;
-  margin: 0 0 4px;
+  hyphens: auto;
+}
+.unicap-resume-doc .unicap-resume-identity {
+  border: none;
+  padding: 0 0 4px;
+}
+.unicap-resume-doc .unicap-resume-name {
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 46px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin: 0 0 8px;
 }
 .unicap-resume-doc .unicap-resume-headline {
-  color: #475569;
-  font-size: 13px;
-  margin: 0 0 6px;
+  color: #6b1426;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 10px;
 }
 .unicap-resume-doc .unicap-resume-contacts {
   color: #64748b;
-  font-size: 11px;
-  margin: 2px 0 0;
+  font-size: 14px;
+  margin: 3px 0 0;
 }
 .unicap-resume-doc .unicap-resume-contacts a {
   color: #6b1426;
   text-decoration: underline;
 }
-.unicap-resume-doc .unicap-resume-meta {
-  color: #64748b;
-  font-size: 11px;
-  margin: 0;
-}
-.unicap-resume-doc .unicap-resume-grid {
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  margin-top: 12px;
-}
-.unicap-resume-doc .unicap-resume-grid--single {
-  grid-template-columns: minmax(0, 1fr);
-}
-.unicap-resume-doc .unicap-resume-col-side {
-  background: #fdf2f4;
-  border-radius: 4px;
-  padding: 10px;
-}
 .unicap-resume-doc .unicap-resume-section {
-  margin-top: 14px;
-}
-.unicap-resume-doc .unicap-resume-col-side .unicap-resume-section:first-child,
-.unicap-resume-doc .unicap-resume-col-main > .unicap-resume-section:first-child {
-  margin-top: 0;
+  margin-top: 24px;
 }
 .unicap-resume-doc .unicap-resume-section-title {
-  border-bottom: 1px solid #c89d3c;
+  align-items: center;
   color: #6b1426;
-  font-family: Merriweather, Georgia, serif;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  margin: 0 0 7px;
-  padding-bottom: 3px;
+  display: flex;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 800;
+  gap: 12px;
+  letter-spacing: 0.18em;
+  margin: 0 0 10px;
   text-transform: uppercase;
+}
+.unicap-resume-doc .unicap-resume-section-title::after {
+  background: #d9dde3;
+  content: "";
+  flex: 1;
+  height: 1px;
 }
 .unicap-resume-doc .unicap-resume-summary {
   margin: 0;
   white-space: pre-line;
 }
+.unicap-resume-doc .unicap-resume-projects {
+  margin-bottom: 6px;
+}
 .unicap-resume-doc .unicap-resume-item {
-  margin-bottom: 8px;
+  margin-bottom: 9px;
 }
 .unicap-resume-doc .unicap-resume-item:last-child {
   margin-bottom: 0;
 }
 .unicap-resume-doc .unicap-resume-item-title {
+  font-family: inherit;
+  font-size: 17px;
   font-weight: 700;
-  margin: 0;
+  margin: 0 0 3px;
 }
 .unicap-resume-doc .unicap-resume-item-sub {
   color: #64748b;
-  font-size: 11px;
-  margin: 1px 0 3px;
+  font-size: 14px;
+  font-weight: 400;
 }
 .unicap-resume-doc .unicap-resume-item-desc {
   margin: 0;
@@ -249,25 +198,23 @@ export const RESUME_PRINT_CSS = `
 .unicap-resume-doc .unicap-resume-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 0;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .unicap-resume-doc .unicap-resume-chips li {
-  background: #6b1426;
-  border-radius: 3px;
-  color: #ffffff;
-  font-size: 10.5px;
+  background: none;
+  color: #0f172a;
+  font-size: 16px;
   font-weight: 600;
-  padding: 2px 7px;
+  padding: 0;
 }
-.unicap-resume-doc .unicap-resume-footer {
-  border-top: 1px solid #e2e8f0;
+.unicap-resume-doc .unicap-resume-chips li + li::before {
   color: #94a3b8;
-  font-size: 9.5px;
-  margin-top: 18px;
-  padding-top: 6px;
+  content: "·";
+  font-weight: 400;
+  padding: 0 12px;
 }
 `;
 
