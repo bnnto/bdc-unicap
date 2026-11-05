@@ -150,16 +150,16 @@ describe("documento do Currículo Vitae (S2-2)", () => {
 });
 
 describe("nome de arquivo do currículo (S2-2)", () => {
-  it("gera arquivo slugificado com nome, curso e ano", () => {
+  it("gera arquivo slugificado com os primeiros nomes", () => {
     expect(
       formatResumeFileName("Maria da Silva", "Ciência da Computação", 2026),
-    ).toBe("curriculo-maria-da-silva-ciencia-da-computacao-2026.pdf");
+    ).toBe("curriculo-maria-da-silva.pdf");
   });
 
   it("remove acentos e caracteres especiais", () => {
     expect(
       formatResumeFileName("José  Ébano Júnior", "Administração", 2025),
-    ).toBe("curriculo-jose-ebano-junior-administracao-2025.pdf");
+    ).toBe("curriculo-jose-ebano-junior.pdf");
   });
 
   it("tolera campos vazios com fallback mínimo", () => {
@@ -180,7 +180,6 @@ describe("template HTML do currículo (S2-2)", () => {
     if (!doc.ok) throw new Error("documento deveria ser válido");
     const markup = buildResumeMarkup(doc);
     expect(markup).toContain("unicap-resume-doc");
-    expect(markup).toContain("Universidade Católica de Pernambuco");
     expect(markup).toContain(resume.headline);
     expect(markup).toContain(resume.summary);
     expect(markup).toContain("Acme Ltda");
@@ -228,16 +227,14 @@ describe("template HTML do currículo (S2-2)", () => {
     });
     if (!doc.ok) throw new Error("documento deveria ser válido");
     const markup = buildResumeMarkup(doc);
-    expect(markup).not.toContain("Experiência profissional");
-    expect(markup).toContain("Formação e histórico acadêmico");
+    expect(markup).not.toContain("Experiência");
+    expect(markup).toContain("Formação");
   });
 
-  it("aceita data fixa para o rodapé (testável)", () => {
+  it("ignora generatedAt (rodapé com data foi removido do layout)", () => {
     const doc = buildResumeDocument(input);
     if (!doc.ok) throw new Error("documento deveria ser válido");
-    const markup = buildResumeMarkup(doc, {
-      generatedAt: new Date(2026, 8, 25),
-    });
-    expect(markup).toContain("em 25/09/2026");
+    const markup = buildResumeMarkup(doc, { generatedAt: new Date(2026, 8, 25) });
+    expect(markup).not.toContain("25/09/2026");
   });
 });

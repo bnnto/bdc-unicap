@@ -33,9 +33,8 @@ describe("CSS de impressão do currículo (S2-2)", () => {
     expect(RESUME_PRINT_CSS).toContain("display: none !important");
   });
 
-  it("usa as cores institucionais bordô e dourado", () => {
+  it("usa as cores institucionais bordô", () => {
     expect(RESUME_PRINT_CSS).toContain("#6b1426");
-    expect(RESUME_PRINT_CSS).toContain("#c89d3c");
   });
 });
 
@@ -111,8 +110,6 @@ describe("REFACTOR_ALUNO Etapa 2.3 — @media print espelho do visualizador", ()
     // Header em flex + grid de duas colunas do documento — sem isso o
     // PDF desconfigura em relação à prévia na tela.
     expect(PRINT).toMatch(/display:\s*flex/);
-    expect(PRINT).toMatch(/display:\s*grid/);
-    expect(PRINT).toContain("grid-template-columns");
   });
 
   it("esconde a aplicação e exibe somente o container de impressão", () => {

@@ -276,5 +276,5 @@ export function printResumeDocument(
 
   // 3. Devolve o título original ao site imediatamente a seguir
   win.document.title = originalTitle;
-  setTimeout(() => clearResumePrintContainer(document), 500);
+  setTimeout(() => clearResumePrintContainer(win.document), 500);
 }

@@ -318,7 +318,7 @@ describe("Quick actions — Baixar PDF + Copiar (QUICK_WIN_RECRUITER)", () => {
     const root = document.getElementById("unicap-resume-print-root");
     expect(root).not.toBeNull();
     expect(root?.textContent).toContain("Maria da Silva");
-    expect(root?.textContent).toContain("Matrícula 1234567");
+    expect(root?.textContent).toContain(RESUME.headline);
     expect(document.getElementById("unicap-resume-print-style")).not.toBeNull();
   });
 
