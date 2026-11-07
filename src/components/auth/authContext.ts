@@ -7,6 +7,10 @@ import type { Role } from "../../lib/roles";
  * O contexto tem default "não autenticado" — fora de um AuthProvider
  * (testes, Storybook) os consumidores recebem esse estado, sem lançar erro,
  * seguindo o padrão dos contextos do próprio @convex-dev/auth.
+ *
+ * [HARDENING] O papel nunca é um valor descartável do backend. O AuthProvider
+ * valida que role seja um dos ROLES oficiais antes de expô-lo; qualquer valor
+ * inesperado faz isAuthenticated ser false e role ser null no contexto.
  */
 export type AuthState = {
   /** true enquanto a sessão/papel ainda está sendo resolvido. */
