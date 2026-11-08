@@ -44,7 +44,7 @@ function FieldValue({
 }) {
   return (
     <span
-      className={`mt-0.5 block break-words text-sm font-medium text-slate-800 [overflow-wrap:anywhere] ${className}`}
+      className={`mt-0.5 block text-sm font-medium text-slate-800 [overflow-wrap:anywhere] ${className}`}
     >
       {children}
     </span>
@@ -105,7 +105,7 @@ export function ResumeBlockContent({
                   key={index}
                   className="flex min-w-0 items-start justify-between gap-3 rounded-lg bg-slate-50 px-4 py-3 text-sm"
                 >
-                  <span className="min-w-0 break-words text-slate-800 [overflow-wrap:anywhere]">
+                  <span className="min-w-0 text-slate-800 [overflow-wrap:anywhere]">
                     {entry.item}
                   </span>
                   <span className="shrink-0 text-xs tabular-nums text-slate-500">
@@ -160,7 +160,7 @@ export function ResumeBlockContent({
             data.skills.map((skill) => (
               <span
                 key={skill}
-                className="inline-flex max-w-full shrink-0 break-words rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 [overflow-wrap:anywhere]"
+                className="inline-flex max-w-full shrink-0 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 [overflow-wrap:anywhere]"
               >
                 {skill}
               </span>
@@ -181,7 +181,7 @@ export function ResumeBlockContent({
                 key={index}
                 className="min-w-0 rounded-lg bg-slate-50 px-4 py-3 text-sm"
               >
-                <span className="block break-words text-slate-800 [overflow-wrap:anywhere]">
+                <span className="block text-slate-800 [overflow-wrap:anywhere]">
                   {language.name} — {LEVEL_LABELS[language.level]}
                 </span>
               </li>
@@ -203,14 +203,14 @@ export function ResumeBlockContent({
                   key={index}
                   className="min-w-0 rounded-lg bg-slate-50 px-4 py-3 text-sm"
                 >
-                  <p className="break-words font-semibold text-slate-800 [overflow-wrap:anywhere]">
+                  <p className=" font-semibold text-slate-800 [overflow-wrap:anywhere]">
                     {exp.company} — {exp.role}
                   </p>
-                  <p className="mt-0.5 break-words text-xs tabular-nums text-slate-500 [overflow-wrap:anywhere]">
+                  <p className="mt-0.5 text-xs tabular-nums text-slate-500 [overflow-wrap:anywhere]">
                     {exp.period}
                   </p>
                   {exp.description ? (
-                    <p className="mt-2 break-words leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
+                    <p className="mt-2 leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
                       {exp.description}
                     </p>
                   ) : null}
@@ -221,7 +221,7 @@ export function ResumeBlockContent({
                   <span className="block text-xs font-medium text-slate-500">
                     Projetos de Extensão
                   </span>
-                  <p className="mt-1 break-words leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
+                  <p className="mt-1 leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
                     {data.projectsText}
                   </p>
                 </div>
@@ -240,7 +240,7 @@ export function ResumeBlockContent({
           ) : (
             <ul className="flex flex-col gap-1.5">
               {data.certifications.map((item, index) => (
-                <li key={index} className="break-words text-sm text-slate-700 [overflow-wrap:anywhere]">
+                <li key={index} className=" text-smtext-slate-700 [overflow-wrap:anywhere]">
                   {item}
                 </li>
               ))}
@@ -270,10 +270,10 @@ export function ResumeView({ data }: { data: ResumeBlockData }) {
           className="min-w-0 space-y-4 rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
         >
           <div>
-            <h2 className="break-words text-base font-semibold text-slate-900 [overflow-wrap:anywhere]">
+            <h2 className=" text-base font-semiboldtext-slate-900 [overflow-wrap:anywhere]">
               {block.index + 1}. {block.heading}
             </h2>
-            <p className="mt-1 break-words text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500">
               Dados fornecidos pelo próprio candidato — somente leitura.
             </p>
           </div>

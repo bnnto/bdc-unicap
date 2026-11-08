@@ -49,7 +49,6 @@ import {
 } from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
 import { Modal } from "../ui/modal";
-import { Select } from "../ui/select";
 
 /** Vaga do mural — `matchScore` chega calculado no servidor (R8). */
 type OpenJob = Doc<"jobs"> & { matchScore?: number | null };
