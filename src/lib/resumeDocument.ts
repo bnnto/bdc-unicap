@@ -218,7 +218,7 @@ export function buildResumeMarkup(
   const locationPhone = [
     clean(doc.student.location),
     phone.length > 0 ? formatPhoneBR(phone) : "",
-  ].filter((part) => part.length > 0);
+  ]
 
   // Linha 2: E-MAIL · LINKEDIN (+ demais links do perfil, se existirem).
   const emailLinks: string[] = [];

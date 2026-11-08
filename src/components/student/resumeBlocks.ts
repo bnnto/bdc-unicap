@@ -100,7 +100,8 @@ export type ResumeBlockData = {
     description: string;
   }>;
   projectsText: string;
-  certifications: string[];
+  /** [CERT_PDF] `url` = PDF anexado (ausente/null = só texto). */
+  certifications: Array<{ name: string; url?: string | null }>;
   /**
    * [R6] true quando o contato do aluno NÃO está liberado para este
    * recrutador: o Bloco 2 omite LinkedIn/Portfólio (mesma regra do
