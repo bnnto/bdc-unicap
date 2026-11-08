@@ -18,11 +18,12 @@ import {
   type ApplicationStage,
   type RejectionReason,
 } from "../src/lib/application";
-import type { LanguageLevel } from "../src/lib/skills";
+import { canonicalSkill, type LanguageLevel } from "../src/lib/skills";
 import { shouldNotifyStageAdvance } from "../src/lib/emailNotify";
 import { computeStudentAnalytics } from "../src/lib/analytics";
 import { requireConsentedUser } from "./lib/currentUser";
 import { isModerationHold } from "../src/lib/jobModeration";
+import { isVerifiablePrerequisite } from "../src/lib/job";
 
 /**
  * Candidaturas (issue [S3-4], R8).
@@ -44,10 +45,15 @@ function toApplicableJob(job: Doc<"jobs">): ApplicableJob {
   };
 }
 
-/** Monta os pré-requisitos da vaga no formato da regra de matching. */
+/**
+ * Pré-requisitos no formato da regra de matching/candidatura. Só entram os
+ * VERIFICÁVEIS (competência do dicionário, em forma canônica): requisitos
+ * descritivos e textos livres de vagas antigas são informativos — não
+ * bloqueiam a candidatura nem pesam no % de compatibilidade.
+ */
 function jobPrerequisites(job: Doc<"jobs">) {
-  return job.prerequisites.map((p) => ({
-    item: p.item,
+  return job.prerequisites.filter(isVerifiablePrerequisite).map((p) => ({
+    item: canonicalSkill(p.item) ?? p.item,
     required: p.required,
   }));
 }

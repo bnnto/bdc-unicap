@@ -1,6 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.transition,
+.transition-all,
+.transition-colors,
+.transition-opacity,
+.transition-shadow,
+.transition-transform {
+  transition-duration: 450ms;
+  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transition,
+  .transition-all,
+  .transition-colors,
+  .transition-opacity,
+  .transition-shadow,
+  .transition-transform {
+    transition-property: color, background-color, border-color, opacity;
+  }
+}
 
 :root {
   color-scheme: light;
@@ -29,6 +52,9 @@
 
 body {
   @apply bg-canvas font-sans text-slate-900 antialiased;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 /* [S8-2] Foco visível com contraste AA (WCAG 2.4.7 + 1.4.11): anel bordô
@@ -324,4 +350,171 @@ body {
 .dark.high-contrast :focus-visible {
   outline-width: 4px;
   outline-color: #ffffff;
+}
+
+/* Hover da navbar e do rodapé da landing. Regras próprias para o tema escuro
+   (o bordô #6b1426 some sobre #171b22) e gated a mouse (sem falso hover no toque). */
+.nav-link,
+.foot-link {
+  transition: color 150ms ease, text-decoration-color 150ms ease;
+}
+/* Traço dourado que cresce do centro no hover (só transform). */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.2rem;
+  height: 2px;
+  border-radius: 9999px;
+  background-color: theme("colors.secondary");
+  transform: scaleX(0);
+  transition: transform 250ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-link::after { transition: none; }
+}
+.foot-link {
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 4px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .nav-link:hover {
+    color: theme("colors.primary");
+  }
+  .nav-link:hover::after {
+    transform: scaleX(1);
+  }
+  .dark .nav-link:hover {
+    color: #ffffff;
+  }
+  .foot-link:hover {
+    color: #0f172a;
+    text-decoration-color: currentColor;
+  }
+  .dark .foot-link:hover {
+    color: #ffffff;
+  }
+}
+
+/* Conteúdo entra devagar ao trocar de visão (global).
+   O contêiner `.view-enter` faz um fade e cada filho direto sobe em cascata,
+   dando tempo para o olho acompanhar. O próprio contêiner NÃO se desloca,
+   então overlays `fixed inset-0` (modais) não deixam faixa na borda: só o
+   fundo some/aparece e o conteúdo de dentro sobe.
+   Para ajustar o ritmo: durações (900ms / 1000ms) e delays abaixo. */
+@keyframes view-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes view-enter-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes view-enter-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.view-enter { animation: view-enter 900ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.view-enter > * {
+  animation: view-enter-rise 1000ms cubic-bezier(0.23, 1, 0.32, 1) backwards;
+}
+.view-enter > *:nth-child(1) { animation-delay: 120ms; }
+.view-enter > *:nth-child(2) { animation-delay: 300ms; }
+.view-enter > *:nth-child(3) { animation-delay: 480ms; }
+.view-enter > *:nth-child(4) { animation-delay: 660ms; }
+.view-enter > *:nth-child(n+5) { animation-delay: 840ms; }
+@media (prefers-reduced-motion: reduce) {
+  .view-enter { animation-name: view-enter-fade; }
+  .view-enter > *:nth-child(n) {
+    animation-name: view-enter-fade;
+    animation-duration: 200ms;
+    animation-delay: 0ms;
+  }
+}
+
+/* `.rise`: entrada em cascata para qualquer elemento (use junto com
+   `[animation-delay:XXXms]` do Tailwind). Fica em @layer components para
+   os utilitários do Tailwind (como o delay) terem precedência. */
+@layer components {
+  .rise { animation: view-enter-rise 1000ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation-name: view-enter-fade; animation-duration: 200ms; animation-delay: 0ms !important; }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-old(root) {
+  z-index: 1;
+}
+::view-transition-new(root) {
+  z-index: 2;
+}
+
+/* [ALUNO_REDESIGN] Badge de contagem: "pop" curto (começa em 0.7, nunca em 0). */
+@keyframes badge-pop {
+  0%   { transform: scale(0.7); opacity: 0; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.badge-pop { animation: badge-pop 320ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .badge-pop { animation: view-enter-fade 200ms ease-out both; }
+}
+
+@keyframes auth-swap {
+  from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+.auth-swap { animation: auth-swap 280ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+/* Anéis do painel de marca e anel do "e-mail enviado": desenham uma vez
+   (os elementos usam pathLength=1). */
+@keyframes auth-draw { to { stroke-dashoffset: 0; } }
+.auth-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: auth-draw 1600ms cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+/* "Pop" curto (começa em 0.6, nunca em 0). */
+@keyframes auth-pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.auth-pop { animation: auth-pop 320ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+/* Tremida de erro (±6px, 360ms). */
+@keyframes auth-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+.auth-shake { animation: auth-shake 360ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+
+/* Termo de LGPD: o texto entra suave ao abrir o <details>. */
+details[open] > .auth-details-body {
+  animation: auth-swap 240ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-swap,
+  details[open] > .auth-details-body {
+    animation-name: view-enter-fade;
+    animation-duration: 200ms;
+  }
+  .auth-draw { animation: none; stroke-dashoffset: 0; }
+  .auth-pop,
+  .auth-shake { animation: none; }
 }

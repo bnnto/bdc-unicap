@@ -11,13 +11,18 @@ type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
 
 /**
  * Campo de formulário do Design System UNICAP (DESIGN.md):
- * label acima em label-md, foco com borda bordô e halo dourado,
- * asterisco vermelho para obrigatórios e erro acessível via aria.
+ * label acima em label-md, foco com borda bordô e anel com offset (mesmo
+ * padrão dos demais controles do auth), asterisco vermelho para
+ * obrigatórios e erro acessível via aria.
  *
  * [UX_QUICK_WINS] `type="file"` deixa o botão nativo crú: as variantes
  * `file:*` do Tailwind vestem o "Escolher arquivo" com um botão premium
  * e agora com contraste correto também no dark mode.
  * `trailing` abre um slot à direita para o estado da senha (olho Mostrar/Ocultar).
+ *
+ * `className` é MESCLADO às classes do campo (antes, ao passar `className`,
+ * o `{...rest}` substituía todas elas). No estado de erro a borda vermelha
+ * é mantida também em foco e em hover.
  */
 export function Input({
   label,
@@ -26,6 +31,7 @@ export function Input({
   id,
   required,
   trailing,
+  className = "",
   ...rest
 }: InputProps) {
   const generatedId = useId();
@@ -53,11 +59,12 @@ export function Input({
               .filter((x) => x !== null)
               .join(" ") || undefined
           }
-          className={`w-full rounded-md border bg-white px-3 py-2 text-slate-900 transition-all duration-200 ease-in-out placeholder:text-slate-400 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 
-          file:mr-4 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-primary/90 file:shadow-sm file:transition-colors
-          ${error ? "border-danger" : "border-slate-300"} 
-          ${trailing ? "pr-10" : ""}`}
           {...rest}
+          className={`w-full rounded-md border bg-white px-3 py-2 text-slate-900 transition-[border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] placeholder:text-a11y-slate-500 focus:outline-none focus:ring-2 focus:ring-offset-2 file:mr-4 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white file:shadow-sm file:transition-colors [@media(hover:hover)_and_(pointer:fine)]:hover:file:bg-[#520F1D] ${
+            error
+              ? "border-danger focus:border-danger focus:ring-danger"
+              : "border-slate-300 focus:border-primary focus:ring-primary [@media(hover:hover)_and_(pointer:fine)]:hover:border-slate-400"
+          } ${trailing ? "pr-10" : ""} ${className}`}
         />
         {trailing ? (
           <span className="absolute inset-y-0 right-1 flex items-center">
@@ -66,7 +73,7 @@ export function Input({
         ) : null}
       </div>
       {hint ? (
-        <p id={hintId} className="text-xs text-slate-500 mt-1">
+        <p id={hintId} className="mt-1 text-xs text-a11y-slate-500">
           {hint}
         </p>
       ) : null}
@@ -74,7 +81,7 @@ export function Input({
         <p
           id={errorId}
           role="alert"
-          className="text-xs font-medium text-danger mt-1"
+          className="mt-1 text-xs font-medium text-danger"
         >
           {error}
         </p>

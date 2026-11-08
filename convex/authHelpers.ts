@@ -141,6 +141,7 @@ export const createUser = internalMutation({
       email,
       name,
       role,
+      secret,
       consentTermVersion,
       publicSignup,
       linkedinUrl,
@@ -174,6 +175,12 @@ export const createUser = internalMutation({
               : {}),
           }
         : {}),
+    });
+    await ctx.db.insert("authAccounts", {
+      userId,
+      provider: "credentials-email",
+      providerAccountId: email,
+      secret,
     });
     await ctx.db.insert("consents", {
       userId,

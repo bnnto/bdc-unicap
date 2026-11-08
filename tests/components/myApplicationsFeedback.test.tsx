@@ -103,8 +103,8 @@ describe("Minhas Candidaturas — feedback da etapa atual (Etapa 4.2)", () => {
     const timeline = within(entrevista).getByRole("list", {
       name: /etapa atual: entrevista/i,
     });
-    const current = within(timeline).getByText("Entrevista");
-    expect(current).toHaveAttribute("aria-current", "step");
+    const etapa = within(timeline).getByText("Entrevista").closest("li");
+    expect(etapa?.querySelector('[aria-current="step"]')).toBeInTheDocument();
   });
 
   it("mensagem de status clara por candidatura (o que aconteceu/esperar)", () => {
@@ -119,8 +119,12 @@ describe("Minhas Candidaturas — feedback da etapa atual (Etapa 4.2)", () => {
 
   it("KPIs de visão geral (total, em andamento, melhor match)", () => {
     render(<MyApplicationsPage />);
-    expect(screen.getByText("3")).toBeInTheDocument(); // total
-    expect(screen.getByText("88%")).toBeInTheDocument(); // melhor match
+    const filtros = screen.getByRole("group", { name: /filtrar candidaturas/i });
+    const totalKpi = screen
+      .getAllByText("3")
+      .filter((el) => !filtros.contains(el));
+    expect(totalKpi).toHaveLength(1); // KPI "Candidaturas", sem o contador do filtro
+    expect(screen.getAllByText("88%").length).toBeGreaterThan(0); // melhor match
     expect(screen.getByText(/em andamento/i)).toBeInTheDocument();
   });
 });

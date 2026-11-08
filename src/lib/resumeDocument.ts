@@ -15,6 +15,9 @@ export type ResumeDocStudent = {
   graduationYear: number;
   semester: number | null;
   location: string | null;
+  /** [CV_LAYOUT_V2] telefone (students.phone) e e-mail (users.email). */
+  phone?: string | null;
+  email?: string | null;
   linkedinUrl: string | null;
   portfolioUrl: string | null;
   /** [QUICK_WIN_MULTI] multi-seleção (PDF junta com " · "). */
@@ -137,19 +140,20 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** Nome de arquivo estável: curriculo-<nome>-<curso>-<ano>.pdf */
+/** Nome de arquivo estável: curriculo-<três primeiros nomes>.pdf */
 export function formatResumeFileName(
   fullName: string,
-  course: string,
-  graduationYear: number,
+  _course?: string,
+  _graduationYear?: number,
 ): string {
-  const parts = [
-    slugify(fullName),
-    slugify(course),
-    graduationYear > 0 ? String(graduationYear) : "",
-  ].filter((part) => part.length > 0);
-  const base = ["curriculo", ...parts].join("-");
-  return base === "curriculo" ? "curriculo-unicap.pdf" : `${base}.pdf`;
+  const nameSlug = slugify(fullName)
+    .split("-")
+    .filter((part) => part.length > 0)
+    .slice(0, 3)
+    .join("-");
+  return nameSlug.length > 0
+    ? `curriculo-${nameSlug}.pdf`
+    : "curriculo-unicap.pdf";
 }
 
 /** Escapa texto dinâmico antes de interpolá-lo no template HTML. */
@@ -162,13 +166,6 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-/** Data pt-BR determinística (dd/mm/aaaa) — independe do locale do runtime. */
-function formatDateBR(date: Date): string {
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `${day}/${month}/${date.getFullYear()}`;
-}
-
 function safeHref(url: string): string | null {
   return /^https?:\/\//i.test(url) ? url : null;
 }
@@ -179,62 +176,177 @@ function anchor(label: string, url: string): string {
   return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`;
 }
 
+/** Formata telefone BR como "+55 (81) 99999-9999". Se não reconhecer, devolve o original. */
+export function formatPhoneBR(value: string): string {
+  let digits = value.replace(/\D/g, "");
+  // Remove o código do país se o aluno já digitou (55 + DDD + número).
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
+    digits = digits.slice(2);
+  }
+  if (digits.length === 11) {
+    return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  }
+  return value.trim();
+}
+
 /**
  * Template HTML do documento (compartilhado pela prévia na tela e pela
  * impressão/PDF). Todo texto dinâmico passa por `escapeHtml` (CA 1 —
- * download fiel e seguro); a identidade UNICAP vem do documento (CA 2).
+ * download fiel e seguro); a identidade UNICAP segue na paleta bordô/dourado
+ * (CA 2).
  *
- * [REFACTOR_ALUNO Etapa 2.3] — o markup envolvido em `.unicap-resume-doc`
- * (as regras do template são descendentes dessa classe — sem o wrapper o
- * PDF saía sem estilo), com cabeçalho em banda bordô (exige
- * `print-color-adjust: exact`) e corpo em grid de duas colunas que o
- * `@media print` preserva — o PDF é o espelho exato da prévia.
+ * [CV_LAYOUT_V2] Layout de coluna única, sem banda de cabeçalho. Ordem:
+ * Nome → Headline → contatos (local · telefone / e-mail · LinkedIn …) →
+ * Resumo → Competências → Experiência → Projetos e Atividades → Formação →
+ * Idiomas. Seções sem conteúdo simplesmente não aparecem. O markup fica
+ * envolvido em `.unicap-resume-doc` (as regras do template são descendentes
+ * dessa classe) e o `@media print` o preserva — PDF = espelho da prévia.
  */
 export function buildResumeMarkup(
   doc: Extract<ResumeDocument, { ok: true }>,
-  options: { generatedAt?: Date } = {},
+  // Mantido por compatibilidade: o rodapé com data foi removido do layout.
+  _options: { generatedAt?: Date } = {},
 ): string {
-  const generatedAt = options.generatedAt ?? new Date();
-  const meta = [
-    doc.student.semester !== null ? `${doc.student.semester}º semestre` : null,
-    doc.availabilityLabel,
-    `Matrícula ${doc.student.enrollment}`,
-    doc.student.location,
-  ]
-    .filter((part): part is string => part !== null && part.length > 0)
-    .join(" · ");
+  const clean = (value: string | null | undefined): string =>
+    value === null || value === undefined ? "" : value.trim();
 
-  const contacts: string[] = [];
-  if (doc.student.linkedinUrl !== null) {
-    contacts.push(anchor("LinkedIn", doc.student.linkedinUrl));
+  // Linha 1: LOCAL · TELEFONE.
+  const phone = clean(doc.student.phone);
+  const locationPhone = [
+    clean(doc.student.location),
+    phone.length > 0 ? formatPhoneBR(phone) : "",
+  ].filter((part) => part.length > 0);
+
+  // Linha 2: E-MAIL · LINKEDIN (+ demais links do perfil, se existirem).
+  const emailLinks: string[] = [];
+  const email = clean(doc.student.email);
+  if (email.length > 0) {
+    emailLinks.push(
+      `<a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a>`,
+    );
   }
-  if (doc.student.portfolioUrl !== null) {
-    contacts.push(anchor("Portfólio", doc.student.portfolioUrl));
+  if (doc.student.linkedinUrl) {
+    emailLinks.push(anchor("LinkedIn", doc.student.linkedinUrl));
   }
-  if (doc.resume.links?.github !== undefined) {
-    contacts.push(anchor("GitHub", doc.resume.links.github));
+  if (doc.student.portfolioUrl) {
+    emailLinks.push(anchor("Portfólio", doc.student.portfolioUrl));
   }
-  if (doc.resume.links?.lattes !== undefined) {
-    contacts.push(anchor("Lattes", doc.resume.links.lattes));
+  if (doc.resume.links?.github) {
+    emailLinks.push(anchor("GitHub", doc.resume.links.github));
+  }
+  if (doc.resume.links?.lattes) {
+    emailLinks.push(anchor("Lattes", doc.resume.links.lattes));
   }
 
-  // Coluna lateral (skills, idiomas, certificações) — vazia ⇒ grid de
-  // uma coluna para o documento não abrir um terço em branco.
-  const sideSections: string[] = [];
+  const parts: string[] = [];
+  parts.push(`<div class="unicap-resume-doc">`);
+
+  // Identidade.
+  parts.push(
+    `<header class="unicap-resume-identity">`,
+    `<h1 class="unicap-resume-name">${escapeHtml(doc.student.fullName)}</h1>`,
+  );
+  if (clean(doc.headline).length > 0) {
+    parts.push(
+      `<p class="unicap-resume-headline">${escapeHtml(doc.headline)}</p>`,
+    );
+  }
+  if (locationPhone.length > 0) {
+    parts.push(
+      `<p class="unicap-resume-contacts">${locationPhone.join(" · ")}</p>`,
+    );
+  }
+  if (emailLinks.length > 0) {
+    parts.push(
+      `<p class="unicap-resume-contacts">${emailLinks.join(" · ")}</p>`,
+    );
+  }
+  parts.push(`</header>`);
+
+  // Resumo.
+  if (clean(doc.summary).length > 0) {
+    parts.push(
+      `<section class="unicap-resume-section">`,
+      `<h2 class="unicap-resume-section-title">Resumo</h2>`,
+      `<p class="unicap-resume-summary">${escapeHtml(doc.summary)}</p>`,
+      `</section>`,
+    );
+  }
+
+  // Competências.
   const skills = doc.student.skills ?? [];
   if (skills.length > 0) {
-    sideSections.push(
+    parts.push(
       `<section class="unicap-resume-section">`,
-      `<h2 class="unicap-resume-section-title">Competências & Tecnologias</h2>`,
+      `<h2 class="unicap-resume-section-title">Competências</h2>`,
       `<ul class="unicap-resume-chips">`,
       ...skills.map((skill) => `<li>${escapeHtml(skill)}</li>`),
       `</ul>`,
       `</section>`,
     );
   }
+
+  // Experiência — só aparece quando o aluno tem experiências.
+  if (doc.experiences.length > 0) {
+    parts.push(
+      `<section class="unicap-resume-section">`,
+      `<h2 class="unicap-resume-section-title">Experiência</h2>`,
+    );
+    for (const exp of doc.experiences) {
+      parts.push(
+        `<article class="unicap-resume-item">`,
+        `<h3 class="unicap-resume-item-title">${escapeHtml(exp.role)} <span class="unicap-resume-item-sub">${escapeHtml(`· ${exp.company} · ${exp.period}`)}</span></h3>`,
+        `<p class="unicap-resume-item-desc">${escapeHtml(exp.description)}</p>`,
+        `</article>`,
+      );
+    }
+    parts.push(`</section>`);
+  }
+
+  // Projetos e Atividades = projetos de extensão (texto) + certificações/atividades.
+  const projectsText = clean(doc.resume.projectsText);
+  const certifications = doc.resume.certifications ?? [];
+  if (projectsText.length > 0 || certifications.length > 0) {
+    parts.push(
+      `<section class="unicap-resume-section">`,
+      `<h2 class="unicap-resume-section-title">Projetos e Atividades</h2>`,
+    );
+    if (projectsText.length > 0) {
+      parts.push(
+        `<p class="unicap-resume-summary unicap-resume-projects">${escapeHtml(projectsText)}</p>`,
+      );
+    }
+    if (certifications.length > 0) {
+      parts.push(
+        `<ul class="unicap-resume-list">`,
+        ...certifications.map((item) => `<li>${escapeHtml(item)}</li>`),
+        `</ul>`,
+      );
+    }
+    parts.push(`</section>`);
+  }
+
+  // Formação.
+  if (doc.academicEntries.length > 0) {
+    parts.push(
+      `<section class="unicap-resume-section">`,
+      `<h2 class="unicap-resume-section-title">Formação</h2>`,
+      `<ul class="unicap-resume-list">`,
+      ...doc.academicEntries.map(
+        (entry) => `<li>${escapeHtml(`${entry.item} (${entry.year})`)}</li>`,
+      ),
+      `</ul>`,
+      `</section>`,
+    );
+  }
+
+  // Idiomas.
   const languages = doc.student.languages ?? [];
   if (languages.length > 0) {
-    sideSections.push(
+    parts.push(
       `<section class="unicap-resume-section">`,
       `<h2 class="unicap-resume-section-title">Idiomas</h2>`,
       `<ul class="unicap-resume-list">`,
@@ -248,98 +360,7 @@ export function buildResumeMarkup(
       `</section>`,
     );
   }
-  const certifications = doc.resume.certifications ?? [];
-  if (certifications.length > 0) {
-    sideSections.push(
-      `<section class="unicap-resume-section">`,
-      `<h2 class="unicap-resume-section-title">Certificações & Atividades</h2>`,
-      `<ul class="unicap-resume-list">`,
-      ...certifications.map((item) => `<li>${escapeHtml(item)}</li>`),
-      `</ul>`,
-      `</section>`,
-    );
-  }
-  const gridClass =
-    sideSections.length === 0
-      ? "unicap-resume-grid unicap-resume-grid--single"
-      : "unicap-resume-grid";
 
-  const parts: string[] = [];
-  parts.push(`<div class="unicap-resume-doc">`);
-  parts.push(
-    `<header class="unicap-resume-header">`,
-    `<div>`,
-    `<p class="unicap-resume-brand">${escapeHtml(doc.university)}</p>`,
-    `<p class="unicap-resume-doc-title">${escapeHtml(doc.docTitle)}</p>`,
-    `</div>`,
-    `<p class="unicap-resume-acronym" aria-hidden="true">${escapeHtml(doc.acronym)}</p>`,
-    `</header>`,
-    `<div class="unicap-resume-identity">`,
-    `<h1 class="unicap-resume-name">${escapeHtml(doc.student.fullName)}</h1>`,
-    `<p class="unicap-resume-headline">${escapeHtml(doc.headline)}</p>`,
-    `<p class="unicap-resume-meta">${escapeHtml(meta)}</p>`,
-  );
-  if (contacts.length > 0) {
-    parts.push(`<p class="unicap-resume-contacts">${contacts.join(" · ")}</p>`);
-  }
-  parts.push(`</div>`, `<div class="${gridClass}">`);
-
-  // Coluna lateral.
-  parts.push(`<div class="unicap-resume-col unicap-resume-col-side">`);
-  parts.push(...sideSections);
-  parts.push(`</div>`);
-
-  // Coluna principal.
-  parts.push(`<div class="unicap-resume-col unicap-resume-col-main">`);
-  parts.push(
-    `<section class="unicap-resume-section">`,
-    `<h2 class="unicap-resume-section-title">Resumo</h2>`,
-    `<p class="unicap-resume-summary">${escapeHtml(doc.summary)}</p>`,
-    `</section>`,
-  );
-
-  if (doc.experiences.length > 0) {
-    parts.push(
-      `<section class="unicap-resume-section">`,
-      `<h2 class="unicap-resume-section-title">Experiência profissional</h2>`,
-    );
-    for (const exp of doc.experiences) {
-      parts.push(
-        `<article class="unicap-resume-item">`,
-        `<h3 class="unicap-resume-item-title">${escapeHtml(exp.role)}</h3>`,
-        `<p class="unicap-resume-item-sub">${escapeHtml(`${exp.company} · ${exp.period}`)}</p>`,
-        `<p class="unicap-resume-item-desc">${escapeHtml(exp.description)}</p>`,
-        `</article>`,
-      );
-    }
-    parts.push(`</section>`);
-  }
-
-  parts.push(
-    `<section class="unicap-resume-section">`,
-    `<h2 class="unicap-resume-section-title">Formação e histórico acadêmico</h2>`,
-    `<ul class="unicap-resume-list">`,
-  );
-  for (const entry of doc.academicEntries) {
-    parts.push(`<li>${escapeHtml(`${entry.item} (${entry.year})`)}</li>`);
-  }
-  parts.push(`</ul>`, `</section>`);
-
-  const projectsText = doc.resume.projectsText;
-  if (projectsText !== undefined && projectsText.trim().length > 0) {
-    parts.push(
-      `<section class="unicap-resume-section">`,
-      `<h2 class="unicap-resume-section-title">Experiências & Projetos de Extensão</h2>`,
-      `<p class="unicap-resume-summary">${escapeHtml(projectsText)}</p>`,
-      `</section>`,
-    );
-  }
-
-  parts.push(`</div>`, `</div>`); // col-main, grid
-  parts.push(
-    `<p class="unicap-resume-footer">Documento gerado pelo Banco de Currículos — ${escapeHtml(doc.acronym)} em ${formatDateBR(generatedAt)}.</p>`,
-    `</div>`, // wrapper .unicap-resume-doc
-  );
-
+  parts.push(`</div>`); // wrapper .unicap-resume-doc
   return parts.join("");
 }

@@ -147,15 +147,14 @@ describe("StudentShell — logo, container full-width e avatar (Etapa 1)", () =>
   it("logo UNICAP à esquerda com identidade do portal", () => {
     renderAluno();
     expect(screen.getByText(/banco de currículos/i)).toBeInTheDocument();
-    expect(screen.getByText("UC")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "UNICAP" })).toBeInTheDocument();
   });
 
-  it("container full-width max-w-[1440px] no header", () => {
+  it("container full-width max-w-[1440px] no conteúdo principal", () => {
     const { container } = renderAluno();
-    const header = container.querySelector("header");
-    expect(header).not.toBeNull();
-    const wide = header!.querySelector(".max-w-\\[1440px\\]");
-    expect(wide).not.toBeNull();
+    const main = container.querySelector("main");
+    expect(main).not.toBeNull();
+    expect(main!.querySelector(".max-w-\\[1440px\\]")).not.toBeNull();
   });
 
   it("sem dropdown no header: avatar/nome é um único botão", () => {

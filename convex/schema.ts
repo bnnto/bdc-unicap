@@ -56,6 +56,8 @@ export default defineSchema({
      */
     notifyJobAlerts: v.optional(v.boolean()),
     notifyApplicationUpdates: v.optional(v.boolean()),
+    
+    imageStorageId: v.optional(v.id("_storage")),
 
     approvalStatus: v.optional(
       v.union(
@@ -126,7 +128,7 @@ export default defineSchema({
     ),
     /** R6 — autorização geral de contato (default ausente = false). */
     showContactToRecruiters: v.optional(v.boolean()),
-
+    bannerStorageId: v.optional(v.id("_storage")),
     /**
      * [FINAL_UPGRADE Etapa 3] — contador (mock) de Visualizações do
      * Perfil: quantas vezes um recrutador clicou no contato/perfil
@@ -229,7 +231,11 @@ export default defineSchema({
     title: v.string(),
     description: v.string(),
     prerequisites: v.array(
-      v.object({ item: v.string(), required: v.boolean() }),
+      v.object({
+        item: v.string(),
+        required: v.boolean(),
+        kind: v.optional(v.union(v.literal("skill"), v.literal("text"))),
+      })
     ),
     contractType: v.union(
       v.literal("estagio"),

@@ -1,17 +1,3 @@
-/**
- * [RECRUITER_UX_UPGRADE] Master-Detail na aba "Vagas & Pipeline":
- *
- * - A página mostra SÓ a lista de vagas (o Kanban deixa de ficar empilhado
- *   no fundo da página).
- * - O botão "Ver Candidatos" de cada vaga troca a tela inteira para o
- *   Kanban daquela vaga (busca já com a vaga selecionada).
- * - Botão "Voltar para Minhas Vagas" retorna à lista.
- * - JobsPanel standalone (sem a prop) permanece sem o botão — o uso em
- *   testes/páginas isoladas não muda de comportamento.
- *
- * `convex/react` e `convex/_generated/api` são mockados com sentinelas
- * estáveis (a api gerada usa proxies).
- */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,6 +7,12 @@ vi.mock("convex/react", () => ({
   useQuery: vi.fn(),
   useMutation: vi.fn(),
 }));
+
+// logo abaixo dos outros vi.mock(...), antes dos imports dos componentes
+vi.mock("../../src/lib/router", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/lib/router")>();
+  return { ...actual, navigateTo: vi.fn() };
+});
 
 vi.mock("../../convex/_generated/api", () => ({
   api: {
@@ -38,6 +30,7 @@ vi.mock("../../convex/_generated/api", () => ({
   },
 }));
 
+import { navigateTo, portalPath } from "../../src/lib/router";
 import { useQuery, useMutation } from "convex/react";
 import { RecruiterJobsPage } from "../../src/components/recruiter/RecruiterJobsPage";
 import { JobsPanel } from "../../src/components/recruiter/JobsPanel";
@@ -111,7 +104,7 @@ describe("JobsPanel — ação 'Ver Candidatos' (Master-Detail)", () => {
 
 describe("RecruiterJobsPage — Master-Detail (lista ⇄ Kanban)", () => {
   it("a página abre SÓ com a lista de vagas (sem Kanban escondido no fluxo)", () => {
-    render(<RecruiterJobsPage />);
+    render(<RecruiterJobsPage jobId={null} />);
 
     expect(screen.getByText("Minhas vagas")).toBeInTheDocument();
     // O board (Kanban) não é buscado nem renderizado até escolher a vaga.
@@ -122,14 +115,17 @@ describe("RecruiterJobsPage — Master-Detail (lista ⇄ Kanban)", () => {
     );
   });
 
-  it("'Ver Candidatos' troca a tela para o Kanban daquela vaga", async () => {
-    render(<RecruiterJobsPage />);
+  it("'Ver Candidatos' navega para a vaga e a rota mostra o Kanban dela", async () => {
+    const { rerender } = render(<RecruiterJobsPage jobId={null} />);
 
     await userEvent.click(
       screen.getByRole("button", { name: /ver candidatos/i }),
     );
+    expect(navigateTo).toHaveBeenCalledWith(portalPath("vagas", "job-1"));
 
-    // A tela inteira vira o pipeline da vaga escolhida.
+    // Simula o roteador entregando o jobId da nova rota.
+    rerender(<RecruiterJobsPage jobId="job-1" />);
+
     expect(
       await screen.findByRole("region", { name: /^Em Triagem/ }),
     ).toBeInTheDocument();
@@ -139,17 +135,16 @@ describe("RecruiterJobsPage — Master-Detail (lista ⇄ Kanban)", () => {
     });
   });
 
-  it("'Voltar para Minhas Vagas' retorna à lista e fecha o Kanban", async () => {
-    render(<RecruiterJobsPage />);
-
-    await userEvent.click(
-      screen.getByRole("button", { name: /ver candidatos/i }),
-    );
+  it("'Voltar para Minhas Vagas' navega para a lista e fecha o Kanban", async () => {
+    const { rerender } = render(<RecruiterJobsPage jobId="job-1" />);
     await screen.findByRole("region", { name: /^Em Triagem/ });
 
     await userEvent.click(
       screen.getByRole("button", { name: /voltar para minhas vagas/i }),
     );
+    expect(navigateTo).toHaveBeenCalledWith(portalPath("vagas"));
+
+    rerender(<RecruiterJobsPage jobId={null} />);
 
     expect(screen.getByText("Minhas vagas")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /^Em Triagem/ })).toBeNull();

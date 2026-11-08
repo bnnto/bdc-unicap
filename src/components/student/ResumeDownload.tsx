@@ -35,6 +35,9 @@ export function ResumeDownload() {
         graduationYear: profile.graduationYear,
         semester: profile.semester ?? null,
         location: profile.location ?? null,
+        // [CV_LAYOUT_V2] contatos do cabeçalho do PDF.
+        phone: profile.phone ?? null,
+        email: profile.email ?? null,
         linkedinUrl: profile.linkedinUrl ?? null,
         portfolioUrl: profile.portfolioUrl ?? null,
         availability: profile.availability,

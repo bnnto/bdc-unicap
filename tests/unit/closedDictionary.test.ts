@@ -315,7 +315,7 @@ describe("pontos de entrada sem texto livre", () => {
   });
 
   it("filtro de competências do Banco de Talentos é Combobox do dicionário", () => {
-    const src = read("src/components/talent/TalentSearchPage.tsx");
+    const src = read("src/components/recruiter/talent/TalentSearchPage.tsx");
     expect(src).toContain("SKILLS_GROUPS");
     // O filtro é o Combobox pesquisável (ariaLabel primeiro) — nunca
     // campo de texto livre nem <select> nativo.

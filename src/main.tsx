@@ -1,7 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import { Toaster } from "sonner";
+import { AppToaster } from "./components/ui/AppToaster";
 import "./index.css";
 import App from "./App";
 import { AuthProvider } from "./components/auth/AuthProvider";
@@ -37,7 +37,7 @@ createRoot(rootElement).render(
         (um remount no meio de um erro faz o toast "atrasar"/sumir).
         [FINAL_UPGRADE] visibleToasts limita a fila visível a 3 toasts —
         evita sobreposição/lag quando várias falhas disparam juntas. */}
-    <Toaster position="top-right" closeButton richColors visibleToasts={3} />
+    <AppToaster />
     {/* [S8-4] CA 1 — erro de renderização não derruba o portal: limite
         externo com fallback acessível e registro para a monitoração. */}
     <ErrorBoundary

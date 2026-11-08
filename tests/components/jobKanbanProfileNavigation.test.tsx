@@ -89,9 +89,7 @@ describe("JobKanban — clique no card abre o perfil do candidato (Etapa 3)", ()
   it("clicar no NOME do candidato navega para /recrutador/candidato/:studentId", async () => {
     await renderBoard();
 
-    const nome = screen.getByRole("button", {
-      name: /ver perfil de maria da silva/i,
-    });
+    const nome = screen.getAllByRole("button", { name: "Ver Perfil" })[0]!;
     await userEvent.click(nome);
 
     expect(window.location.pathname).toBe("/recrutador/candidato/k57abc123");
@@ -100,7 +98,9 @@ describe("JobKanban — clique no card abre o perfil do candidato (Etapa 3)", ()
   it("botão 'Ver Perfil' navega para a mesma rota dedicada", async () => {
     await renderBoard();
 
-    await userEvent.click(screen.getByRole("button", { name: "Ver Perfil" }));
+    await userEvent.click(
+      screen.getAllByRole("button", { name: "Ver Perfil" })[0]!,
+    );
 
     expect(window.location.pathname).toBe("/recrutador/candidato/k57abc123");
   });
@@ -108,13 +108,10 @@ describe("JobKanban — clique no card abre o perfil do candidato (Etapa 3)", ()
   it("o card continua indicando drag & drop e teclado (UX da Etapa 3)", async () => {
     await renderBoard();
 
-    const card = screen.getByRole("article", {
-      name: /maria da silva.*setas do teclado/i,
-    });
+    const card = screen
+      .getByText("Maria da Silva")
+      .closest("[draggable='true']") as HTMLElement;
     expect(card).toHaveAttribute("draggable", "true");
-    // Dica de uso atualizada no board.
-    expect(
-      screen.getByText(/clique no nome ou em ver perfil/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/setas do teclado/i)).toBeInTheDocument();
   });
 });

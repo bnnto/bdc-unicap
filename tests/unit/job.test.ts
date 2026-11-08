@@ -80,9 +80,9 @@ describe("validação de vaga (S3-1)", () => {
     ).toBe(false);
   });
 
-  it("pré-requisitos: 1..8 itens, com flag obrigatório/opcional", () => {
+  it("pré-requisitos: 1..15 itens, com flag obrigatório/opcional", () => {
     expect(validateJob({ ...valid, prerequisites: [] }).ok).toBe(false);
-    const many = Array.from({ length: 9 }, (_, i) => ({
+    const many = Array.from({ length: MAX_PREREQS + 1 }, (_, i) => ({
       item: `Req ${i}`,
       required: true,
     }));
@@ -97,15 +97,30 @@ describe("validação de vaga (S3-1)", () => {
     const result = validateJob({
       ...valid,
       prerequisites: [
-        { item: "  Excel intermediário  ", required: false },
-        { item: "Portfólio no GitHub", required: true },
+        { item: "  React  ", required: false },
+        { item: "TypeScript", required: true },
       ],
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.normalized.prerequisites).toEqual([
-        { item: "Excel intermediário", required: false },
-        { item: "Portfólio no GitHub", required: true },
+        { item: "React", required: false, kind: "skill" },
+        { item: "TypeScript", required: true, kind: "skill" },
+      ]);
+    }
+  });
+
+  it("requisito descritivo nunca é obrigatório e mantém kind 'text'", () => {
+    const result = validateJob({
+      ...valid,
+      prerequisites: [
+        { item: "  Disponibilidade para viagens  ", required: true, kind: "text" },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.normalized.prerequisites).toEqual([
+        { item: "Disponibilidade para viagens", required: false, kind: "text" },
       ]);
     }
   });
@@ -155,6 +170,6 @@ describe("formatação da faixa salarial (S3-1)", () => {
 describe("constantes compartilhadas (S3-1)", () => {
   it("tipos de contrato do requisito", () => {
     expect(CONTRACT_TYPES).toEqual(["estagio", "clt", "pj", "temporario"]);
-    expect(MAX_PREREQS).toBe(8);
+    expect(MAX_PREREQS).toBe(15);
   });
 });

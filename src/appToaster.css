@@ -1,0 +1,105 @@
+/* ====================================================================
+   Toasts (Sonner) — mesma linguagem das superfícies do portal:
+   anel semitransparente no lugar de borda sólida, cantos grandes,
+   tipografia do projeto e ícone colorido sobre fundo neutro.
+
+   Seletores com 3 níveis (.app-toaster .app-toast[...]) vencem o CSS
+   injetado pelo Sonner sem precisar de !important. Os blocos .dark e
+   .high-contrast vêm nesta ordem de propósito (o último mais forte).
+   ==================================================================== */
+
+/* ---------- Tema claro (padrão) ---------- */
+.app-toaster .app-toast[data-sonner-toast] {
+  border-radius: 18px;
+  border: 1px solid transparent;
+  background: #ffffff;
+  color: #0f172a; /* slate-900 */
+  padding: 14px 16px;
+  gap: 12px;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+  box-shadow:
+    0 0 0 1px rgb(15 23 42 / 0.06),
+    0 2px 4px rgb(15 23 42 / 0.04),
+    0 16px 40px -12px rgb(15 23 42 / 0.22);
+}
+
+.app-toaster .app-toast [data-title] {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
+}
+
+.app-toaster .app-toast [data-description] {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #475569; /* slate-600 */
+}
+
+/* Ícone colorido; o resto do toast fica neutro. */
+.app-toaster .app-toast[data-type="success"] [data-icon] {
+  color: #047857;
+}
+.app-toaster .app-toast[data-type="error"] [data-icon] {
+  color: #dc2626;
+}
+.app-toaster .app-toast[data-type="warning"] [data-icon] {
+  color: #b45309;
+}
+.app-toaster .app-toast[data-type="info"] [data-icon],
+.app-toaster .app-toast[data-type="loading"] [data-icon] {
+  color: #6b1426; /* bordô da identidade */
+}
+
+/* ---------- Tema escuro ---------- */
+.dark .app-toaster .app-toast[data-sonner-toast] {
+  background: #171b22;
+  color: #f1f5f9;
+  box-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.08),
+    0 16px 40px -12px rgb(0 0 0 / 0.6);
+}
+
+.dark .app-toaster .app-toast [data-description] {
+  color: #b3bdc9;
+}
+
+.dark .app-toaster .app-toast[data-type="success"] [data-icon] {
+  color: #34d399;
+}
+.dark .app-toaster .app-toast[data-type="error"] [data-icon] {
+  color: #f87171;
+}
+.dark .app-toaster .app-toast[data-type="warning"] [data-icon] {
+  color: #fbbf24;
+}
+.dark .app-toaster .app-toast[data-type="info"] [data-icon],
+.dark .app-toaster .app-toast[data-type="loading"] [data-icon] {
+  color: #e9b8c3;
+}
+
+/* ---------- Alto contraste (claro) ---------- */
+.high-contrast .app-toaster .app-toast[data-sonner-toast] {
+  background: #ffffff;
+  color: #000000;
+  border: 2px solid #000000;
+  box-shadow: none;
+}
+.high-contrast .app-toaster .app-toast [data-description] {
+  color: #0a0f16;
+}
+.high-contrast .app-toaster .app-toast [data-icon] {
+  color: #000000;
+}
+
+/* ---------- Alto contraste sobre o escuro ---------- */
+.dark.high-contrast .app-toaster .app-toast[data-sonner-toast] {
+  background: #000000;
+  color: #ffffff;
+  border-color: #ffffff;
+}
+.dark.high-contrast .app-toaster .app-toast [data-description],
+.dark.high-contrast .app-toaster .app-toast [data-icon] {
+  color: #ffffff;
+}

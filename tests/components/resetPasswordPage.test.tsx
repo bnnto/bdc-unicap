@@ -72,7 +72,7 @@ describe("ResetPasswordPage — pedir recuperação (sem token)", () => {
     );
     // Sem enumeração de contas: o estado de sucesso é o mesmo.
     expect(
-      screen.getByText(/se existir uma conta com este e-mail/i),
+    screen.getByText(/se existir uma conta com/i),
     ).toBeInTheDocument();
   });
 
@@ -104,7 +104,7 @@ describe("ResetPasswordPage — trocar a senha (com token)", () => {
   it("lê o token da URL e troca a senha com confirmação", async () => {
     render(<ResetPasswordPage />);
     expect(
-      screen.getByRole("heading", { name: /recuperar senha/i }),
+      screen.getByRole("heading", { name: /crie uma nova senha/i }),
     ).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText(/^nova senha/i), "SenhaNova456");

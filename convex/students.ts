@@ -3,6 +3,7 @@ import {
   mutation,
   internalQuery,
   internalMutation,
+  type MutationCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -77,7 +78,7 @@ function toProfileArgs(raw: {
   };
 }
 
-/** Perfil do aluno autenticado (ou null). */
+/** Perfil do aluno autenticado (ou null), já com o e-mail da conta. */
 export const myProfile = query({
   args: {},
   handler: async (ctx) => {
@@ -85,12 +86,12 @@ export const myProfile = query({
     if (identity === null) return null;
     const user = await getCurrentUser(ctx);
     if (user === null) return null;
-    return (
-      (await ctx.db
-        .query("students")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .unique()) ?? null
-    );
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    if (student === null) return null;
+    return { ...student, email: user.email ?? null };
   },
 });
 
@@ -169,6 +170,7 @@ export const upsertProfile = mutation({
       throw new Error(validation.errors.join(" "));
     }
     const profile = validation.normalized;
+    const phone = args.phone?.trim() || undefined;
 
     // [S1-5] + [DICIONARIO_FECHADO] — só competências do dicionário
     // oficial entram; termo livre é REJEITADO com erro de validação e a
@@ -216,7 +218,7 @@ export const upsertProfile = mutation({
         location: profile.location,
         linkedinUrl: profile.linkedinUrl,
         portfolioUrl: profile.portfolioUrl,
-        phone: profile.phone,
+        phone: phone,
         availability: profile.availability,
         skills,
         languages,
@@ -235,7 +237,7 @@ export const upsertProfile = mutation({
       location: profile.location,
       linkedinUrl: profile.linkedinUrl,
       portfolioUrl: profile.portfolioUrl,
-      phone: profile.phone,
+      phone: phone,
       availability: profile.availability,
       skills,
       languages,
@@ -485,6 +487,93 @@ export const saveSkillsAndLanguages = mutation({
   },
 });
 
+/** [BANNER] Limites e tipos aceitos. */
+const MAX_BANNER_BYTES = 5 * 1024 * 1024;
+const BANNER_TYPES = ["image/png", "image/jpeg", "image/webp"];
+
+async function requireStudentForBanner(ctx: MutationCtx) {
+  const consent = await requireActiveConsentUser(ctx);
+  if (!consent.ok) {
+    throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
+  }
+  if (consent.role !== "aluno") {
+    throw new Error("Apenas alunos têm banner de perfil.");
+  }
+  const student = await ctx.db
+    .query("students")
+    .withIndex("by_user", (q) => q.eq("userId", consent.userId))
+    .unique();
+  if (student === null) {
+    throw new Error("Complete o cadastro do perfil antes de adicionar um banner.");
+  }
+  return student;
+}
+
+export const generateBannerUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireStudentForBanner(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const saveBanner = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    const student = await requireStudentForBanner(ctx);
+    const meta = await ctx.db.system.get(storageId);
+    if (meta === null) {
+      return { ok: false as const, error: "Arquivo não encontrado. Tente de novo." };
+    }
+    if (
+      !BANNER_TYPES.includes(meta.contentType ?? "") ||
+      meta.size > MAX_BANNER_BYTES
+    ) {
+      // Retorna (não lança) para o delete não ser desfeito pelo rollback.
+      await ctx.storage.delete(storageId);
+      return {
+        ok: false as const,
+        error: "Banner inválido — use PNG, JPEG ou WebP de até 5MB.",
+      };
+    }
+    if (
+      student.bannerStorageId !== undefined &&
+      student.bannerStorageId !== storageId
+    ) {
+      await ctx.storage.delete(student.bannerStorageId);
+    }
+    await ctx.db.patch(student._id, { bannerStorageId: storageId });
+    return { ok: true as const };
+  },
+});
+
+export const removeBanner = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const student = await requireStudentForBanner(ctx);
+    if (student.bannerStorageId !== undefined) {
+      await ctx.storage.delete(student.bannerStorageId);
+      await ctx.db.patch(student._id, { bannerStorageId: undefined });
+    }
+    return { ok: true as const };
+  },
+});
+
+/** URL do banner do próprio aluno (null se não houver). */
+export const myBannerUrl = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+    if (user === null) return null;
+    const student = await ctx.db
+      .query("students")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .unique();
+    if (student === null || student.bannerStorageId === undefined) return null;
+    return await ctx.storage.getUrl(student.bannerStorageId);
+  },
+});
+
 /**
  * Perfil público (R2) — o que um recrutador/visitante pode ver de um aluno.
  * Projeção no SERVIDOR: contato (R6) omitido quando não autorizado e perfil
@@ -589,6 +678,11 @@ export const getCandidateProfile = query({
     });
     const released = contact.contactReleased;
 
+    const bannerUrl =
+      student.bannerStorageId !== undefined
+        ? await ctx.storage.getUrl(student.bannerStorageId)
+        : null;
+
     return {
       studentId: student._id,
       fullName: student.fullName,
@@ -601,6 +695,12 @@ export const getCandidateProfile = query({
       graduationYear: student.graduationYear,
       semester: student.semester ?? null,
       location: student.location ?? null,
+      bannerUrl,
+      imageUrl: released
+        ? owner?.imageStorageId !== undefined
+          ? await ctx.storage.getUrl(owner.imageStorageId)
+          : (owner?.image ?? null)
+        : null,
       headline: student.resumeData?.headline ?? null,
       resume: student.resumeData ?? null,
       skills: student.skills ?? [],
@@ -627,11 +727,13 @@ export const searchTalent = query({
     course: v.optional(v.string()),
     status: v.optional(v.union(v.literal("ativo"), v.literal("egresso"))),
     availability: v.optional(
-      v.union(
-        v.literal("estagio"),
-        v.literal("integral"),
-        v.literal("meio_periodo"),
-        v.literal("freelancer"),
+      v.array(
+        v.union(
+          v.literal("estagio"),
+          v.literal("integral"),
+          v.literal("meio_periodo"),
+          v.literal("freelancer"),
+        ),
       ),
     ),
     location: v.optional(v.string()),
@@ -673,7 +775,6 @@ export const searchTalent = query({
       query: args.search?.trim() || undefined,
       course: args.course?.trim() || undefined,
       status: args.status,
-      availability: args.availability,
       location: args.location?.trim() || undefined,
       skill: args.skill?.trim() || undefined,
       skills: args.skills,
@@ -690,7 +791,10 @@ export const searchTalent = query({
     // entrada padrão by_visibility_status. R1+R2 já na varredura, nunca
     // full-scan. Filtros por igualdade exata de curso/cidade/competência/
     // idioma são aplicados em memória sobre o resultado do índice.
-    const plan = chooseTalentScanPlan(args.availability);
+    const selectedAvailability = args.availability ?? [];
+    const plan = chooseTalentScanPlan(
+      selectedAvailability.length === 1 ? selectedAvailability[0] : undefined,
+    );
     const rows: TalentCandidate[] = [];
     for (const status of plan.statuses) {
       let batch: Doc<"students">[];
@@ -730,6 +834,13 @@ export const searchTalent = query({
           .take(TALENT_SCAN_BATCH);
       }
       for (const doc of batch) {
+        // Disponibilidade múltipla: basta o aluno ter QUALQUER uma das marcadas.
+        if (
+          selectedAvailability.length > 0 &&
+          !selectedAvailability.some((a) => doc.availability.includes(a))
+        ) {
+          continue;
+        }
         rows.push(toTalentCandidate(doc));
       }
     }
@@ -761,6 +872,13 @@ export const searchTalent = query({
         },
         null,
       );
+      const owner = contactAllowed ? await ctx.db.get(student.userId) : null;
+      const imageUrl =
+        owner === null
+          ? null
+          : owner.imageStorageId !== undefined
+            ? await ctx.storage.getUrl(owner.imageStorageId)
+            : (owner.image ?? null);
       items.push({
         studentId: student._id,
         fullName: student.fullName,
@@ -782,6 +900,7 @@ export const searchTalent = query({
         headline: student.resumeData?.headline ?? null,
         contactAllowed,
         linkedinUrl: contactAllowed ? (student.linkedinUrl ?? null) : null,
+        imageUrl,
         portfolioUrl: contactAllowed ? (student.portfolioUrl ?? null) : null,
       });
     }
@@ -905,6 +1024,9 @@ export const deleteMyProfile = mutation({
       for (const report of reports) await ctx.db.delete(report._id);
       
       await ctx.db.delete(student._id);
+      if (student.bannerStorageId !== undefined) {
+        await ctx.storage.delete(student.bannerStorageId);
+      }
     }
 
     for (const consent of consents) {

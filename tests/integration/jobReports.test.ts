@@ -84,13 +84,14 @@ async function reportAs(t: World, n: number, jobId: Id<"jobs">) {
 }
 
 describe("Denúncias de vagas", () => {
-  it("3 alunos diferentes suspendem a vaga e o fato fica registrado", async () => {
+  it("10 alunos diferentes suspendem a vaga e o fato fica registrado", async () => {
     const t = convexTest(schema, modules);
     const { jobId } = await seed(t);
 
-    expect((await reportAs(t, 1, jobId)).suspended).toBe(false);
-    expect((await reportAs(t, 2, jobId)).suspended).toBe(false);
-    expect((await reportAs(t, 3, jobId)).suspended).toBe(true);
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+      expect((await reportAs(t, n, jobId)).suspended).toBe(false);
+    }
+    expect((await reportAs(t, 10, jobId)).suspended).toBe(true);
 
     const job = await t.run(async (ctx) => ctx.db.get(jobId));
     expect(job?.status).toBe("suspensa");
@@ -101,7 +102,7 @@ describe("Denúncias de vagas", () => {
     );
     expect(logs).toHaveLength(1);
     expect(logs[0]?.action).toBe("suspensa");
-    expect(logs[0]?.reportsCount).toBe(3);
+    expect(logs[0]?.reportsCount).toBe(10);
   });
 
   it("o mesmo aluno não denuncia a mesma vaga duas vezes", async () => {
@@ -121,7 +122,7 @@ describe("Denúncias de vagas", () => {
   it("gestor reativa: denúncias são arquivadas e a contagem recomeça", async () => {
     const t = convexTest(schema, modules);
     const { gestorId, jobId } = await seed(t);
-    for (const n of [1, 2, 3]) await reportAs(t, n, jobId);
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) await reportAs(t, n, jobId);
 
     await as(t, gestorId).mutation(api.moderation.decideJob, {
       jobId,
@@ -135,13 +136,13 @@ describe("Denúncias de vagas", () => {
     expect(reports.every((r) => r.status === "arquivada")).toBe(true);
 
     // Uma nova denúncia não suspende de novo.
-    expect((await reportAs(t, 4, jobId)).suspended).toBe(false);
+    expect((await reportAs(t, 11, jobId)).suspended).toBe(false);
   });
 
   it("recrutador exclui a vaga suspensa e o registro permanece", async () => {
     const t = convexTest(schema, modules);
     const { recruiterId, jobId } = await seed(t);
-    for (const n of [1, 2, 3]) await reportAs(t, n, jobId);
+    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) await reportAs(t, n, jobId);
 
     await as(t, recruiterId).mutation(api.jobs.deleteJob, { jobId });
 
@@ -156,7 +157,7 @@ describe("Denúncias de vagas", () => {
     );
     const deleted = logs.find((log) => log.action === "excluida");
     expect(deleted?.jobTitle).toBe(JOB.title);
-    expect(deleted?.reportsCount).toBe(3);
+    expect(deleted?.reportsCount).toBe(10);
     expect(deleted?.recruiterEmail).toBe("rec@empresa.com");
   });
 
