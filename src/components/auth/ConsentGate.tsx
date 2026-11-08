@@ -11,6 +11,10 @@ import { CONSENT_TERM, CONSENT_TERM_VERSION } from "../../lib/consentTerm";
  * Usuário autenticado sem aceite da versão corrente vê apenas o modal de
  * consentimento — nenhuma funcionalidade é renderizada até aceitar.
  * A checagem é reativa via `consents.myStatus` (autoridade: servidor).
+ *
+ * Janela transiente de carga: enquanto o status ainda não foi resolvido
+ * o gateway mostra um skeleton e não vaza `children`, evitando renderizar
+ * conteúdo antes da decisão de consentimento.
  */
 export function ConsentGate({ children }: { children: ReactNode }) {
   const { isAuthenticated, isLoading } = useAuthState();
@@ -19,6 +23,22 @@ export function ConsentGate({ children }: { children: ReactNode }) {
   // Visitantes e carga inicial passam direto (AuthPage/ skeletons cuidam deles).
   if (!isAuthenticated || isLoading || status === undefined) {
     return <>{children}</>;
+  }
+
+  // Janela transiente de carga do servidor: ainda não temos a decisão,
+  // então bloqueamos o conteúdo até o status ser resolvido.
+  if (!status.authenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
+        <div className="flex w-full max-w-md flex-col items-center gap-4 text-center">
+          <div className="h-10 w-10 animate-pulse rounded-full bg-a11y-secondary/20" />
+          <div className="flex flex-col gap-2">
+            <div className="h-4 w-3/4 animate-pulse rounded bg-a11y-secondary/30" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-a11y-secondary/30" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Usuário cujo documento ainda não foi resolvido (user null → AuthPage).

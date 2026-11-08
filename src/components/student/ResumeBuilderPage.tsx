@@ -11,6 +11,11 @@
  *
  * Container full-width max-w-[1440px] (Etapa 1.2). O landmark main
  * continua único no App — daqui sai apenas <section>/<aside>/<div>.
+ *
+ * [REFACTOR_ALUNO visual] — títulos em grotesca (24/600) com tracking
+ * negativo; superfícies planas (borda OU sombra, nunca as duas); a faixa
+ * do cartão de identidade é cor chapada (sem gradiente); a navegação
+ * rápida usa check/bolha em vez de check/× (× lê como erro).
  */
 import {
   useLayoutEffect,

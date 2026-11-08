@@ -52,6 +52,16 @@ import { ContactNotice } from "./ContactNotice";
 const SURFACE =
   "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
 
+/**
+ * [REFACTOR_ALUNO Etapa 4] + visual:
+ * KPIs como UMA faixa dividida por 1px (rótulo acima, valor em
+ * algarismos tabulares) em vez de três cartões com ícone — cor vai só
+ * nos dados e na ação; superfícies planas (borda sem sombra); ações de
+ * linha em botão secundário (o dourado não aparece repetido em cada
+ * card); o motivo de reprovação vira bloco de atenção com borda
+ * semântica (legível também no modo escuro).
+ */
+
 const MATCH_CHIP: Record<
   ReturnType<typeof matchBand>,
   "aprovado" | "andamento" | "reprovado"
@@ -711,13 +721,13 @@ export function MyApplicationsPage() {
                     </p>
                   </div>
 
-                  <p className="sr-only" aria-live="polite">
-                    {formatApplicationStatusLabel({
-                      jobTitle: application.jobTitle,
-                      stage: application.stage,
-                      appliedAt: application.appliedAt,
-                    })}
-                  </p>
+                    <p className="sr-only" aria-live="polite">
+                      {formatApplicationStatusLabel({
+                        jobTitle: application.jobTitle,
+                        stage: application.stage,
+                        appliedAt: application.appliedAt,
+                      })}
+                    </p>
 
                   <Stepper
                     stage={application.stage}
@@ -743,6 +753,28 @@ export function MyApplicationsPage() {
                       <p className="mt-1 text-xs leading-relaxed text-slate-600">
                         {feedback.advice}
                       </p>
+                      <Button
+                        variant="secondary"
+                        aria-label={
+                          application.processAccepted
+                            ? `Revogar contato de ${application.jobTitle}`
+                            : `Liberar contato para ${application.jobTitle}`
+                        }
+                        onClick={() => {
+                          void (application.processAccepted
+                            ? revokeProcessAcceptance({
+                                applicationId: application.applicationId,
+                              })
+                            : acceptProcess({
+                                applicationId: application.applicationId,
+                              }));
+                        }}
+                      >
+                        <Handshake className="h-4 w-4" aria-hidden="true" />
+                        {application.processAccepted
+                          ? "Revogar contato"
+                          : "Liberar contato"}
+                      </Button>
                     </div>
                   ) : null}
 

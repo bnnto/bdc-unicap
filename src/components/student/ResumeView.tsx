@@ -5,14 +5,18 @@
  *
  *  - `ResumeBlockContent` renderiza o conteúdo de leitura de UM bloco
  *    (0–6) — é exatamente o markup que o ResumeForm exibe no modo
- *    visualização do aluno (cards `bg-slate-50` com rótulos em caixa
- *    alta), sem nenhum botão de edição.
+ *    visualização do aluno, sem nenhum botão de edição.
  *  - `ResumeView` renderiza os 7 blocos completos (cabeçalho + conteúdo)
  *    para o recrutador — cabeçalhos idênticos aos do aluno, porém com
  *    subtítulo de somente leitura e SEM o lápis de edição.
  *  - Os rótulos/ids dos blocos (`BLOCK_LABELS`, `BLOCO_IDS`) e o tipo
  *    `ResumeBlockData` vivem em `resumeBlocks.ts` — fonte única de
  *    verdade compartilhada com o ResumeForm (sem duplicação).
+ *
+ * [REFACTOR_ALUNO visual] — pares rótulo/valor em tom de fundo (sem
+ * caixa com borda), rótulos em caixa de frase (sem caixa alta espaçada),
+ * URLs e textos longos quebram sem transbordo; chips respeitam a largura
+ * disponível para continuar utilizáveis em telas estreitas.
  */
 import {
   BLOCK_LABELS,
@@ -22,6 +26,37 @@ import {
 } from "./resumeBlocks";
 
 export type { ResumeBlockData } from "./resumeBlocks";
+
+/** Rótulo de um par rótulo/valor dentro da caixa em tom de fundo. */
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="block text-xs font-medium text-slate-500">{children}</span>
+  );
+}
+
+/** Valor do par rótulo/valor (tinta cheia, quebra só quando precisa). */
+function FieldValue({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`mt-0.5 block break-words text-sm font-medium text-slate-800 [overflow-wrap:anywhere] ${className}`}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** Caixa de conteúdo em tom de fundo (superfície separada por tom, não por linha). */
+function FieldBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-w-0 rounded-lg bg-slate-50 px-4 py-3 text-sm">{children}</div>
+  );
+}
 
 /**
  * Conteúdo de leitura de UM bloco do currículo (0–6) — markup idêntico
@@ -37,51 +72,43 @@ export function ResumeBlockContent({
 }) {
   const contactBlocked = data.contactBlocked === true;
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-3">
       {blockIndex === 0 && (
         <>
-          <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Headline
-            </span>
-            <span className="font-medium text-slate-800">
-              {data.headline || "—"}
-            </span>
-          </p>
-          <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Resumo profissional
-            </span>
-            <span className="whitespace-pre-wrap font-medium text-slate-800">
+          <FieldBox>
+            <FieldLabel>Headline</FieldLabel>
+            <FieldValue>{data.headline || "—"}</FieldValue>
+          </FieldBox>
+          <FieldBox>
+            <FieldLabel>Resumo profissional</FieldLabel>
+            <FieldValue className="whitespace-pre-wrap">
               {data.summary || "—"}
-            </span>
-          </p>
+            </FieldValue>
+          </FieldBox>
         </>
       )}
 
       {blockIndex === 1 && (
         <>
-          <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Curso
-            </span>
-            <span className="font-medium text-slate-800">{data.course}</span>
-          </p>
+          <FieldBox>
+            <FieldLabel>Curso</FieldLabel>
+            <FieldValue>{data.course}</FieldValue>
+          </FieldBox>
           {data.academicHistory.length === 0 ? (
             <p className="text-sm text-slate-500">
               Nenhum item no histórico acadêmico ainda.
             </p>
           ) : (
-            <ul className="flex flex-col gap-2">
+            <ul className="flex min-w-0 flex-col gap-2">
               {data.academicHistory.map((entry, index) => (
                 <li
                   key={index}
-                  className="flex items-center justify-between gap-3 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                  className="flex min-w-0 items-start justify-between gap-3 rounded-lg bg-slate-50 px-4 py-3 text-sm"
                 >
-                  <span className="min-w-0 break-words text-slate-800">
+                  <span className="min-w-0 break-words text-slate-800 [overflow-wrap:anywhere]">
                     {entry.item}
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-slate-500">
+                  <span className="shrink-0 text-xs tabular-nums text-slate-500">
                     {entry.year}
                   </span>
                 </li>
@@ -92,48 +119,39 @@ export function ResumeBlockContent({
       )}
 
       {blockIndex === 2 && (
-        <div className="space-y-2">
-          <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              LinkedIn
-            </span>
-            <span className="break-all font-medium text-slate-800">
+        <div className="min-w-0 space-y-2">
+          <FieldBox>
+            <FieldLabel>LinkedIn</FieldLabel>
+            <FieldValue>
               {contactBlocked
                 ? "Contato não liberado pelo aluno"
                 : data.linkedinUrl || "Não cadastrado"}
-            </span>
-          </p>
-          <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Portfólio
-            </span>
-            <span className="break-all font-medium text-slate-800">
+            </FieldValue>
+          </FieldBox>
+          <FieldBox>
+            <FieldLabel>Portfólio</FieldLabel>
+            <FieldValue>
               {contactBlocked
                 ? "Contato não liberado pelo aluno"
                 : data.portfolioUrl || "Não cadastrado"}
-            </span>
-          </p>
-          <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              GitHub
-            </span>
-            <span className="break-all font-medium text-slate-800">
-              {data.githubUrl || "Não cadastrado"}
-            </span>
-          </p>
-          <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Currículo Lattes
-            </span>
-            <span className="break-all font-medium text-slate-800">
-              {data.lattesUrl || "Não cadastrado"}
-            </span>
-          </p>
+            </FieldValue>
+          </FieldBox>
+          <FieldBox>
+            <FieldLabel>GitHub</FieldLabel>
+            <FieldValue>{data.githubUrl || "Não cadastrado"}</FieldValue>
+          </FieldBox>
+          <FieldBox>
+            <FieldLabel>Currículo Lattes</FieldLabel>
+            <FieldValue>{data.lattesUrl || "Não cadastrado"}</FieldValue>
+          </FieldBox>
         </div>
       )}
 
       {blockIndex === 3 && (
-        <div className="flex flex-wrap gap-2" aria-label="Competências atuais">
+        <div
+          className="flex flex-wrap gap-2"
+          aria-label="Competências atuais"
+        >
           {data.skills.length === 0 ? (
             <p className="text-sm text-slate-500">
               Nenhuma competência adicionada ainda.
@@ -142,7 +160,7 @@ export function ResumeBlockContent({
             data.skills.map((skill) => (
               <span
                 key={skill}
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                className="inline-flex max-w-full shrink-0 break-words rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700 [overflow-wrap:anywhere]"
               >
                 {skill}
               </span>
@@ -152,7 +170,7 @@ export function ResumeBlockContent({
       )}
 
       {blockIndex === 4 && (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex min-w-0 flex-col gap-2">
           {data.languages.length === 0 ? (
             <li className="text-sm text-slate-500">
               Nenhum idioma cadastrado ainda.
@@ -161,9 +179,9 @@ export function ResumeBlockContent({
             data.languages.map((language, index) => (
               <li
                 key={index}
-                className="flex items-center justify-between rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
+                className="min-w-0 rounded-lg bg-slate-50 px-4 py-3 text-sm"
               >
-                <span>
+                <span className="block break-words text-slate-800 [overflow-wrap:anywhere]">
                   {language.name} — {LEVEL_LABELS[language.level]}
                 </span>
               </li>
@@ -173,7 +191,7 @@ export function ResumeBlockContent({
       )}
 
       {blockIndex === 5 && (
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           {data.experiences.length === 0 && !data.projectsText ? (
             <p className="text-sm text-slate-500">
               Nenhum projeto de extensão ou experiência registada.
@@ -183,23 +201,29 @@ export function ResumeBlockContent({
               {data.experiences.map((exp, index) => (
                 <div
                   key={index}
-                  className="rounded border border-slate-200 bg-slate-50 px-3 py-3 text-sm"
+                  className="min-w-0 rounded-lg bg-slate-50 px-4 py-3 text-sm"
                 >
-                  <p className="font-semibold text-slate-800">
+                  <p className="break-words font-semibold text-slate-800 [overflow-wrap:anywhere]">
                     {exp.company} — {exp.role}
                   </p>
-                  <p className="text-xs text-slate-500">{exp.period}</p>
+                  <p className="mt-0.5 break-words text-xs tabular-nums text-slate-500 [overflow-wrap:anywhere]">
+                    {exp.period}
+                  </p>
                   {exp.description ? (
-                    <p className="mt-2 text-xs text-slate-600">{exp.description}</p>
+                    <p className="mt-2 break-words leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
+                      {exp.description}
+                    </p>
                   ) : null}
                 </div>
               ))}
               {data.projectsText ? (
-                <div className="rounded border border-slate-200 bg-slate-50 px-3 py-3 text-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="min-w-0 rounded-lg bg-slate-50 px-4 py-3 text-sm">
+                  <span className="block text-xs font-medium text-slate-500">
                     Projetos de Extensão
+                  </span>
+                  <p className="mt-1 break-words leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
+                    {data.projectsText}
                   </p>
-                  <p className="mt-1 text-xs text-slate-600">{data.projectsText}</p>
                 </div>
               ) : null}
             </>
@@ -208,23 +232,19 @@ export function ResumeBlockContent({
       )}
 
       {blockIndex === 6 && (
-        <div className="space-y-2">
+        <div className="min-w-0 space-y-2">
           {data.certifications.length === 0 ? (
             <p className="text-sm text-slate-500">
               Nenhuma certificação registrada.
             </p>
           ) : (
-            data.certifications.map((item, index) => (
-              <p
-                key={index}
-                className="flex items-center gap-2 text-sm text-slate-700"
-              >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 font-mono text-xs text-primary">
-                  {index + 1}
-                </span>
-                {item}
-              </p>
-            ))
+            <ul className="flex flex-col gap-1.5">
+              {data.certifications.map((item, index) => (
+                <li key={index} className="break-words text-sm text-slate-700 [overflow-wrap:anywhere]">
+                  {item}
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}
@@ -240,26 +260,24 @@ export function ResumeBlockContent({
 export function ResumeView({ data }: { data: ResumeBlockData }) {
   return (
     <div
-      className="flex flex-col gap-6"
+      className="flex min-w-0 flex-col gap-6"
       aria-label="Currículo (somente leitura)"
     >
       {BLOCK_LABELS.map((block) => (
         <section
           key={block.index}
           id={`bloco-${BLOCO_IDS[block.index]}`}
-          className="space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-level1"
+          className="min-w-0 space-y-4 rounded-xl border border-slate-200 bg-white p-5 sm:p-6"
         >
-          <div className="space-y-4">
-            <div>
-              <h2 className="font-serif text-lg font-bold text-primary">
-                {block.index + 1}. {block.heading}
-              </h2>
-              <p className="mt-0.5 text-xs text-slate-500">
-                Dados fornecidos pelo próprio candidato — somente leitura.
-              </p>
-            </div>
-            <ResumeBlockContent blockIndex={block.index} data={data} />
+          <div>
+            <h2 className="break-words text-base font-semibold text-slate-900 [overflow-wrap:anywhere]">
+              {block.index + 1}. {block.heading}
+            </h2>
+            <p className="mt-1 break-words text-sm text-slate-500">
+              Dados fornecidos pelo próprio candidato — somente leitura.
+            </p>
           </div>
+          <ResumeBlockContent blockIndex={block.index} data={data} />
         </section>
       ))}
     </div>

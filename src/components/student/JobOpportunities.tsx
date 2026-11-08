@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "../ui/emptyState";
 import { Modal } from "../ui/modal";
+import { Select } from "../ui/select";
 
 /** Vaga do mural — `matchScore` chega calculado no servidor (R8). */
 type OpenJob = Doc<"jobs"> & { matchScore?: number | null };
@@ -683,7 +684,7 @@ export function JobOpportunities() {
                         job.location !== null ? (
                           <span className="inline-flex items-center gap-1">
                             <MapPin
-                              className="h-3.5 w-3.5"
+                              className="h-3.5 w-3.5 shrink-0"
                               aria-hidden="true"
                             />
                             {job.location}

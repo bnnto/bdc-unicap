@@ -17,6 +17,7 @@ import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Combobox, type ComboboxGroup } from "../ui/Combobox";
+import { Select } from "../ui/select";
 import {
   MAX_ACADEMIC,
   MAX_CERTIFICATIONS,
