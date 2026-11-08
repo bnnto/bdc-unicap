@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery} from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 import { toast } from "sonner";
-import { friendlyErrorMessage } from "../../lib/toastMessages";
-import type { Doc } from "../../../convex/_generated/dataModel";
-import { Button } from "../ui/button";
-import { Combobox } from "../ui/Combobox";
-import { CustomSelect } from "../ui/CustomSelect";
+import { friendlyErrorMessage } from "../../../lib/toastMessages";
+import type { Doc } from "../../../../convex/_generated/dataModel";
+import { Button } from "../../ui/button";
+import { Combobox } from "../../ui/Combobox";
+import { CustomSelect } from "../../ui/CustomSelect";
 import {
   AlertCircle,
   Banknote,
@@ -26,8 +26,8 @@ import {
   SKILLS_GROUPS,
   canonicalSkill,
   type LanguageLevel,
-} from "../../lib/skills";
-import { AVAILABILITY } from "../../lib/studentProfile";
+} from "../../../lib/skills";
+import { AVAILABILITY } from "../../../lib/studentProfile";
 import {
   CONTRACT_TYPES,
   CONTRACT_LABELS,
@@ -36,7 +36,7 @@ import {
   validateJob,
   type ContractType,
   type PrerequisiteKind,
-} from "../../lib/job";
+} from "../../../lib/job";
 import {
   DIVIDER,
   IconTile,

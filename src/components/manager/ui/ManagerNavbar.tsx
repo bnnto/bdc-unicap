@@ -1,4 +1,4 @@
-import { PillNavbar } from "../nav/PillNavbar";
+import { PillNavbar } from "../../nav/PillNavbar";
 import { PendingRecruitersBadge } from "./PendingRecruitersBadge";
 import { PendingJobsBadge } from "./PendingJobsBadge";
 

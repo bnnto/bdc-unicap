@@ -25,7 +25,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useMutation } from "convex/react";
-import { JobForm } from "../../src/components/recruiter/JobForm";
+import { JobForm } from "../../src/components/recruiter/vagas/JobForm";
 
 const mockedUseMutation = vi.mocked(useMutation);
 const upsert = vi.fn().mockResolvedValue({ jobId: "job-1", created: false });

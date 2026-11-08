@@ -2,13 +2,13 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 import { Check, ExternalLink, History, UserCheck, UserX, X } from "lucide-react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
-import { friendlyErrorMessage } from "../../lib/toastMessages";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
-import { EmptyState } from "../ui/emptyState";
-import { Modal } from "../ui/modal";
+import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { friendlyErrorMessage } from "../../../lib/toastMessages";
+import { Badge } from "../../ui/badge";
+import { Button } from "../../ui/button";
+import { EmptyState } from "../../ui/emptyState";
+import { Modal } from "../../ui/modal";
 
 type Filter = "pendente" | "aprovado" | "recusado" | "todos";
 

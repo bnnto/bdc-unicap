@@ -81,6 +81,7 @@
 
 /* ---------- Abas ---------- */
 .manager-nav-tab {
+  white-space: nowrap;
   background: transparent;
   color: var(--mn-fg-muted);
   transition:
@@ -88,9 +89,11 @@
     background-color var(--mn-dur) var(--mn-ease);
 }
 
-.manager-nav-tab:hover {
-  background: var(--mn-hover-bg);
-  color: var(--mn-fg);
+@media (hover: hover) and (pointer: fine) {
+  .manager-nav-tab:hover {
+    background: var(--mn-hover-bg);
+    color: var(--mn-fg);
+  }
 }
 
 /* A aba ativa não tem fundo próprio: quem pinta é o destaque deslizante. */
@@ -130,8 +133,10 @@
   transition: background-color var(--mn-dur) var(--mn-ease);
 }
 
-.manager-nav-user:hover {
-  background: var(--mn-hover-bg);
+@media (hover: hover) and (pointer: fine) {
+  .manager-nav-user:hover {
+    background: var(--mn-hover-bg);
+  }
 }
 
 .manager-nav-avatar {
@@ -192,3 +197,14 @@
   background: var(--mn-hover-bg);
 }
 
+/* ---------- Toque (dispositivos de ponteiro grosseiro) ---------- */
+.manager-nav button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (pointer: coarse) {
+  .manager-nav-tab,
+  .manager-nav-user {
+    min-height: 44px; /* alvo de toque minimo (WCAG 2.5.5 / HIG) */
+  }
+}

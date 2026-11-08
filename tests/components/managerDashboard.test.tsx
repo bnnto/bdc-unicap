@@ -26,7 +26,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useQuery } from "convex/react";
-import { ManagerDashboard } from "../../src/components/manager/ManagerDashboard";
+import { ManagerDashboard } from "../../src/components/manager/dashboard/ManagerDashboard";
 
 const mockedUseQuery = vi.mocked(useQuery);
 

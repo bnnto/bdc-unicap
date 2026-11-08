@@ -14,15 +14,15 @@ import {
   Users,
 } from "lucide-react";
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { Button } from "../ui/button";
-import { CustomSelect } from "../ui/CustomSelect";
-import { buildManagerKpis, partnerStatus } from "../../lib/managerDashboard";
-import { buildOperationalReport } from "../../lib/operationalPanel";
-import { downloadReport } from "../../lib/reportExport";
-import { printOperationalReport } from "../../lib/reportPrint";
-import { normalizeDashboardFilters } from "../../lib/dashboardFilters";
-import { useStableQuery } from "../../lib/useStableQuery";
+import { api } from "../../../../convex/_generated/api";
+import { Button } from "../../ui/button";
+import { CustomSelect } from "../../ui/CustomSelect";
+import { buildManagerKpis, partnerStatus } from "../../../lib/managerDashboard";
+import { buildOperationalReport } from "../../../lib/operationalPanel";
+import { downloadReport } from "../../../lib/reportExport";
+import { printOperationalReport } from "../../../lib/reportPrint";
+import { normalizeDashboardFilters } from "../../../lib/dashboardFilters";
+import { useStableQuery } from "../../../lib/useStableQuery";
 
 /**
  * Painel Estratégico de Carreiras & Empregabilidade (papel gestor).

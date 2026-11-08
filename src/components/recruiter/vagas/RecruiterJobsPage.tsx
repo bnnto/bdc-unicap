@@ -1,5 +1,5 @@
-import { navigateTo, portalPath } from "../../lib/router";
-import type { Id } from "../../../convex/_generated/dataModel";
+import { navigateTo, portalPath } from "../../../lib/router";
+import type { Id } from "../../../../convex/_generated/dataModel";
 import { JobsPanel } from "./JobsPanel";
 import { JobKanban } from "./JobKanban";
 

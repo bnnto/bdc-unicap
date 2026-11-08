@@ -1,13 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 import { toast } from "sonner";
-import { friendlyErrorMessage } from "../../lib/toastMessages";
-import type { Doc } from "../../../convex/_generated/dataModel";
-import { Button } from "../ui/button";
+import { friendlyErrorMessage } from "../../../lib/toastMessages";
+import type { Doc } from "../../../../convex/_generated/dataModel";
+import { Button } from "../../ui/button";
 import { JobForm } from "./JobForm";
-import { CONTRACT_LABELS, formatSalaryRange, isVerifiablePrerequisite } from "../../lib/job";
-import { renewalWindow } from "../../lib/jobExpiry";
+import { CONTRACT_LABELS, formatSalaryRange, isVerifiablePrerequisite } from "../../../lib/job";
+import { renewalWindow } from "../../../lib/jobExpiry";
 import {
   Archive,
   Ban,
@@ -27,7 +27,7 @@ import {
   ShieldAlert,
   Trash2,
 } from "lucide-react";
-import { EmptyState } from "../ui/emptyState";
+import { EmptyState } from "../../ui/emptyState";
 import {
   CARD_HOVER,
   DIVIDER,

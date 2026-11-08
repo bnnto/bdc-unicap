@@ -7,12 +7,12 @@ import {
   type ReactNode,
 } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 import { toast } from "sonner";
-import { friendlyErrorMessage } from "../../lib/toastMessages";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
-import { Button } from "../ui/button";
-import { Modal } from "../ui/modal";
+import { friendlyErrorMessage } from "../../../lib/toastMessages";
+import type { Doc, Id } from "../../../../convex/_generated/dataModel";
+import { Button } from "../../ui/button";
+import { Modal } from "../../ui/modal";
 import {
   APPLICATION_STAGES,
   STAGE_LABELS,
@@ -21,10 +21,10 @@ import {
   REJECTION_REASON_LABELS,
   type ApplicationStage,
   type RejectionReason,
-} from "../../lib/application";
-import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
-import { formatDay } from "../../lib/formatters";
-import { candidateProfilePath, navigateTo } from "../../lib/router";
+} from "../../../lib/application";
+import { MATCH_BAND_LABELS, matchBand } from "../../../lib/matching";
+import { formatDay } from "../../../lib/formatters";
+import { candidateProfilePath, navigateTo } from "../../../lib/router";
 import {
   AlertCircle,
   ArrowLeft,
@@ -46,9 +46,9 @@ import {
   UserX,
   X,
 } from "lucide-react";
-import { EmptyState } from "../ui/emptyState";
-import { SuperSearch } from "../ui/SuperSearch";
-import { CustomSelect } from "../ui/CustomSelect";
+import { EmptyState } from "../../ui/emptyState";
+import { SuperSearch } from "../../ui/SuperSearch";
+import { CustomSelect } from "../../ui/CustomSelect";
 import {
   CARD_HOVER,
   CARD_SURFACE,

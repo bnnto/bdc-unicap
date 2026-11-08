@@ -18,15 +18,15 @@ import {
   History,
   ShieldAlert,
 } from "lucide-react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
-import { friendlyErrorMessage } from "../../lib/toastMessages";
-import { CONTRACT_LABELS, formatSalaryRange } from "../../lib/job";
-import { REPORT_REASON_LABELS, type ReportReason } from "../../lib/jobReport";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
-import { EmptyState } from "../ui/emptyState";
-import { Modal } from "../ui/modal";
+import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { friendlyErrorMessage } from "../../../lib/toastMessages";
+import { CONTRACT_LABELS, formatSalaryRange } from "../../../lib/job";
+import { REPORT_REASON_LABELS, type ReportReason } from "../../../lib/jobReport";
+import { Badge } from "../../ui/badge";
+import { Button } from "../../ui/button";
+import { EmptyState } from "../../ui/emptyState";
+import { Modal } from "../../ui/modal";
 
 const CAUSE_LABELS = {
   regra: "Regras automáticas",

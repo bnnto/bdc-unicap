@@ -34,7 +34,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useQuery, useMutation } from "convex/react";
-import { JobKanban } from "../../src/components/recruiter/JobKanban";
+import { JobKanban } from "../../src/components/recruiter/vagas/JobKanban";
 
 const mockedUseQuery = vi.mocked(useQuery);
 const mockedUseMutation = vi.mocked(useMutation);

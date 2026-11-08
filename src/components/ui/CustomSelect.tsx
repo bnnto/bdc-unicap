@@ -45,13 +45,13 @@ export function CustomSelect({
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: PointerEvent) {
       if (ref.current && !ref.current.contains(event.target as Node)) {
         setOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("pointerdown", handleClickOutside);
+    return () => document.removeEventListener("pointerdown", handleClickOutside);
   }, []);
 
   useEffect(
@@ -159,7 +159,7 @@ export function CustomSelect({
         aria-label={label || placeholder}
         onClick={toggle}
         disabled={disabled}
-        className={`flex h-11 w-full items-center justify-between rounded-xl border bg-white pl-3.5 pr-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,background-color,transform] duration-200 ${EASE_OUT} active:scale-[0.985] active:duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 motion-reduce:active:scale-100 dark:bg-white/5 dark:shadow-none dark:focus-visible:ring-offset-[#0f1218] ${
+        className={`flex h-11 w-full items-center justify-between rounded-xl border bg-white ps-3.5 pe-3 text-sm shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,background-color,transform] duration-200 ${EASE_OUT} active:scale-[0.985] active:duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 motion-reduce:active:scale-100 dark:bg-white/5 dark:shadow-none dark:focus-visible:ring-offset-[#0f1218] ${
           open
             ? "border-primary ring-2 ring-primary/20"
             : "border-slate-300 hover:border-slate-400 dark:border-white/10 dark:hover:border-white/20"
@@ -184,7 +184,7 @@ export function CustomSelect({
 
       {mounted ? (
         <div
-          className={`absolute top-[calc(100%+8px)] z-50 max-h-60 w-full origin-top overflow-auto rounded-2xl border border-transparent bg-white/90 p-1.5 shadow-[0_0_0_1px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,0.7),0_8px_16px_-8px_rgba(15,23,42,0.12),0_24px_48px_-16px_rgba(15,23,42,0.22)] backdrop-blur-xl backdrop-saturate-150 transition-[opacity,transform] ${EASE_OUT} will-change-transform dark:bg-[#171b22]/90 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),inset_0_1px_0_rgba(255,255,255,0.06),0_24px_48px_-16px_rgba(0,0,0,0.6)] [.high-contrast_&]:border-black [.high-contrast_&]:bg-white [.dark.high-contrast_&]:border-white [.dark.high-contrast_&]:bg-black [@media(prefers-reduced-transparency:reduce)]:bg-white [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none dark:[@media(prefers-reduced-transparency:reduce)]:bg-[#171b22] ${
+          className={`absolute top-[calc(100%+8px)] z-50 max-h-[min(15rem,50dvh)] w-full origin-top overflow-auto rounded-2xl border border-transparent bg-white/90 p-1.5 shadow-[0_0_0_1px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,0.7),0_8px_16px_-8px_rgba(15,23,42,0.12),0_24px_48px_-16px_rgba(15,23,42,0.22)] backdrop-blur-xl backdrop-saturate-150 transition-[opacity,transform] ${EASE_OUT} will-change-transform dark:bg-[#171b22]/90 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.08),inset_0_1px_0_rgba(255,255,255,0.06),0_24px_48px_-16px_rgba(0,0,0,0.6)] [.high-contrast_&]:border-black [.high-contrast_&]:bg-white [.dark.high-contrast_&]:border-white [.dark.high-contrast_&]:bg-black [@media(prefers-reduced-transparency:reduce)]:bg-white [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none dark:[@media(prefers-reduced-transparency:reduce)]:bg-[#171b22] ${
             shown
               ? "translate-y-0 scale-100 opacity-100 duration-[180ms]"
               : "-translate-y-1 scale-[0.97] opacity-0 duration-[140ms] motion-reduce:translate-y-0 motion-reduce:scale-100"
@@ -195,7 +195,7 @@ export function CustomSelect({
             {pill !== null ? (
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute left-0 top-0 w-full rounded-xl bg-[#FDF2F4] will-change-transform dark:bg-[#2c1a21]"
+                className="pointer-events-none absolute start-0 top-0 w-full rounded-xl bg-[#FDF2F4] will-change-transform dark:bg-[#2c1a21]"
                 style={{
                   height: pill.height,
                   transform: `translateY(${pill.top}px)`,
@@ -215,7 +215,7 @@ export function CustomSelect({
                       optionRefs.current[option.value] = el;
                     }}
                     onClick={(e) => pick(e, option.value)}
-                    className={`relative z-10 flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-[background-color,color,transform] duration-150 ${EASE_OUT} active:scale-[0.98] active:duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:active:scale-100 ${
+                    className={`relative z-10 flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-start text-sm [@media(pointer:coarse)]:min-h-11 transition-[background-color,color,transform] duration-150 ${EASE_OUT} active:scale-[0.98] active:duration-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:active:scale-100 ${
                       isTarget
                         ? "font-semibold text-primary"
                         : "text-slate-700 dark:text-slate-300 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-slate-100 dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-white/5"
