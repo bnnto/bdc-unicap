@@ -56,6 +56,8 @@ export default defineSchema({
      */
     notifyJobAlerts: v.optional(v.boolean()),
     notifyApplicationUpdates: v.optional(v.boolean()),
+    
+    imageStorageId: v.optional(v.id("_storage")),
 
     approvalStatus: v.optional(
       v.union(
@@ -107,6 +109,7 @@ export default defineSchema({
     graduationYear: v.number(),
     semester: v.optional(v.number()),
     location: v.optional(v.string()),
+    phone: v.optional(v.string()),
     linkedinUrl: v.optional(v.string()),
     website: v.optional(v.string()),
     portfolioUrl: v.optional(v.string()),
@@ -125,7 +128,7 @@ export default defineSchema({
     ),
     /** R6 — autorização geral de contato (default ausente = false). */
     showContactToRecruiters: v.optional(v.boolean()),
-
+    bannerStorageId: v.optional(v.id("_storage")),
     /**
      * [FINAL_UPGRADE Etapa 3] — contador (mock) de Visualizações do
      * Perfil: quantas vezes um recrutador clicou no contato/perfil
@@ -185,7 +188,22 @@ export default defineSchema({
           }),
         ),
         projectsText: v.optional(v.string()),
-        certifications: v.optional(v.array(v.string())),
+        /**
+         * [CERT_PDF] Cada certificação pode ter um PDF anexado (opcional,
+         * Convex Storage). A união com `v.string()` mantém válidos os CVs
+         * gravados antes do anexo, quando a certificação era só texto.
+         */
+        certifications: v.optional(
+          v.array(
+            v.union(
+              v.string(),
+              v.object({
+                name: v.string(),
+                storageId: v.optional(v.id("_storage")),
+              }),
+            ),
+          ),
+        ),
       }),
     ),
   })
@@ -228,7 +246,11 @@ export default defineSchema({
     title: v.string(),
     description: v.string(),
     prerequisites: v.array(
-      v.object({ item: v.string(), required: v.boolean() }),
+      v.object({
+        item: v.string(),
+        required: v.boolean(),
+        kind: v.optional(v.union(v.literal("skill"), v.literal("text"))),
+      })
     ),
     contractType: v.union(
       v.literal("estagio"),
@@ -239,6 +261,7 @@ export default defineSchema({
     salaryMin: v.optional(v.number()),
     salaryMax: v.optional(v.number()),
     location: v.optional(v.string()),
+    phone: v.optional(v.string()),
     status: v.union(
       v.literal("aberta"),
       v.literal("fechada"),
@@ -465,5 +488,20 @@ export default defineSchema({
     reportsCount: v.optional(v.number()),
   })
     .index("by_job", ["jobId"])
-    .index("by_recruiter", ["recruiterId"]),
+    .index("by_recruiter", ["recruiterId"])
+    .index("by_recruiter_email", ["recruiterEmail"]),
+  
+  recruiterEvents: defineTable({
+    recruiterId: v.string(),
+    email: v.string(),
+    name: v.string(),
+    event: v.union(
+      v.literal("recusado"),
+      v.literal("revogado"),
+      v.literal("conta_excluida"),
+    ),
+    reason: v.string(),
+    actorId: v.optional(v.string()),
+  }).index("by_email", ["email"]),
+  
 });

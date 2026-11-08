@@ -5,7 +5,7 @@
  * institucional UNICAP (CA 2) sem depender de libs pesadas de PDF —
  * a impressão em PDF é feita pelo navegador via `window.print()`.
  */
-import type { ResumeDataInput } from "./resume";
+import { normalizeCertifications, type ResumeDataInput } from "./resume";
 
 export type ResumeDocStudent = {
   fullName: string;
@@ -218,7 +218,7 @@ export function buildResumeMarkup(
   const locationPhone = [
     clean(doc.student.location),
     phone.length > 0 ? formatPhoneBR(phone) : "",
-  ]
+  ].filter((part) => part.length > 0);
 
   // Linha 2: E-MAIL · LINKEDIN (+ demais links do perfil, se existirem).
   const emailLinks: string[] = [];
@@ -308,7 +308,9 @@ export function buildResumeMarkup(
 
   // Projetos e Atividades = projetos de extensão (texto) + certificações/atividades.
   const projectsText = clean(doc.resume.projectsText);
-  const certifications = doc.resume.certifications ?? [];
+  // [CERT_PDF] aceita string (legado) ou { name, storageId? }; o PDF
+  // exportado continua listando só o nome (o PDF anexado é visto na tela).
+  const certifications = normalizeCertifications(doc.resume.certifications);
   if (projectsText.length > 0 || certifications.length > 0) {
     parts.push(
       `<section class="unicap-resume-section">`,
@@ -322,7 +324,7 @@ export function buildResumeMarkup(
     if (certifications.length > 0) {
       parts.push(
         `<ul class="unicap-resume-list">`,
-        ...certifications.map((item) => `<li>${escapeHtml(item)}</li>`),
+        ...certifications.map((item) => `<li>${escapeHtml(item.name)}</li>`),
         `</ul>`,
       );
     }

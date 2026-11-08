@@ -136,7 +136,11 @@ describe("Etapa 2.2 — saveResumeData com novos blocos do CV", () => {
         lattes: "http://lattes.cnpq.br/123",
       },
       projectsText: "  Monitoria de Banco de Dados I (2024.2).  ",
-      certifications: ["  Cisco CCNA  ", "  Excel Avançado  ", ""],
+      certifications: [
+        { name: "  Cisco CCNA  " },
+        { name: "  Excel Avançado  " },
+        { name: "" },
+      ],
     });
     const stored = await t.run(
       async (ctx) => (await ctx.db.get(studentId))?.resumeData,
