@@ -34,6 +34,35 @@ type ResumeLinks = {
   lattes?: string;
 };
 
+/**
+ * [CERT_PDF] Certificação com PDF opcional. `storageId` é o id do arquivo
+ * no Convex Storage (string aqui para a regra continuar pura; a mutation
+ * converte para `Id<"_storage">`).
+ */
+export type CertificationEntry<S extends string = string> = {
+  name: string;
+  storageId?: S;
+};
+
+/** Limite do PDF de certificação (validado no cliente e no servidor). */
+export const MAX_CERTIFICATE_BYTES = 5 * 1024 * 1024;
+
+/**
+ * Converte o formato legado (`string`) e o novo (`{ name, storageId? }`)
+ * sempre para o novo. CVs antigos continuam válidos, apenas sem PDF.
+ */
+export function normalizeCertifications<S extends string = string>(
+  raw: ReadonlyArray<string | CertificationEntry<S>> | undefined,
+): CertificationEntry<S>[] {
+  if (raw === undefined) return [];
+  return raw.map((item) => {
+    if (typeof item === "string") return { name: item };
+    return item.storageId !== undefined
+      ? { name: item.name, storageId: item.storageId }
+      : { name: item.name };
+  });
+}
+
 export type ResumeDataInput = {
   headline: string;
   summary: string;
@@ -43,8 +72,11 @@ export type ResumeDataInput = {
   links?: ResumeLinks;
   /** Bloco 6 — experiências/projetos de extensão em texto livre. */
   projectsText?: string;
-  /** Bloco 7 — certificações e atividades complementares. */
-  certifications?: string[];
+  /**
+   * Bloco 7 — certificações e atividades complementares. Aceita o formato
+   * legado (string) na ENTRADA; a versão normalizada sai sempre em objetos.
+   */
+  certifications?: Array<string | CertificationEntry>;
 };
 
 type ResumeValidation =
@@ -182,9 +214,13 @@ function normalizeOptionalBlocks(
   }
 
   if (input.certifications !== undefined) {
-    const certifications = input.certifications
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
+    const certifications = normalizeCertifications(input.certifications)
+      .map((item): CertificationEntry =>
+        item.storageId !== undefined
+          ? { name: item.name.trim(), storageId: item.storageId }
+          : { name: item.name.trim() },
+      )
+      .filter((item) => item.name.length > 0);
     if (certifications.length > MAX_CERTIFICATIONS) {
       errors.push(`Máximo de ${MAX_CERTIFICATIONS} certificações.`);
     } else if (certifications.length > 0) {

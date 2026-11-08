@@ -1,4 +1,4 @@
-import {
+mport {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -13,17 +13,19 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { toast } from "sonner";
 import { friendlyErrorMessage } from "../../lib/toastMessages";
-import type { Doc } from "../../../convex/_generated/dataModel";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Combobox, type ComboboxGroup } from "../ui/Combobox";
 import {
   MAX_ACADEMIC,
+  MAX_CERTIFICATE_BYTES,
   MAX_CERTIFICATIONS,
   MAX_EXPERIENCES,
   PROJECTS_TEXT_MAX,
   SUMMARY_MAX,
   SUMMARY_MIN,
+  normalizeCertifications,
   validateResumeData,
   type AcademicEntry,
 } from "../../lib/resume";
@@ -47,6 +49,7 @@ import {
   type LanguageEntry,
 } from "../../lib/skills";
 import { ResumeBlockContent } from "./ResumeView";
+import { CertificateViewer } from "./CertificateViewer";
 import {
   BLOCK_LABELS,
   BLOCO_IDS,
@@ -61,8 +64,10 @@ import {
   Code,
   GraduationCap,
   Languages,
+  FileText,
   Link2,
   Loader2,
+  Paperclip,
   Pencil,
   Plus,
   Save,
@@ -166,6 +171,41 @@ type AcademicDraft = {
   item: string;
   year: string;
 };
+
+/**
+ * [CERT_PDF] Rascunho de certificação: nome + PDF opcional. `key` é um id
+ * estável de UI (o upload é assíncrono e não pode depender do índice);
+ * `url` serve só para pré-visualizar o PDF já anexado.
+ */
+type CertificationDraft = {
+  key: string;
+  name: string;
+  storageId?: Id<"_storage">;
+  url?: string | null;
+};
+
+let certificationSeq = 0;
+function nextCertificationKey(): string {
+  certificationSeq += 1;
+  return `cert-${certificationSeq}`;
+}
+
+function toCertificationDrafts(
+  items:
+    | ReadonlyArray<{
+        name: string;
+        storageId?: Id<"_storage">;
+        url?: string | null;
+      }>
+    | undefined,
+): CertificationDraft[] {
+  return (items ?? []).map((item) => ({
+    key: nextCertificationKey(),
+    name: item.name,
+    storageId: item.storageId,
+    url: item.url ?? null,
+  }));
+}
 
 const EMPTY_EXPERIENCE: ExperienceDraft = {
   company: "",
@@ -637,6 +677,107 @@ function ItemCard({
   );
 }
 
+/**
+ * [CERT_PDF] Linha de anexo do certificado: anexar, visualizar, substituir
+ * e remover o PDF. Input de arquivo nativo (teclado e leitor de tela) dentro
+ * de um <label> estilizado como botão.
+ */
+function CertificateFileRow({
+  hasFile,
+  url,
+  uploading,
+  disabled,
+  onPick,
+  onView,
+  onRemoveFile,
+}: {
+  hasFile: boolean;
+  url: string | null | undefined;
+  uploading: boolean;
+  disabled: boolean;
+  onPick: (file: File) => void;
+  onView: () => void;
+  onRemoveFile: () => void;
+}) {
+  const action = `inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 ${PRESS}`;
+  const picker = (label: string, tone: string) => (
+    <label
+      className={`${action} ${tone} ${
+        disabled ? "pointer-events-none opacity-50" : ""
+      }`}
+    >
+      <input
+        type="file"
+        accept="application/pdf,.pdf"
+        className="sr-only"
+        disabled={disabled}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file !== undefined) onPick(file);
+        }}
+      />
+      <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
+      {label}
+    </label>
+  );
+
+  return (
+    <div className="mt-4 border-t border-slate-200/70 pt-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {uploading ? (
+          <span
+            role="status"
+            className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-100 px-3.5 text-xs font-semibold text-slate-600"
+          >
+            <Loader2
+              className="h-3.5 w-3.5 animate-spin motion-reduce:animate-pulse"
+              aria-hidden="true"
+            />
+            Enviando PDF…
+          </span>
+        ) : hasFile ? (
+          <>
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-success/10 px-3.5 text-xs font-semibold text-success">
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              PDF anexado
+            </span>
+            {url ? (
+              <button
+                type="button"
+                onClick={onView}
+                className={`${action} bg-primary/10 text-primary dark:text-[#e9b8c3] [@media(hover:hover)]:hover:bg-primary [@media(hover:hover)]:hover:text-white`}
+              >
+                Visualizar
+              </button>
+            ) : null}
+            {picker(
+              "Substituir",
+              "bg-white text-slate-700 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.12)] dark:bg-white/5 dark:text-slate-200 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)] [@media(hover:hover)]:hover:bg-slate-100 dark:[@media(hover:hover)]:hover:bg-white/10",
+            )}
+            <button
+              type="button"
+              onClick={onRemoveFile}
+              className={`${action} text-slate-600 dark:text-slate-300 [@media(hover:hover)]:hover:bg-danger/10 [@media(hover:hover)]:hover:text-danger dark:[@media(hover:hover)]:hover:text-[#f87171]`}
+            >
+              Remover PDF
+            </button>
+          </>
+        ) : (
+          picker(
+            "Anexar PDF (opcional)",
+            "bg-white text-primary shadow-[inset_0_0_0_1px_rgba(107,20,38,0.25)] dark:bg-white/5 dark:text-[#e9b8c3] dark:shadow-[inset_0_0_0_1px_rgba(233,184,195,0.35)] [@media(hover:hover)]:hover:bg-[#FDF2F4] dark:[@media(hover:hover)]:hover:bg-[#e9b8c3]/10",
+          )
+        )}
+      </div>
+      <p className="mt-2 text-xs text-slate-500">
+        PDF de até 5MB. O recrutador poderá abrir o certificado para conferir
+        a autenticidade.
+      </p>
+    </div>
+  );
+}
+
 /** Aviso de descarte: alertdialog modal, foco preso, Esc = continuar editando. */
 function DiscardDialog({
   from,
@@ -820,14 +961,22 @@ function LoadingSkeleton() {
  *    keyframes) nos estados, feedback no :active, reduced-motion respeitado.
  */
 export function ResumeForm() {
-  const profile: Doc<"students"> | null | undefined = useQuery(
-    api.students.myProfile,
-    {},
-  );
+  // [CERT_PDF] Sem anotação de tipo: o retorno de `myProfile` agora traz as
+  // certificações já normalizadas ({ name, storageId?, url }).
+  const profile = useQuery(api.students.myProfile, {});
   const upsertProfile = useMutation(api.students.upsertProfile);
   const saveResume = useMutation(api.students.saveResumeData);
   const saveSkills = useMutation(api.students.saveSkillsAndLanguages);
   const saveContactLinks = useMutation(api.students.saveContactLinks);
+  const generateCertificateUploadUrl = useMutation(
+    api.students.generateCertificateUploadUrl,
+  );
+  const confirmCertificateUpload = useMutation(
+    api.students.confirmCertificateUpload,
+  );
+  const discardCertificateUpload = useMutation(
+    api.students.discardCertificateUpload,
+  );
 
   // Valores atuais do formulário (prefilled do CV salvo).
   const [headline, setHeadline] = useState("");
@@ -844,7 +993,18 @@ export function ResumeForm() {
   const [skillDraft, setSkillDraft] = useState("");
   const [languages, setLanguages] = useState<LanguageEntry[]>([]);
   const [projectsText, setProjectsText] = useState("");
-  const [certifications, setCertifications] = useState<string[]>([]);
+  const [certifications, setCertifications] = useState<CertificationDraft[]>(
+    [],
+  );
+  // [CERT_PDF] Upload em andamento (key da certificação), PDF aberto no
+  // visualizador e PDFs enviados nesta edição que ainda não foram salvos
+  // (descartados do Storage se o aluno cancelar, trocar ou remover).
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [viewerCert, setViewerCert] = useState<{
+    name: string;
+    url: string;
+  } | null>(null);
+  const newUploadsRef = useRef<Set<Id<"_storage">>>(new Set());
 
   // [ONBOARDING_RECOVERY] Dados pessoais do Bloco 1 (upsert do perfil).
   const [fullName, setFullName] = useState("");
@@ -870,7 +1030,8 @@ export function ResumeForm() {
   // "Sujo" = o rascunho atual difere do que estava na tela ao abrir o bloco.
   const draftKey = JSON.stringify([
     headline, summary, experiences, academicHistory, githubUrl, lattesUrl,
-    linkedinUrl, portfolioUrl, skills, languages, projectsText, certifications,
+    linkedinUrl, portfolioUrl, skills, languages, projectsText,
+    certifications.map((c) => [c.name, c.storageId ?? null]),
     fullName, enrollment, status, course, graduationYear, semester, location,
     phone, availability,
   ]);
@@ -924,7 +1085,7 @@ export function ResumeForm() {
         setGithubUrl(resume.links?.github ?? "");
         setLattesUrl(resume.links?.lattes ?? "");
         setProjectsText(resume.projectsText ?? "");
-        setCertifications(resume.certifications ?? []);
+        setCertifications(toCertificationDrafts(resume.certifications));
       }
       setLinkedinUrl(profile.linkedinUrl ?? "");
       setPortfolioUrl(profile.portfolioUrl ?? "");
@@ -1210,7 +1371,10 @@ export function ResumeForm() {
         academicHistory: academic,
         links: { github: githubUrl, lattes: lattesUrl },
         projectsText,
-        certifications,
+        certifications: certifications.map((c) => ({
+          name: c.name,
+          storageId: c.storageId,
+        })),
       });
       if (!validation.ok) {
         setErrors(validation.errors);
@@ -1248,7 +1412,25 @@ export function ResumeForm() {
         createdProfile = result.created;
       }
       if (validation !== null && validation.ok) {
-        await saveResume(validation.normalized);
+        // [CERT_PDF] A regra pura usa `storageId` como string; a mutation
+        // espera `Id<"_storage">` (o servidor revalida tipo e tamanho).
+        const { certifications: normalizedCerts, ...resumeRest } =
+          validation.normalized;
+        await saveResume({
+          ...resumeRest,
+          certifications: normalizeCertifications(normalizedCerts).map(
+            (entry) =>
+              entry.storageId !== undefined
+                ? {
+                    name: entry.name,
+                    storageId: entry.storageId as Id<"_storage">,
+                  }
+                : { name: entry.name },
+          ),
+        });
+        // Salvo: os PDFs enviados nesta edição passam a fazer parte do CV
+        // (o servidor apaga os que saíram) — nada mais a descartar.
+        newUploadsRef.current.clear();
       }
       if (editingBlock !== 0) {
         await saveSkills({ skills, languages });
@@ -1341,7 +1523,103 @@ export function ResumeForm() {
     restoreFocus(typeof target === "number" ? target : editingBlock);
   }
 
+  /**
+   * [CERT_PDF] Apaga do Storage um PDF enviado nesta edição e ainda não
+   * salvo. PDFs já salvos no CV nunca passam por aqui (o servidor também
+   * recusa apagá-los); falha silenciosa — é só limpeza.
+   */
+  function releaseUpload(storageId: Id<"_storage"> | undefined): void {
+    if (storageId === undefined || !newUploadsRef.current.has(storageId)) {
+      return;
+    }
+    newUploadsRef.current.delete(storageId);
+    void discardCertificateUpload({ storageId }).catch(() => undefined);
+  }
+
+  function updateCertificationName(key: string, name: string): void {
+    setCertifications((list) =>
+      list.map((c) => (c.key === key ? { ...c, name } : c)),
+    );
+  }
+
+  function removeCertification(key: string): void {
+    const target = certifications.find((c) => c.key === key);
+    releaseUpload(target?.storageId);
+    setCertifications((list) => list.filter((c) => c.key !== key));
+  }
+
+  /** Remove só o PDF, mantendo o nome da certificação. */
+  function removeCertificateFile(key: string): void {
+    const target = certifications.find((c) => c.key === key);
+    releaseUpload(target?.storageId);
+    setCertifications((list) =>
+      list.map((c) =>
+        c.key === key ? { ...c, storageId: undefined, url: null } : c,
+      ),
+    );
+  }
+
+  /** Upload: URL do Storage → POST → confirmação validada no servidor. */
+  async function attachCertificateFile(
+    key: string,
+    file: File,
+  ): Promise<void> {
+    const isPdfName = file.name.toLowerCase().endsWith(".pdf");
+    if (file.type !== "application/pdf" && !isPdfName) {
+      toast.error("Envie um arquivo PDF.");
+      return;
+    }
+    if (file.size > MAX_CERTIFICATE_BYTES) {
+      toast.error("O PDF deve ter no máximo 5MB.");
+      return;
+    }
+    // Assinatura do arquivo: todo PDF começa com "%PDF-".
+    if ((await file.slice(0, 5).text()) !== "%PDF-") {
+      toast.error("O arquivo não parece ser um PDF válido.");
+      return;
+    }
+    setUploadingKey(key);
+    try {
+      const postUrl = await generateCertificateUploadUrl();
+      const response = await fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/pdf" },
+        body: file,
+      });
+      if (!response.ok) {
+        throw new Error("Falha no envio do arquivo. Tente de novo.");
+      }
+      const { storageId } = (await response.json()) as {
+        storageId: Id<"_storage">;
+      };
+      const result = await confirmCertificateUpload({ storageId });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      newUploadsRef.current.add(result.storageId);
+      // Trocou o PDF: o anterior (se era desta edição) vai embora.
+      const previous = certifications.find((c) => c.key === key);
+      releaseUpload(previous?.storageId);
+      setCertifications((list) =>
+        list.map((c) =>
+          c.key === key
+            ? { ...c, storageId: result.storageId, url: result.url }
+            : c,
+        ),
+      );
+    } catch (err) {
+      toast.error(friendlyErrorMessage(err));
+    } finally {
+      setUploadingKey(null);
+    }
+  }
+
   function resetToProfile(): void {
+    // [CERT_PDF] PDFs enviados e não salvos não ficam órfãos no Storage.
+    for (const storageId of Array.from(newUploadsRef.current)) {
+      releaseUpload(storageId);
+    }
     const resume = profile?.resumeData;
     if (resume !== undefined) {
       setHeadline(resume.headline);
@@ -1363,7 +1641,7 @@ export function ResumeForm() {
       setGithubUrl(resume.links?.github ?? "");
       setLattesUrl(resume.links?.lattes ?? "");
       setProjectsText(resume.projectsText ?? "");
-      setCertifications(resume.certifications ?? []);
+      setCertifications(toCertificationDrafts(resume.certifications));
     } else {
       setHeadline("");
       setSummary("");
@@ -1439,7 +1717,7 @@ export function ResumeForm() {
     languages,
     experiences,
     projectsText,
-    certifications,
+    certifications: certifications.map((c) => ({ name: c.name, url: c.url })),
   };
 
   // Preenchimento por bloco — alimenta hero, navegação e selos de status.
@@ -1455,7 +1733,7 @@ export function ResumeForm() {
     languages.some((language) => language.name.trim().length > 0),
     experiences.some((exp) => exp.company.trim().length > 0) ||
       projectsText.trim().length > 0,
-    certifications.some((item) => item.trim().length > 0),
+    certifications.some((item) => item.name.trim().length > 0),
   ];
   const nextIndex = flags.findIndex((flag) => !flag);
   const firstName = (profile?.fullName ?? "").trim().split(/\s+/)[0] ?? "";
@@ -2125,34 +2403,47 @@ export function ResumeForm() {
                     <Group title="Certificações e atividades">
                       {certifications.map((item, index) => (
                         <ItemCard
-                          key={index}
+                          key={item.key}
                           label={`Item ${index + 1}`}
                           removeLabel="Remover"
-                          onRemove={() =>
-                            setCertifications((list) =>
-                              list.filter((_, i) => i !== index),
-                            )
-                          }
+                          onRemove={() => removeCertification(item.key)}
                         >
                           <Input
                             label={`Certificação ${index + 1}`}
                             required
-                            value={item}
+                            value={item.name}
                             onChange={(e) =>
-                              setCertifications((list) =>
-                                list.map((current, i) =>
-                                  i === index ? e.target.value : current,
-                                ),
-                              )
+                              updateCertificationName(item.key, e.target.value)
                             }
                             hint="Ex.: Cisco CCNA, Excel Avançado, Scrum Fundamentals"
+                          />
+                          <CertificateFileRow
+                            hasFile={item.storageId !== undefined}
+                            url={item.url}
+                            uploading={uploadingKey === item.key}
+                            disabled={uploadingKey !== null || pending}
+                            onPick={(file) =>
+                              void attachCertificateFile(item.key, file)
+                            }
+                            onView={() => {
+                              if (item.url) {
+                                setViewerCert({
+                                  name: item.name || `Certificação ${index + 1}`,
+                                  url: item.url,
+                                });
+                              }
+                            }}
+                            onRemoveFile={() => removeCertificateFile(item.key)}
                           />
                         </ItemCard>
                       ))}
                       {certifications.length < MAX_CERTIFICATIONS ? (
                         <AddTile
                           onClick={() =>
-                            setCertifications((list) => [...list, ""])
+                            setCertifications((list) => [
+                              ...list,
+                              { key: nextCertificationKey(), name: "" },
+                            ])
                           }
                         >
                           Adicionar certificação
@@ -2202,7 +2493,7 @@ export function ResumeForm() {
                         type="button"
                         variant="secondary"
                         onClick={cancelEdit}
-                        disabled={pending}
+                        disabled={pending || uploadingKey !== null}
                       >
                         <X className="h-4 w-4" aria-hidden="true" />
                         Cancelar
@@ -2211,7 +2502,7 @@ export function ResumeForm() {
                         type="button"
                         variant="primary"
                         onClick={() => void persist()}
-                        disabled={pending}
+                        disabled={pending || uploadingKey !== null}
                       >
                         {pending ? (
                           <Loader2
@@ -2231,6 +2522,13 @@ export function ResumeForm() {
           );
         })}
       </form>
+      {viewerCert !== null ? (
+        <CertificateViewer
+          title={viewerCert.name}
+          url={viewerCert.url}
+          onClose={() => setViewerCert(null)}
+        />
+      ) : null}
       {pendingTarget !== null && editingBlock !== null ? (
         <DiscardDialog
           from={BLOCK_LABELS[editingBlock]?.label ?? "este bloco"}

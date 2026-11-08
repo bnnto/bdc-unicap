@@ -4,6 +4,7 @@ import {
   internalQuery,
   internalMutation,
   type MutationCtx,
+  type QueryCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -20,7 +21,11 @@ import {
   addSkill,
   type LanguageEntry,
 } from "../src/lib/skills";
-import { validateResumeData } from "../src/lib/resume";
+import {
+  MAX_CERTIFICATE_BYTES,
+  normalizeCertifications,
+  validateResumeData,
+} from "../src/lib/resume";
 import { contactProjectionForApplication } from "../src/lib/application";
 import {
   availabilitySliceBounds,
@@ -78,6 +83,39 @@ function toProfileArgs(raw: {
   };
 }
 
+/**
+ * [CERT_PDF] Certificação já resolvida para a UI: sempre no formato novo
+ * (CVs legados viram `{ name }`) e com a URL do PDF quando houver anexo.
+ * `storageId` só é devolvido ao DONO do currículo (edição); o recrutador
+ * recebe apenas nome + URL.
+ */
+type ResolvedCertificate = {
+  name: string;
+  storageId?: Id<"_storage">;
+  url: string | null;
+};
+
+async function resolveCertificates(
+  ctx: QueryCtx,
+  raw:
+    | ReadonlyArray<string | { name: string; storageId?: Id<"_storage"> }>
+    | undefined,
+  includeStorageId: boolean,
+): Promise<ResolvedCertificate[]> {
+  const entries = normalizeCertifications<Id<"_storage">>(raw);
+  return await Promise.all(
+    entries.map(async (entry): Promise<ResolvedCertificate> => {
+      const url =
+        entry.storageId !== undefined
+          ? await ctx.storage.getUrl(entry.storageId)
+          : null;
+      return includeStorageId && entry.storageId !== undefined
+        ? { name: entry.name, storageId: entry.storageId, url }
+        : { name: entry.name, url };
+    }),
+  );
+}
+
 /** Perfil do aluno autenticado (ou null), já com o e-mail da conta. */
 export const myProfile = query({
   args: {},
@@ -91,7 +129,19 @@ export const myProfile = query({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .unique();
     if (student === null) return null;
-    return { ...student, email: user.email ?? null };
+    // [CERT_PDF] certificações normalizadas + URL do PDF de cada uma.
+    const resumeData =
+      student.resumeData === undefined
+        ? undefined
+        : {
+            ...student.resumeData,
+            certifications: await resolveCertificates(
+              ctx,
+              student.resumeData.certifications,
+              true,
+            ),
+          };
+    return { ...student, resumeData, email: user.email ?? null };
   },
 });
 
@@ -387,7 +437,15 @@ export const saveResumeData = mutation({
       }),
     ),
     projectsText: v.optional(v.string()),
-    certifications: v.optional(v.array(v.string())),
+    /** [CERT_PDF] certificação = nome + PDF opcional (Convex Storage). */
+    certifications: v.optional(
+      v.array(
+        v.object({
+          name: v.string(),
+          storageId: v.optional(v.id("_storage")),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const consent = await requireActiveConsentUser(ctx);
@@ -414,8 +472,160 @@ export const saveResumeData = mutation({
       throw new Error(validation.errors.join(" "));
     }
 
-    await ctx.db.patch(student._id, { resumeData: validation.normalized });
+    // [CERT_PDF] Arquivos: o que já estava gravado, o que o CV passa a usar
+    // e o que o formulário enviou (inclusive entradas descartadas pela
+    // validação, ex.: nome vazio) — para não deixar arquivo órfão.
+    const previousIds = new Set<Id<"_storage">>();
+    for (const entry of normalizeCertifications<Id<"_storage">>(
+      student.resumeData?.certifications,
+    )) {
+      if (entry.storageId !== undefined) previousIds.add(entry.storageId);
+    }
+    const { certifications: normalizedCerts, ...resumeRest } =
+      validation.normalized;
+    const certifications = normalizeCertifications(normalizedCerts);
+    const keptIds = new Set<Id<"_storage">>();
+    for (const entry of certifications) {
+      if (entry.storageId === undefined) continue;
+      // Validado como `v.id("_storage")` nos args — o cast só devolve o tipo.
+      const storageId = entry.storageId as Id<"_storage">;
+      if (keptIds.has(storageId)) {
+        throw new Error(
+          "O mesmo PDF não pode ser usado em duas certificações.",
+        );
+      }
+      if (!previousIds.has(storageId)) {
+        const meta = await ctx.db.system.get(storageId);
+        if (
+          meta === null ||
+          meta.contentType !== "application/pdf" ||
+          meta.size > MAX_CERTIFICATE_BYTES
+        ) {
+          throw new Error(
+            "PDF de certificação inválido — envie um PDF de até 5MB.",
+          );
+        }
+      }
+      keptIds.add(storageId);
+    }
+
+    const storedCertifications = certifications.map((entry) =>
+      entry.storageId !== undefined
+        ? { name: entry.name, storageId: entry.storageId as Id<"_storage"> }
+        : { name: entry.name },
+    );
+
+    await ctx.db.patch(student._id, {
+      resumeData: {
+        ...resumeRest,
+        ...(storedCertifications.length > 0
+          ? { certifications: storedCertifications }
+          : {}),
+      },
+    });
+
+    // Só depois de gravar: apaga PDFs que saíram do currículo.
+    const candidates = new Set<Id<"_storage">>(previousIds);
+    for (const entry of args.certifications ?? []) {
+      if (entry.storageId !== undefined) candidates.add(entry.storageId);
+    }
+    for (const storageId of candidates) {
+      if (keptIds.has(storageId)) continue;
+      if ((await ctx.db.system.get(storageId)) !== null) {
+        await ctx.storage.delete(storageId);
+      }
+    }
+
     return { ok: true as const, savedAt: Date.now() };
+  },
+});
+
+/**
+ * [CERT_PDF] Upload de PDF de certificação — mesmo padrão do banner:
+ * URL de upload → POST do arquivo → confirmação validada no servidor.
+ */
+async function requireStudentForCertificate(ctx: MutationCtx) {
+  const consent = await requireActiveConsentUser(ctx);
+  if (!consent.ok) {
+    throw new Error("Aceite o Termo de Consentimento LGPD vigente.");
+  }
+  if (consent.role !== "aluno") {
+    throw new Error("Apenas alunos anexam certificados.");
+  }
+  const student = await ctx.db
+    .query("students")
+    .withIndex("by_user", (q) => q.eq("userId", consent.userId))
+    .unique();
+  if (student === null) {
+    throw new Error(
+      "Complete o cadastro do perfil antes de anexar certificados.",
+    );
+  }
+  return student;
+}
+
+export const generateCertificateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireStudentForCertificate(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+/**
+ * Confere o arquivo recém-enviado (tipo e tamanho).
+ * Arquivo inválido é apagado e devolvido como erro (retorna, não lança,
+ * para o delete não ser desfeito pelo rollback).
+ */
+export const confirmCertificateUpload = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    await requireStudentForCertificate(ctx);
+    const meta = await ctx.db.system.get(storageId);
+    if (meta === null) {
+      return {
+        ok: false as const,
+        error: "Arquivo não encontrado. Tente de novo.",
+      };
+    }
+    // Mutation não lê o conteúdo do arquivo (`storage.get` só existe em
+    // actions): aqui valida tipo e tamanho; a assinatura `%PDF-` é checada
+    // no navegador antes do upload.
+    if (
+      meta.contentType !== "application/pdf" ||
+      meta.size > MAX_CERTIFICATE_BYTES
+    ) {
+      await ctx.storage.delete(storageId);
+      return {
+        ok: false as const,
+        error: "Certificado inválido — envie um PDF de até 5MB.",
+      };
+    }
+    return {
+      ok: true as const,
+      storageId,
+      url: await ctx.storage.getUrl(storageId),
+    };
+  },
+});
+
+/**
+ * Descarta um PDF enviado mas ainda NÃO salvo no currículo (o aluno
+ * cancelou, trocou ou removeu o arquivo). Se o arquivo já faz parte do CV
+ * salvo, nada é apagado — quem remove esses é o `saveResumeData`.
+ */
+export const discardCertificateUpload = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, { storageId }) => {
+    const student = await requireStudentForCertificate(ctx);
+    const inUse = normalizeCertifications<Id<"_storage">>(
+      student.resumeData?.certifications,
+    ).some((entry) => entry.storageId === storageId);
+    if (inUse) return { ok: false as const };
+    if ((await ctx.db.system.get(storageId)) !== null) {
+      await ctx.storage.delete(storageId);
+    }
+    return { ok: true as const };
   },
 });
 
@@ -504,7 +714,9 @@ async function requireStudentForBanner(ctx: MutationCtx) {
     .withIndex("by_user", (q) => q.eq("userId", consent.userId))
     .unique();
   if (student === null) {
-    throw new Error("Complete o cadastro do perfil antes de adicionar um banner.");
+    throw new Error(
+      "Complete o cadastro do perfil antes de adicionar um banner.",
+    );
   }
   return student;
 }
@@ -523,7 +735,10 @@ export const saveBanner = mutation({
     const student = await requireStudentForBanner(ctx);
     const meta = await ctx.db.system.get(storageId);
     if (meta === null) {
-      return { ok: false as const, error: "Arquivo não encontrado. Tente de novo." };
+      return {
+        ok: false as const,
+        error: "Arquivo não encontrado. Tente de novo.",
+      };
     }
     if (
       !BANNER_TYPES.includes(meta.contentType ?? "") ||
@@ -683,6 +898,20 @@ export const getCandidateProfile = query({
         ? await ctx.storage.getUrl(student.bannerStorageId)
         : null;
 
+    // [CERT_PDF] Certificados visíveis a qualquer recrutador que já possa
+    // ver o currículo (decisão de produto); só nome + URL, sem storageId.
+    const resume =
+      student.resumeData === undefined
+        ? null
+        : {
+            ...student.resumeData,
+            certifications: await resolveCertificates(
+              ctx,
+              student.resumeData.certifications,
+              false,
+            ),
+          };
+
     return {
       studentId: student._id,
       fullName: student.fullName,
@@ -702,7 +931,7 @@ export const getCandidateProfile = query({
           : (owner?.image ?? null)
         : null,
       headline: student.resumeData?.headline ?? null,
-      resume: student.resumeData ?? null,
+      resume,
       skills: student.skills ?? [],
       languages: student.languages ?? [],
       contactReleased: released,
@@ -895,7 +1124,10 @@ export const searchTalent = query({
           semester: student.semester ?? null,
         }),
         skills: student.skills ?? [],
-        skillMatches: countSkillMatches({ skills: student.skills ?? [] }, chips),
+        skillMatches: countSkillMatches(
+          { skills: student.skills ?? [] },
+          chips,
+        ),
         languages: student.languages ?? [],
         headline: student.resumeData?.headline ?? null,
         contactAllowed,
@@ -1022,10 +1254,21 @@ export const deleteMyProfile = mutation({
         .withIndex("by_student", (q) => q.eq("studentId", student._id))
         .collect();
       for (const report of reports) await ctx.db.delete(report._id);
-      
+
       await ctx.db.delete(student._id);
       if (student.bannerStorageId !== undefined) {
         await ctx.storage.delete(student.bannerStorageId);
+      }
+      // [CERT_PDF] LGPD: os PDFs de certificação também são dado pessoal.
+      for (const entry of normalizeCertifications<Id<"_storage">>(
+        student.resumeData?.certifications,
+      )) {
+        if (
+          entry.storageId !== undefined &&
+          (await ctx.db.system.get(entry.storageId)) !== null
+        ) {
+          await ctx.storage.delete(entry.storageId);
+        }
       }
     }
 
