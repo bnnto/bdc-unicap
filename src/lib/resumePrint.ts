@@ -22,6 +22,10 @@
  *    de cortes no meio de experiências nem de títulos órfãos;
  * 4. a aplicação inteira some, exceto #unicap-resume-print-root, que recebe
  *    o MESMO markup da prévia (.unicap-resume-doc).
+ *
+ * Responsividade: a folha já é fluida (largura 100% até 210mm). O bloco
+ * `@media screen and (max-width: 40rem)` no FINAL reduz paddings e fontes
+ * só na TELA de celulares — como é `screen`, nunca afeta a impressão/PDF.
  */
 export const RESUME_PRINT_CSS = `
 #unicap-resume-print-root {
@@ -215,6 +219,43 @@ export const RESUME_PRINT_CSS = `
   content: "·";
   font-weight: 400;
   padding: 0 12px;
+}
+/* Celulares (SÓ na tela — nunca afeta a impressão/PDF): menos padding e
+   fontes proporcionais, para o nome de 46px não ocupar três linhas. */
+@media screen and (max-width: 40rem) {
+  .unicap-resume-doc {
+    font-size: 14px;
+    padding: 20px 16px;
+  }
+  .unicap-resume-doc .unicap-resume-name {
+    font-size: clamp(1.75rem, 8.5vw, 2.5rem);
+  }
+  .unicap-resume-doc .unicap-resume-headline {
+    font-size: 17px;
+  }
+  .unicap-resume-doc .unicap-resume-contacts {
+    font-size: 13px;
+  }
+  .unicap-resume-doc .unicap-resume-section {
+    margin-top: 20px;
+  }
+  .unicap-resume-doc .unicap-resume-section-title {
+    gap: 10px;
+    letter-spacing: 0.12em;
+  }
+  .unicap-resume-doc .unicap-resume-item-title {
+    font-size: 16px;
+  }
+  .unicap-resume-doc .unicap-resume-item-sub {
+    display: block;
+    font-size: 13px;
+  }
+  .unicap-resume-doc .unicap-resume-chips li {
+    font-size: 15px;
+  }
+  .unicap-resume-doc .unicap-resume-chips li + li::before {
+    padding: 0 8px;
+  }
 }
 `;
 

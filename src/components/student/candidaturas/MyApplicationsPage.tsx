@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
 import {
   Activity,
@@ -12,11 +12,11 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
-import { EmptyState } from "../ui/emptyState";
+import { api } from "../../../../convex/_generated/api";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { Badge } from "../../ui/badge";
+import { Button } from "../../ui/button";
+import { EmptyState } from "../../ui/emptyState";
 import {
   REJECTION_REASON_LABELS,
   STAGE_BADGE,
@@ -30,10 +30,10 @@ import {
   stageTimeline,
   type ApplicationStage,
   type TimelineStep,
-} from "../../lib/application";
-import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
-import { isContactPending } from "../../lib/usePendingContactRelease";
-import { ContactNotice } from "./ContactNotice";
+} from "../../../lib/application";
+import { MATCH_BAND_LABELS, matchBand } from "../../../lib/matching";
+import { isContactPending } from "../../../lib/usePendingContactRelease";
+import { ContactNotice } from "../ContactNotice";
 
 /**
  * "Minhas Candidaturas" — redesign (mesma linguagem do Dashboard Operacional):
@@ -46,21 +46,28 @@ import { ContactNotice } from "./ContactNotice";
  * - [Etapa 4.3] reprovação amigável com motivo padronizado (R5);
  * - [R6] aceite/revogação de contato por vaga (LGPD).
  *
- * Novo: aviso + filtro + destaque em cada vaga com CONTATO NÃO LIBERADO.
+ * Responsividade (mobile-first):
+ * - espaçamentos e raios fluidos (p-5 → p-7, rounded-2xl → 3xl);
+ * - tipografia fluida com clamp() nos títulos e números grandes;
+ * - breakpoints por conteúdo (KPIs 1 → 2 → 4 colunas; painéis 1 → 2 em lg);
+ * - alvos de toque ≥ 44px (filtro e botões de ação);
+ * - botões de ação em largura total no mobile;
+ * - linha do tempo rolável, centralizada na etapa atual;
+ * - propriedades lógicas (start/end) para suporte a RTL/i18n;
+ * - safe-area (notch) e sem overflow horizontal.
  */
 
 const SURFACE =
-  "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+  "rounded-2xl sm:rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+
+/** Texto auxiliar: 13px no mobile (legível), 12px de sm para cima. */
+const SMALL_TEXT = "text-[13px] sm:text-xs leading-relaxed";
 
 /**
- * [REFACTOR_ALUNO Etapa 4] + visual:
- * KPIs como UMA faixa dividida por 1px (rótulo acima, valor em
- * algarismos tabulares) em vez de três cartões com ícone — cor vai só
- * nos dados e na ação; superfícies planas (borda sem sombra); ações de
- * linha em botão secundário (o dourado não aparece repetido em cada
- * card); o motivo de reprovação vira bloco de atenção com borda
- * semântica (legível também no modo escuro).
+ * Botões de ação: largura total no mobile, auto de sm para cima, e
+ * altura mínima de 44px (alvo de toque) sem depender das props do Button.
  */
+const ACTION_WRAP = "w-full sm:w-auto shrink-0 [&>button]:min-h-11 [&>button]:w-full sm:[&>button]:w-auto";
 
 const MATCH_CHIP: Record<
   ReturnType<typeof matchBand>,
@@ -136,19 +143,19 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section aria-label={title} className={`${SURFACE} p-7 ${className}`}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2.5 font-serif text-xl font-bold tracking-tight text-slate-600 dark:text-slate-200">
-          <span aria-hidden="true" className="text-primary">
+    <section aria-label={title} className={`${SURFACE} min-w-0 p-5 sm:p-7 ${className}`}>
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <h2 className="flex min-w-0 items-center gap-2.5 font-serif text-lg font-bold tracking-tight text-slate-600 sm:text-xl dark:text-slate-200">
+          <span aria-hidden="true" className="shrink-0 text-primary">
             {icon}
           </span>
-          {title}
+          <span className="min-w-0 [overflow-wrap:anywhere]">{title}</span>
         </h2>
         {aside}
       </div>
-      <div className="mt-6">{children}</div>
+      <div className="mt-5 sm:mt-6">{children}</div>
       {footnote !== undefined ? (
-        <p className="mt-5 text-xs leading-relaxed text-a11y-slate-500">{footnote}</p>
+        <p className={`mt-5 ${SMALL_TEXT} text-a11y-slate-500`}>{footnote}</p>
       ) : null}
     </section>
   );
@@ -171,28 +178,34 @@ function KpiCell({
 }) {
   return (
     <div
-      className="rise flex flex-col border-t border-slate-100 p-7 first:border-t-0 sm:even:border-l sm:[&:nth-child(2)]:border-t-0 xl:border-l xl:border-t-0 xl:first:border-l-0"
+      className="rise flex min-w-0 flex-col border-t border-slate-100 p-5 first:border-t-0 sm:p-7 sm:even:border-s sm:[&:nth-child(2)]:border-t-0 lg:border-s lg:border-t-0 lg:first:border-s-0"
       style={{ animationDelay: `${delay}ms` }}
     >
       <p className="flex items-center gap-2 text-sm font-medium text-slate-600">
-        <span aria-hidden="true" className={tone === "warning" ? "text-warning" : "text-primary"}>
+        <span
+          aria-hidden="true"
+          className={`shrink-0 ${tone === "warning" ? "text-warning" : "text-primary"}`}
+        >
           {icon}
         </span>
         {label}
       </p>
       <p
-        className={`mt-4 font-serif text-5xl font-bold leading-none tracking-[-0.02em] tabular-nums ${
+        className={`mt-3 font-serif text-[length:clamp(2.25rem,1.6rem_+_2.4vw,3rem)] font-bold leading-none tracking-[-0.02em] tabular-nums sm:mt-4 ${
           tone === "warning" ? "text-warning" : "text-primary"
         }`}
       >
         {value}
       </p>
-      <p className="mt-3 text-xs leading-relaxed text-a11y-slate-500">{hint}</p>
+      <p className={`mt-3 ${SMALL_TEXT} text-a11y-slate-500`}>{hint}</p>
     </div>
   );
 }
 
-/** Linha do tempo: pontos surgem em cascata e os conectores "enchem". */
+/**
+ * Linha do tempo: pontos surgem em cascata e os conectores "enchem".
+ * No mobile a lista rola na horizontal e já abre centralizada na etapa atual.
+ */
 function Stepper({
   stage,
   steps,
@@ -203,16 +216,29 @@ function Stepper({
   delay: number;
 }) {
   const [on, setOn] = useState(false);
+  const listRef = useRef<HTMLOListElement>(null);
+
   useEffect(() => {
     const id = window.setTimeout(() => setOn(true), delay);
     return () => window.clearTimeout(id);
   }, [delay]);
+
+  // Centraliza a etapa atual SEM rolar a página (só o scroll do próprio <ol>).
+  useEffect(() => {
+    const list = listRef.current;
+    if (list === null || list.scrollWidth <= list.clientWidth) return;
+    const current = list.querySelector<HTMLElement>("[data-current='true']");
+    if (current === null) return;
+    list.scrollLeft = current.offsetLeft - list.clientWidth / 2 + current.offsetWidth / 2;
+  }, [stage, steps.length]);
+
   const rejected = stage === "reprovado";
 
   return (
     <ol
+      ref={listRef}
       aria-label={`Etapa atual: ${STAGE_LABELS[stage]}`}
-      className="mt-5 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="relative mt-5 flex items-center gap-2 overflow-x-auto overscroll-x-contain pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {steps.map((step, index) => {
         const isCurrent = step.state === "current";
@@ -220,7 +246,11 @@ function Stepper({
         const last = index === steps.length - 1;
         const stagger = { transitionDelay: `${index * 70}ms` };
         return (
-          <li key={step.stage} className="flex shrink-0 items-center gap-2">
+          <li
+            key={step.stage}
+            data-current={isCurrent ? "true" : undefined}
+            className="flex shrink-0 items-center gap-2"
+          >
             <span className="relative flex h-6 w-6 items-center justify-center">
               {isCurrent && on ? (
                 <span
@@ -251,7 +281,7 @@ function Stepper({
               </span>
             </span>
             <span
-              className={`text-xs ${
+              className={`whitespace-nowrap text-[13px] sm:text-xs ${
                 isCurrent
                   ? rejected
                     ? "font-bold text-danger"
@@ -266,7 +296,7 @@ function Stepper({
             {!last ? (
               <span
                 aria-hidden="true"
-                className="mx-1 h-0.5 w-8 shrink-0 overflow-hidden rounded-full bg-slate-200 sm:w-12"
+                className="mx-1 h-0.5 w-6 shrink-0 overflow-hidden rounded-full bg-slate-200 sm:w-10 lg:w-12"
               >
                 <span
                   style={{ transitionDelay: `${index * 70 + 120}ms` }}
@@ -295,19 +325,19 @@ function FilterToggle({
   pending: number;
   total: number;
 }) {
-  const options: Array<{ key: Filter; label: string; count: number }> = [
-    { key: "todas", label: "Todas", count: total },
-    { key: "pendentes", label: "Contato pendente", count: pending },
+  const options: Array<{ key: Filter; label: string; shortLabel: string; count: number }> = [
+    { key: "todas", label: "Todas", shortLabel: "Todas", count: total },
+    { key: "pendentes", label: "Contato pendente", shortLabel: "Pendentes", count: pending },
   ];
   return (
     <div
       role="group"
       aria-label="Filtrar candidaturas"
-      className="relative grid grid-cols-2 rounded-full bg-slate-100 p-1"
+      className="relative grid w-full grid-cols-2 rounded-full bg-slate-100 p-1 sm:w-auto"
     >
       <span
         aria-hidden="true"
-        className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.12)] transition-transform !duration-[260ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none dark:bg-[#3a1f29] dark:shadow-[0_0_0_1px_rgba(233,184,195,0.25)] [.high-contrast_&]:border [.high-contrast_&]:border-black [.dark.high-contrast_&]:border-white"
+        className="absolute inset-y-1 start-1 w-[calc(50%-0.25rem)] rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.12)] transition-transform !duration-[260ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none dark:bg-[#3a1f29] dark:shadow-[0_0_0_1px_rgba(233,184,195,0.25)] [.high-contrast_&]:border [.high-contrast_&]:border-black [.dark.high-contrast_&]:border-white"
         style={{ transform: value === "todas" ? "translateX(0)" : "translateX(100%)" }}
       />
       {options.map((option) => (
@@ -316,13 +346,14 @@ function FilterToggle({
           type="button"
           aria-pressed={value === option.key}
           onClick={() => onChange(option.key)}
-          className={`relative z-10 inline-flex h-9 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold transition-[transform,color] !duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+          className={`relative z-10 inline-flex h-11 items-center justify-center gap-1.5 rounded-full px-3 text-[13px] font-semibold transition-[transform,color] !duration-150 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-10 sm:gap-2 sm:px-4 sm:text-sm [@media(pointer:coarse)]:h-11 ${
             value === option.key
               ? "text-primary dark:!text-white"
               : "text-slate-600"
           }`}
         >
-          {option.label}
+          <span className="sm:hidden">{option.shortLabel}</span>
+          <span className="hidden sm:inline">{option.label}</span>
           <span
             className={`inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[11px] font-bold tabular-nums ${
               option.key === "pendentes" && option.count > 0
@@ -358,16 +389,16 @@ function ContactBlock({
     <div
       // `key` troca o bloco com um fade quando o aluno libera/revoga.
       key={released ? "liberado" : "pendente"}
-      className={`mt-5 flex animate-[view-enter-fade_260ms_ease-out_both] flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between motion-reduce:animate-none ${
+      className={`mt-5 flex animate-[view-enter-fade_260ms_ease-out_both] flex-col gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between motion-reduce:animate-none ${
         released
           ? "border-emerald-200 bg-[#ECFDF5] dark:border-emerald-400/25 dark:bg-emerald-400/10"
           : "border-amber-200 bg-[#FFFBEB] dark:border-amber-400/25 dark:bg-[#26200f]"
       } [.high-contrast_&]:border-black [.high-contrast_&]:bg-white [.dark.high-contrast_&]:border-white [.dark.high-contrast_&]:bg-black`}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 items-start gap-3">
         <span
           aria-hidden="true"
-          className={`mt-0.5 ${released ? "text-success" : "text-warning"}`}
+          className={`mt-0.5 shrink-0 ${released ? "text-success" : "text-warning"}`}
         >
           {released ? (
             <ShieldCheck className="h-5 w-5" />
@@ -375,32 +406,34 @@ function ContactBlock({
             <ShieldAlert className="h-5 w-5" />
           )}
         </span>
-        <div>
+        <div className="min-w-0">
           <p
             className={`text-sm font-bold ${released ? "text-success" : "text-warning"}`}
           >
             {released ? "Contato liberado" : "Contato não liberado"}
           </p>
-          <p className="mt-0.5 max-w-prose text-xs leading-relaxed text-slate-600">
+          <p className={`mt-0.5 max-w-prose ${SMALL_TEXT} text-slate-600`}>
             {released
               ? "O recrutador pode entrar em contato com você sobre esta vaga. Você pode revogar quando quiser."
               : "O recrutador ainda não vê seus dados de contato e não consegue te chamar para a próxima etapa."}
           </p>
         </div>
       </div>
-      <Button
-        variant={released ? "secondary" : "accent"}
-        disabled={busy}
-        aria-label={
-          released
-            ? `Revogar contato de ${row.jobTitle}`
-            : `Liberar contato para ${row.jobTitle}`
-        }
-        onClick={onToggle}
-      >
-        <Handshake className="h-4 w-4" aria-hidden="true" />
-        {busy ? "Salvando…" : released ? "Revogar contato" : "Liberar contato"}
-      </Button>
+      <div className={ACTION_WRAP}>
+        <Button
+          variant={released ? "secondary" : "accent"}
+          disabled={busy}
+          aria-label={
+            released
+              ? `Revogar contato de ${row.jobTitle}`
+              : `Liberar contato para ${row.jobTitle}`
+          }
+          onClick={onToggle}
+        >
+          <Handshake className="h-4 w-4" aria-hidden="true" />
+          {busy ? "Salvando…" : released ? "Revogar contato" : "Liberar contato"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -476,17 +509,19 @@ export function MyApplicationsPage() {
 
   return (
     // Região nomeada (o <main> é único, no shell — WCAG 1.3.1).
+    // Safe-area: respeita o notch em paisagem; overflow-x-clip evita
+    // rolagem horizontal sem quebrar elementos sticky.
     <div
       role="region"
       aria-label="Minhas candidaturas"
-      className="mx-auto w-full max-w-[1440px] px-6 pb-16 pt-8"
+      className="mx-auto w-full max-w-[1440px] overflow-x-clip pb-[max(4rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 sm:px-6 sm:pt-8 lg:px-8"
     >
       {/* Cabeçalho */}
       <div className="max-w-3xl">
-        <h1 className="rise mt-3 font-serif text-4xl font-bold leading-[1.05] tracking-[-0.02em] text-primary [animation-delay:70ms] sm:text-5xl">
+        <h1 className="rise mt-2 font-serif text-[length:clamp(1.875rem,1.4rem_+_2.4vw,3rem)] font-bold leading-[1.05] tracking-[-0.02em] text-primary [animation-delay:70ms] [overflow-wrap:anywhere] sm:mt-3">
           Minhas candidaturas
         </h1>
-        <p className="rise mt-3 text-sm leading-relaxed text-slate-600 [animation-delay:140ms]">
+        <p className="rise mt-3 text-sm leading-relaxed text-slate-600 [animation-delay:140ms] sm:text-[0.9375rem]">
           A etapa de cada candidatura e o % de compatibilidade, atualizados em
           tempo real com o painel do recrutador, com feedback claro do que
           aconteceu em cada processo.
@@ -499,8 +534,8 @@ export function MyApplicationsPage() {
         action={{ label: "Ver vagas pendentes", onClick: goToFirstPending }}
       />
 
-      {/* KPIs em linha contínua */}
-      <div className={`${SURFACE} mt-8 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4`}>
+      {/* KPIs em linha contínua: 1 → 2 → 4 colunas */}
+      <div className={`${SURFACE} mt-6 grid grid-cols-1 sm:mt-8 sm:grid-cols-2 lg:grid-cols-4`}>
         <KpiCell
           delay={200}
           value={kpis.total}
@@ -537,7 +572,7 @@ export function MyApplicationsPage() {
       </div>
 
       {/* Estatísticas do perfil */}
-      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-5 sm:mt-6 sm:gap-6 lg:grid-cols-2">
         <Panel
           title="Estatísticas do meu perfil"
           icon={<TrendingUp className="h-5 w-5" />}
@@ -546,8 +581,10 @@ export function MyApplicationsPage() {
         >
           <ul className="flex flex-col gap-6">
             <li>
-              <div className="mb-1.5 flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-slate-800">Taxa de sucesso</span>
+              <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                <span className="min-w-0 text-sm font-semibold text-slate-800">
+                  Taxa de sucesso
+                </span>
                 <span className="font-serif text-lg font-bold tabular-nums text-primary">
                   {statsReady ? `${myStats.successRate}%` : "—"}
                 </span>
@@ -557,8 +594,10 @@ export function MyApplicationsPage() {
               </Track>
             </li>
             <li>
-              <div className="mb-1.5 flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-slate-800">Média de match</span>
+              <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                <span className="min-w-0 text-sm font-semibold text-slate-800">
+                  Média de match
+                </span>
                 <span className="font-serif text-lg font-bold tabular-nums text-primary">
                   {statsReady ? `${myStats.averageMatch}%` : "—"}
                 </span>
@@ -571,9 +610,9 @@ export function MyApplicationsPage() {
                 />
               </Track>
             </li>
-            <li className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
-              <span className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                <Eye className="h-4 w-4 text-primary" aria-hidden="true" />
+            <li className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+              <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-800">
+                <Eye className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
                 Visualizações do perfil
               </span>
               <span className="font-serif text-lg font-bold tabular-nums text-primary">
@@ -602,7 +641,7 @@ export function MyApplicationsPage() {
               {stageEntries.map(([stage, count], index) => (
                 <li key={stage}>
                   <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                    <span className="text-sm font-semibold text-slate-800">
+                    <span className="min-w-0 text-sm font-semibold text-slate-800">
                       {STAGE_LABELS[stage as ApplicationStage]}
                     </span>
                     <span className="font-serif text-lg font-bold tabular-nums text-slate-900">
@@ -623,9 +662,9 @@ export function MyApplicationsPage() {
       </div>
 
       {/* Lista de candidaturas */}
-      <section aria-label="Todas as candidaturas" className="mt-10">
-        <div className="rise flex flex-wrap items-center justify-between gap-4 [animation-delay:640ms]">
-          <h2 className="flex items-center gap-2.5 font-serif text-2xl font-bold tracking-tight text-slate-600 dark:text-slate-200">
+      <section aria-label="Todas as candidaturas" className="mt-8 sm:mt-10">
+        <div className="rise flex flex-wrap items-center justify-between gap-x-4 gap-y-3 [animation-delay:640ms]">
+          <h2 className="flex items-center gap-2.5 font-serif text-xl font-bold tracking-tight text-slate-600 sm:text-2xl dark:text-slate-200">
             Todas as candidaturas
           </h2>
           {sorted.length > 0 && pendingCount > 0 ? (
@@ -656,7 +695,7 @@ export function MyApplicationsPage() {
             Carregando candidaturas…
           </p>
         ) : sorted.length === 0 ? (
-          <div className={`${SURFACE} rise mt-6 p-7 [animation-delay:700ms]`}>
+          <div className={`${SURFACE} rise mt-6 p-5 sm:p-7 [animation-delay:700ms]`}>
             <EmptyState
               icon={Inbox}
               title="Nenhuma candidatura ainda"
@@ -668,7 +707,7 @@ export function MyApplicationsPage() {
             // `key` reinicia a cascata quando o filtro muda.
             key={filter}
             aria-label="Todas as candidaturas"
-            className="mt-6 flex flex-col gap-5"
+            className="mt-5 flex flex-col gap-4 sm:mt-6 sm:gap-5"
           >
             {visible.map((application, index) => {
               const rejected = application.stage === "reprovado";
@@ -692,18 +731,18 @@ export function MyApplicationsPage() {
                   id={`application-${application.applicationId}`}
                   tabIndex={-1}
                   style={{ animationDelay: `${delay}ms` }}
-                  className={`${SURFACE} rise group relative p-7 outline-none transition-transform !duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5`}
+                  className={`${SURFACE} rise group relative min-w-0 p-5 outline-none transition-transform !duration-200 ease-out focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:p-7 [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5`}
                 >
                   {pending ? (
                     <span
                       aria-hidden="true"
-                      className="absolute inset-y-7 left-0 w-1 rounded-r-full bg-warning"
+                      className="absolute inset-y-5 start-0 w-1 rounded-e-full bg-warning sm:inset-y-7"
                     />
                   ) : null}
 
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="font-serif text-xl font-bold tracking-tight text-primary">
+                  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                    <div className="min-w-0 flex-1 basis-56">
+                      <h3 className="font-serif text-lg font-bold tracking-tight text-primary [overflow-wrap:anywhere] sm:text-xl">
                         {application.jobTitle}
                       </h3>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -715,19 +754,19 @@ export function MyApplicationsPage() {
                         </Badge>
                       </div>
                     </div>
-                    <p className="flex items-center gap-1.5 text-xs text-a11y-slate-500">
-                      <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                    <p className={`flex items-center gap-1.5 ${SMALL_TEXT} text-a11y-slate-500`}>
+                      <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       Candidatura em {formatDate(application.appliedAt)}
                     </p>
                   </div>
 
-                    <p className="sr-only" aria-live="polite">
-                      {formatApplicationStatusLabel({
-                        jobTitle: application.jobTitle,
-                        stage: application.stage,
-                        appliedAt: application.appliedAt,
-                      })}
-                    </p>
+                  <p className="sr-only" aria-live="polite">
+                    {formatApplicationStatusLabel({
+                      jobTitle: application.jobTitle,
+                      stage: application.stage,
+                      appliedAt: application.appliedAt,
+                    })}
+                  </p>
 
                   <Stepper
                     stage={application.stage}
@@ -745,36 +784,38 @@ export function MyApplicationsPage() {
                     <div className="mt-3 rounded-2xl border border-danger bg-white px-4 py-3">
                       <p className="text-sm font-bold text-danger">{feedback.headline}</p>
                       {reason !== null ? (
-                        <p className="mt-0.5 text-xs text-slate-600">
+                        <p className={`mt-0.5 ${SMALL_TEXT} text-slate-600`}>
                           Motivo (padronizado):{" "}
                           <strong>{REJECTION_REASON_LABELS[reason]}</strong>
                         </p>
                       ) : null}
-                      <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                      <p className={`mt-1 ${SMALL_TEXT} text-slate-600`}>
                         {feedback.advice}
                       </p>
-                      <Button
-                        variant="secondary"
-                        aria-label={
-                          application.processAccepted
-                            ? `Revogar contato de ${application.jobTitle}`
-                            : `Liberar contato para ${application.jobTitle}`
-                        }
-                        onClick={() => {
-                          void (application.processAccepted
-                            ? revokeProcessAcceptance({
-                                applicationId: application.applicationId,
-                              })
-                            : acceptProcess({
-                                applicationId: application.applicationId,
-                              }));
-                        }}
-                      >
-                        <Handshake className="h-4 w-4" aria-hidden="true" />
-                        {application.processAccepted
-                          ? "Revogar contato"
-                          : "Liberar contato"}
-                      </Button>
+                      <div className={`mt-3 ${ACTION_WRAP}`}>
+                        <Button
+                          variant="secondary"
+                          aria-label={
+                            application.processAccepted
+                              ? `Revogar contato de ${application.jobTitle}`
+                              : `Liberar contato para ${application.jobTitle}`
+                          }
+                          onClick={() => {
+                            void (application.processAccepted
+                              ? revokeProcessAcceptance({
+                                  applicationId: application.applicationId,
+                                })
+                              : acceptProcess({
+                                  applicationId: application.applicationId,
+                                }));
+                          }}
+                        >
+                          <Handshake className="h-4 w-4" aria-hidden="true" />
+                          {application.processAccepted
+                            ? "Revogar contato"
+                            : "Liberar contato"}
+                        </Button>
+                      </div>
                     </div>
                   ) : null}
 

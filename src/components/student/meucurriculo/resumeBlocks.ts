@@ -7,7 +7,7 @@
  * (e o lint `react-refresh/only-export-components` exige que constantes
  * vivam fora de arquivos de componente).
  */
-import type { LanguageEntry } from "../../lib/skills";
+import type { LanguageEntry } from "../../../lib/skills";
 
 /**
  * Rótulos dos 7 blocos do currículo (ícone de lápis em cada um no

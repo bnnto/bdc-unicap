@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useMutation, useQuery} from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { toast } from "sonner";
 import { friendlyErrorMessage } from "../../../lib/toastMessages";
@@ -43,11 +43,18 @@ import {
   LABEL_CLASS,
   SURFACE,
   TEXTAREA_CLASS,
+  TOUCH,
+  TOUCH_BTN,
   TextField,
 } from "./jobsUi";
 
 const DESCRIPTION_MAX = 4000;
 const DESCRIPTION_MIN = 30;
+
+/** Grid fluido: cada campo pede pelo menos 14rem; o número de colunas se
+ *  ajusta sozinho à largura disponível (1, 2 ou 3), sem breakpoints. */
+const FIELD_GRID =
+  "grid gap-4 sm:gap-5 grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))]";
 
 const LEVEL_LABELS: Record<LanguageLevel, string> = {
   basico: "Básico",
@@ -108,12 +115,12 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <fieldset className={`${SURFACE} min-w-0 p-6 sm:p-8`}>
+    <fieldset className={`${SURFACE} min-w-0 p-4 min-[400px]:p-5 sm:p-8`}>
       <legend className="sr-only">{title}</legend>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3.5">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3 sm:mb-6">
+        <div className="flex min-w-0 flex-1 items-start gap-3 sm:gap-3.5">
           <IconTile>{icon}</IconTile>
-          <div>
+          <div className="min-w-0">
             <h3 className="font-serif text-lg font-bold leading-tight tracking-tight text-primary">
               {title}
             </h3>
@@ -146,6 +153,12 @@ type JobFormProps = {
  * necessidade de efeito de pré-preenchimento.
  *
  * Visual: quatro seções em cartões e barra de ações fixa no rodapé.
+ *
+ * Responsividade: seções com padding fluido; grids de campos com
+ * `auto-fit` (sem breakpoints fixos); pré-requisitos reorganizam o seletor
+ * de tipo e o botão "Remover" em coluna no mobile; barra de ações fixa
+ * respeita a safe-area do iOS e divide a largura entre os dois botões;
+ * alvos de toque de 44px em dispositivos touch.
  */
 export function JobForm({ initial = null, onDone }: JobFormProps) {
   // [RECRUITER_WORKFLOW] Etapa 3 — publicação usa `createJob` (mesma
@@ -298,7 +311,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         e.preventDefault();
         void handleSubmit();
       }}
-      className="view-enter flex flex-col gap-6"
+      className="view-enter flex min-w-0 flex-col gap-5 sm:gap-6"
       aria-label={
         initial !== null
           ? "Formulário de edição de vaga"
@@ -309,7 +322,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         <div
           ref={errorRef}
           role="alert"
-          className="jb-rise flex items-start gap-3 rounded-2xl border border-danger/40 bg-rose-50 px-5 py-4 dark:border-rose-400/30 dark:bg-rose-500/10"
+          className="jb-rise flex items-start gap-3 rounded-2xl border border-danger/40 bg-rose-50 px-4 py-3.5 sm:px-5 sm:py-4 dark:border-rose-400/30 dark:bg-rose-500/10"
         >
           <AlertCircle
             className="mt-0.5 h-5 w-5 shrink-0 text-danger"
@@ -319,7 +332,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             <p className="text-sm font-semibold text-danger">
               Corrija os pontos abaixo:
             </p>
-            <ul className="mt-1.5 list-disc pl-5 text-sm leading-relaxed text-danger">
+            <ul className="mt-1.5 list-disc ps-5 text-sm leading-relaxed text-danger [overflow-wrap:anywhere]">
               {errors.map((e) => (
                 <li key={e}>{e}</li>
               ))}
@@ -334,7 +347,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         title="Sobre a vaga"
         description="O que o aluno vê primeiro: um título claro e uma descrição que explique a rotina."
       >
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-4 sm:gap-5">
           <TextField
             label="Título da vaga"
             required
@@ -346,7 +359,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
           <div className="flex flex-col gap-1.5">
             <label
               htmlFor="job-description"
-              className={`${LABEL_CLASS} after:ml-0.5 after:text-danger after:content-['*']`}
+              className={`${LABEL_CLASS} after:ms-0.5 after:text-danger after:content-['*']`}
             >
               Descrição
             </label>
@@ -397,13 +410,15 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             return (
               <div
                 key={prereq.id}
-                className="jb-rise flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-5 transition-colors duration-150 dark:border-white/10 dark:bg-white/[0.03] [@media(hover:hover)_and_(pointer:fine)]:hover:border-primary/30"
+                className="jb-rise flex min-w-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 transition-colors duration-150 sm:p-5 dark:border-white/10 dark:bg-white/[0.03] [@media(hover:hover)_and_(pointer:fine)]:hover:border-primary/30"
               >
-                <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Mobile: seletor de tipo em largura total e "Remover" abaixo;
+                    a partir de `sm`, lado a lado. */}
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div
                     role="group"
                     aria-label={`Tipo do pré-requisito ${index + 1}`}
-                    className="flex rounded-xl border border-slate-200 bg-white p-0.5 dark:border-white/10 dark:bg-white/5"
+                    className="flex w-full rounded-xl border border-slate-200 bg-white p-0.5 sm:w-auto dark:border-white/10 dark:bg-white/5"
                   >
                     {PREREQ_KINDS.map(({ value, label }) => (
                       <button
@@ -411,7 +426,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
                         type="button"
                         aria-pressed={prereq.kind === value}
                         onClick={() => changeKind(prereq.id, value)}
-                        className={`inline-flex h-8 items-center rounded-[10px] px-3 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                        className={`inline-flex min-h-9 flex-1 items-center justify-center rounded-[10px] px-3 py-1.5 text-center text-xs font-semibold leading-tight focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex-none [@media(pointer:coarse)]:min-h-11 ${
                           prereq.kind === value
                             ? "bg-[#FDF2F4] text-primary dark:bg-primary/15"
                             : "text-slate-600 dark:text-slate-300"
@@ -423,6 +438,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
                   </div>
                   <Button
                     variant="secondary"
+                    className={`w-full sm:w-auto ${TOUCH_BTN}`}
                     aria-label={`Remover pré-requisito ${index + 1}`}
                     onClick={() =>
                       setPrerequisites((list) => list.filter((p) => p.id !== prereq.id))
@@ -434,10 +450,10 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
                 </div>
 
                 {isSkill ? (
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex min-w-0 flex-col gap-1.5">
                     <label
                       htmlFor={fieldId}
-                      className={`${LABEL_CLASS} after:ml-0.5 after:text-danger after:content-['*']`}
+                      className={`${LABEL_CLASS} after:ms-0.5 after:text-danger after:content-['*']`}
                     >
                       Competência {index + 1}
                     </label>
@@ -463,7 +479,9 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
 
                 {isSkill ? (
                   <div className="flex flex-col gap-2">
-                    <label className="inline-flex w-fit cursor-pointer items-center gap-3 text-sm text-slate-700 dark:text-slate-300">
+                    <label
+                      className={`inline-flex w-fit max-w-full cursor-pointer items-center gap-3 text-sm text-slate-700 dark:text-slate-300 ${TOUCH}`}
+                    >
                       <input
                         type="checkbox"
                         checked={prereq.required}
@@ -476,7 +494,9 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
                         aria-hidden="true"
                         className="relative h-6 w-10 shrink-0 rounded-full bg-slate-300 transition-colors duration-200 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-200 after:ease-[cubic-bezier(0.23,1,0.32,1)] after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-4 peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 motion-reduce:after:transition-none dark:bg-white/20"
                       />
-                      Obrigatório (desmarque para opcional)
+                      <span className="min-w-0">
+                        Obrigatório (desmarque para opcional)
+                      </span>
                     </label>
                     {prereq.required ? (
                       <p className="flex items-start gap-1.5 text-xs text-a11y-slate-500">
@@ -499,7 +519,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
           {prerequisites.length < MAX_PREREQS ? (
             <Button
               variant="secondary"
-              className="w-fit"
+              className={`w-full sm:w-fit ${TOUCH_BTN}`}
               onClick={() =>
                 setPrerequisites((list) => [...list, newPrerequisite()])
               }
@@ -517,8 +537,8 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         title="Contrato & Remuneração"
         description="Modelo de contratação, faixa salarial e onde a vaga acontece."
       >
-        <div className="flex flex-col gap-5">
-          <div className="grid gap-5 sm:grid-cols-3">
+        <div className="flex flex-col gap-4 sm:gap-5">
+          <div className={FIELD_GRID}>
             <CustomSelect
               label="Tipo de contrato"
               value={contractType}
@@ -551,6 +571,7 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
             label="Localização (opcional)"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
+            autoComplete="address-level2"
             hint="Ex.: Recife/PE ou Remoto"
           />
         </div>
@@ -561,9 +582,9 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         title="Matching (opcional)"
         description="Usados no cálculo do % de compatibilidade dos candidatos."
       >
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className={FIELD_GRID}>
           {/* [DICIONARIO_FECHADO] Idioma só da lista oficial (Combobox). */}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="job-language" className={LABEL_CLASS}>
               Idioma exigido
             </label>
@@ -605,11 +626,17 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
         </div>
       </Section>
 
-      {/* Barra de ações fixa: sempre ao alcance, mesmo em formulários longos. */}
+      {/* Barra de ações fixa: sempre ao alcance, mesmo em formulários longos.
+          Mobile: dois botões dividem a largura; respeita a safe-area do iOS. */}
       <div
-        className={`${SURFACE} sticky bottom-4 z-10 flex flex-wrap items-center gap-3 border-t ${DIVIDER} p-3 sm:p-4`}
+        className={`${SURFACE} sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 grid grid-cols-2 items-center gap-2 border-t ${DIVIDER} p-3 sm:flex sm:flex-wrap sm:gap-3 sm:p-4`}
       >
-        <Button type="submit" variant="primary" disabled={pending}>
+        <Button
+          type="submit"
+          variant="primary"
+          className={`w-full sm:w-auto ${TOUCH_BTN}`}
+          disabled={pending}
+        >
           {initial === null && !pending ? (
             <Send className="h-4 w-4" aria-hidden="true" />
           ) : (
@@ -621,11 +648,15 @@ export function JobForm({ initial = null, onDone }: JobFormProps) {
               ? "Salvar alterações"
               : "Publicar vaga"}
         </Button>
-        <Button variant="secondary" onClick={onDone}>
+        <Button
+          variant="secondary"
+          className={`w-full sm:w-auto ${TOUCH_BTN}`}
+          onClick={onDone}
+        >
           <X className="h-4 w-4" aria-hidden="true" />
           Cancelar
         </Button>
-        <p className="ml-auto hidden items-center gap-1.5 text-xs text-a11y-slate-500 md:inline-flex">
+        <p className="ms-auto hidden items-center gap-1.5 text-xs text-a11y-slate-500 md:inline-flex">
           <Info className="h-3.5 w-3.5" aria-hidden="true" />
           Campos com <span className="font-semibold text-danger">*</span> são
           obrigatórios

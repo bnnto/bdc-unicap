@@ -24,7 +24,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useMutation, useQuery } from "convex/react";
-import { MyApplicationsPage } from "../../src/components/student/MyApplicationsPage";
+import { MyApplicationsPage } from "../../src/components/student/candidaturas/MyApplicationsPage";
 
 /** Cards filhos diretos da lista (ignora li's da timeline interna). */
 function cardsOf(list: HTMLElement): HTMLElement[] {

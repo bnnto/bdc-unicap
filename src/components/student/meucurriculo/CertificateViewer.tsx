@@ -7,6 +7,10 @@
  * que abriu (o chamador devolve) e o scroll da página fica travado.
  * Alguns navegadores móveis não renderizam PDF em iframe; por isso o link
  * "Abrir em nova aba" fica sempre visível como alternativa.
+ *
+ * Responsividade: no celular o modal ocupa a tela inteira (100dvh, sem
+ * cantos), com safe-area no topo/rodapé e alvos de toque de 44px; de `sm`
+ * para cima volta a ser um painel centralizado de até 90dvh.
  */
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -100,35 +104,37 @@ export function CertificateViewer({
   }, [onClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 print:hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 sm:p-6 print:hidden">
       <div
         ref={backdropRef}
         aria-hidden="true"
         onClick={onClose}
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px]"
       />
+      {/* Mobile: tela cheia (dvh acompanha a barra do navegador).
+          sm+: painel centralizado com cantos arredondados. */}
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="certificate-viewer-title"
-        className="relative flex h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_24px_64px_-16px_rgba(15,23,42,0.45)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)]"
+        className="relative flex h-dvh w-full max-w-5xl flex-col overflow-hidden overscroll-contain bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_24px_64px_-16px_rgba(15,23,42,0.45)] sm:h-[90dvh] sm:rounded-3xl sm:pb-0 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)]"
       >
-        <header className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-6">
+        <header className="flex items-center gap-2 border-b border-slate-100 py-2 pe-[max(0.75rem,env(safe-area-inset-right))] ps-[max(0.75rem,env(safe-area-inset-left))] pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-3 sm:px-6 sm:py-3 sm:pt-3">
           <span
             aria-hidden="true"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FDF2F4] text-primary"
+            className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FDF2F4] text-primary min-[400px]:flex"
           >
             <FileText className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
             <h2
               id="certificate-viewer-title"
-              className="truncate font-serif text-lg font-bold tracking-tight text-slate-900"
+              className="truncate font-serif text-base font-bold tracking-tight text-slate-900 sm:text-lg"
             >
               {title}
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="truncate text-[13px] text-slate-500 sm:text-xs">
               Certificado anexado pelo candidato
             </p>
           </div>
@@ -136,7 +142,8 @@ export function CertificateViewer({
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-semibold text-primary [@media(hover:hover)]:hover:bg-primary/10 dark:text-[#e9b8c3] dark:[@media(hover:hover)]:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            title="Abrir em nova aba"
+            className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-10 sm:px-3.5 dark:text-[#e9b8c3] dark:[@media(hover:hover)]:hover:bg-white/10 [@media(hover:hover)]:hover:bg-primary/10 [@media(pointer:coarse)]:h-11"
           >
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">Abrir em nova aba</span>
@@ -148,7 +155,7 @@ export function CertificateViewer({
             onClick={onClose}
             aria-label="Fechar visualização do certificado"
             title="Fechar"
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-300 [@media(hover:hover)]:hover:bg-slate-100 dark:[@media(hover:hover)]:hover:bg-white/10 dark:[@media(hover:hover)]:hover:text-white"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-10 sm:w-10 dark:text-slate-300 [@media(hover:hover)]:hover:bg-slate-100 dark:[@media(hover:hover)]:hover:bg-white/10 dark:[@media(hover:hover)]:hover:text-white [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>

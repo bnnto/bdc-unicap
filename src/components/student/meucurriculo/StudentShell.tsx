@@ -1,10 +1,10 @@
-import { useAuthState } from "../auth/authContext";
-import { PillNavbar } from "../nav/PillNavbar";
+import { useAuthState } from "../../auth/authContext";
+import { PillNavbar } from "../../nav/PillNavbar";
 import { ResumeBuilderPage } from "./ResumeBuilderPage";
-import { JobOpportunities } from "./JobOpportunities";
-import { MyApplicationsPage } from "./MyApplicationsPage";
+import { JobOpportunities } from "../oportunidades/JobOpportunities";
+import { MyApplicationsPage } from "../candidaturas/MyApplicationsPage";
 import { PendingBadge } from "./PendingBadge";
-import { usePendingContactRelease } from "../../lib/usePendingContactRelease";
+import { usePendingContactRelease } from "../../../lib/usePendingContactRelease";
 import { Briefcase, FileText, Send, type LucideIcon } from "lucide-react";
 
 /**

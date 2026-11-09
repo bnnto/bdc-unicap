@@ -107,6 +107,11 @@ const SURFACE =
 const PRESS =
   "transition-[background-color,color,border-color,box-shadow,transform] duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.985] active:duration-150 motion-reduce:[transition-property:background-color,color,border-color,opacity] motion-reduce:active:scale-100";
 
+/** Área de toque mínima de 44px, apenas em dispositivos de ponteiro "grosso"
+ *  (touch). No desktop o visual compacto original é preservado. */
+const TOUCH = "[@media(pointer:coarse)]:min-h-11";
+const TOUCH_BTN = "[@media(pointer:coarse)]:!min-h-11";
+
 /** Hover do card: só aprofunda a sombra (sem mover), e só em dispositivos
  *  com ponteiro preciso — o card não é clicável por inteiro, então o
  *  movimento seria uma falsa promessa. */
@@ -121,8 +126,10 @@ const APPLE_PRIMARY =
 const APPLE_NEUTRAL =
   "group !h-11 !gap-2 !rounded-xl !border-transparent !bg-slate-100 !px-4 !text-slate-700 !shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!bg-slate-200/70 active:!scale-[0.97] active:!duration-100 dark:!bg-[#2c1a21] dark:!text-[#e9b8c3] dark:!shadow-[inset_0_0_0_1px_rgba(233,184,195,0.22)] dark:hover:!bg-[#3a2029]";
 
+/** `text-base` no mobile evita o zoom automático do iOS ao focar o campo
+ *  (qualquer input com fonte < 16px dispara zoom). */
 const INPUT_CLASS =
-  "h-11 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-900 transition-colors duration-150 placeholder:text-a11y-slate-500 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1";
+  "h-11 w-full min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 text-base text-slate-900 transition-colors duration-150 placeholder:text-a11y-slate-500 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 sm:text-sm";
 
 const FIELD_LABEL_CLASS = "text-xs font-medium tracking-[0.01em] text-a11y-slate-500";
 
@@ -132,24 +139,46 @@ const LEGEND_CLASS =
 const LEGEND_ICON_CLASS =
   "flex h-7 w-7 items-center justify-center rounded-lg bg-[#FDF2F4] text-primary";
 
-const CHIP_REMOVE_CLASS =
-  "inline-flex max-w-[200px] sm:max-w-[280px] items-center gap-1.5 rounded-full bg-[#FDF2F4] py-1 pl-3 pr-2 text-xs font-semibold text-primary ring-1 ring-primary/15 hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1";
+const CHIP_REMOVE_CLASS = `inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#FDF2F4] py-1 ps-3 pe-2 text-xs font-semibold text-primary ring-1 ring-primary/15 hover:bg-primary/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 sm:max-w-[22rem] ${TOUCH}`;
+
+/** Chips de filtro (disponibilidade / ano) com alvo de toque adequado. */
+const TOGGLE_CHIP_BASE = `inline-flex items-center justify-center rounded-full border px-3 py-1.5 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${TOUCH}`;
 
 /**
- * Keyframes locais (curva `cubic-bezier(0.23, 1, 0.32, 1)`, ease-out forte).
+ * Keyframes e utilitários locais (curva `cubic-bezier(0.23, 1, 0.32, 1)`).
  * - `ts-rise`: entrada dos cards (8px + opacidade, stagger curto);
  * - `ts-fade`: fundo do modal;
- * - `ts-pop`: modal (scale 0.96 → 1, nunca de 0; modais mantêm origem central).
+ * - `ts-pop`: modal no desktop (scale 0.96 → 1);
+ * - `ts-sheet`: modal no mobile (sobe da base, como bottom sheet);
+ * - `ts-cq` / `ts-cards`: grid de cards guiado por CONTAINER QUERY — o
+ *   número de colunas depende da largura da área de resultados (e não da
+ *   viewport), então funciona com a sidebar aberta, fechada ou em qualquer
+ *   tamanho de tela.
  * Movimento reduzido vira um fade curto; transparência reduzida tira o blur.
- * Se preferir, mova este bloco para o CSS global ao lado de `.view-enter`.
  */
 const MOTION_CSS = `
 @keyframes ts-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes ts-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ts-pop { from { opacity: 0; transform: scale(0.96) translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes ts-sheet { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: none; } }
 .ts-rise { animation: ts-rise 1000ms cubic-bezier(0.23, 1, 0.32, 1) backwards; }
 .ts-fade { animation: ts-fade 400ms ease-out both; }
 .ts-pop  { animation: ts-pop 450ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+@media (max-width: 639px) {
+  .ts-pop { animation-name: ts-sheet; }
+}
+
+.ts-cq { container-type: inline-size; container-name: ts-results; }
+.ts-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+@container ts-results (min-width: 52rem) {
+  .ts-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+}
+@supports not (container-type: inline-size) {
+  @media (min-width: 1280px) {
+    .ts-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ts-rise, .ts-pop { animation-name: ts-fade; animation-duration: 150ms; }
 }
@@ -241,23 +270,29 @@ function Avatar({
   size?: "md" | "lg";
 }) {
   const [failed, setFailed] = useState(false);
-  const box = size === "lg" ? "h-14 w-14 text-lg" : "h-10 w-10 text-sm";
+  // `lg` é fluido: 48px no mobile, 56px a partir de `sm`. Dimensões
+  // explícitas evitam layout shift e deformação (aspect-ratio 1:1).
+  const box =
+    size === "lg"
+      ? "h-12 w-12 text-base sm:h-14 sm:w-14 sm:text-lg"
+      : "h-10 w-10 text-sm";
   if (imageUrl && !failed) {
     return (
       <img
         src={imageUrl}
         alt=""
         loading="lazy"
+        decoding="async"
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className={`shrink-0 rounded-full object-cover ring-1 ring-primary/20 ${box}`}
+        className={`aspect-square shrink-0 rounded-full object-cover ring-1 ring-primary/20 ${box}`}
       />
     );
   }
   return (
     <span
       aria-hidden="true"
-      className={`flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#FDF2F4] to-white font-serif font-bold text-primary ring-1 ring-primary/20 dark:bg-none dark:bg-primary dark:text-white dark:ring-white/15 ${box}`}
+      className={`flex aspect-square shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#FDF2F4] to-white font-serif font-bold text-primary ring-1 ring-primary/20 dark:bg-none dark:bg-primary dark:text-white dark:ring-white/15 ${box}`}
     >
       {initialsOf(name)}
     </span>
@@ -281,6 +316,10 @@ type InviteModalProps = {
  * Convite por e-mail. O envio acontece no servidor (mutation
  * `invitations.sendInvite`): o e-mail do aluno nunca chega ao navegador
  * e o servidor reconfere `contactAllowed` (R2/LGPD).
+ *
+ * Responsivo: no mobile vira um "bottom sheet" ancorado na base, com altura
+ * em `dvh` (respeita a barra de endereço dinâmica) e `safe-area` do iOS; a
+ * partir de `sm` volta a ser um diálogo centralizado.
  */
 function InviteModal({ talent, onClose }: InviteModalProps) {
   const sendInvite = useMutation(api.invitations.sendInvite);
@@ -357,7 +396,7 @@ function InviteModal({ talent, onClose }: InviteModalProps) {
 
   return createPortal(
     <div
-      className="ts-backdrop ts-fade fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm"
+      className="ts-backdrop ts-fade fixed inset-0 z-50 flex items-end justify-center bg-slate-900/45 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !pending) onClose();
       }}
@@ -369,15 +408,15 @@ function InviteModal({ talent, onClose }: InviteModalProps) {
         aria-labelledby={titleId}
         aria-describedby={hintId}
         onKeyDown={handleKeyDown}
-        className="ts-pop max-h-full w-full max-w-xl overflow-y-auto rounded-3xl border border-transparent bg-white p-7 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_8px_16px_-8px_rgba(15,23,42,0.12),0_40px_80px_-24px_rgba(15,23,42,0.35)] sm:p-8"
+        className="ts-pop max-h-[92dvh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-3xl rounded-b-none border border-transparent bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_8px_16px_-8px_rgba(15,23,42,0.12),0_40px_80px_-24px_rgba(15,23,42,0.35)] sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl sm:p-8"
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-4">
+        <div className="flex items-start justify-between gap-3 sm:gap-4">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <Avatar name={talent.fullName} imageUrl={talent.imageUrl} />
             <div className="min-w-0">
               <h3
                 id={titleId}
-                className="font-serif text-2xl font-bold leading-tight tracking-tight text-primary"
+                className="font-serif text-xl font-bold leading-tight tracking-tight text-primary sm:text-2xl"
               >
                 Convidar talento
               </h3>
@@ -394,7 +433,7 @@ function InviteModal({ talent, onClose }: InviteModalProps) {
             onClick={onClose}
             disabled={pending}
             aria-label="Fechar"
-            className={`-mr-2 -mt-2 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50 ${PRESS}`}
+            className={`-me-2 -mt-2 shrink-0 rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50 [@media(pointer:coarse)]:p-3 ${PRESS}`}
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -402,7 +441,7 @@ function InviteModal({ talent, onClose }: InviteModalProps) {
 
         <p
           id={hintId}
-          className="mt-6 flex items-start gap-3 rounded-2xl bg-slate-50 p-4 text-[0.8125rem] leading-relaxed text-a11y-slate-600 ring-1 ring-slate-200/70"
+          className="mt-5 flex items-start gap-3 rounded-2xl bg-slate-50 p-3.5 text-[0.8125rem] leading-relaxed text-a11y-slate-600 ring-1 ring-slate-200/70 sm:mt-6 sm:p-4"
         >
           <ShieldCheck
             className="mt-0.5 h-4 w-4 shrink-0 text-primary"
@@ -415,7 +454,7 @@ function InviteModal({ talent, onClose }: InviteModalProps) {
         </p>
 
         <form
-          className="mt-6 flex flex-col gap-5"
+          className="mt-5 flex flex-col gap-4 sm:mt-6 sm:gap-5"
           onSubmit={(e) => {
             e.preventDefault();
             void handleSubmit();
@@ -451,16 +490,16 @@ function InviteModal({ talent, onClose }: InviteModalProps) {
             <textarea
               id={messageId}
               required
-              rows={7}
+              rows={6}
               minLength={MESSAGE_MIN}
               maxLength={MESSAGE_MAX}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Apresente a empresa, a vaga e o próximo passo…"
-              className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm leading-relaxed text-slate-900 transition-colors duration-150 placeholder:text-a11y-slate-500 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              className="min-h-32 w-full min-w-0 resize-y rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-base leading-relaxed text-slate-900 transition-colors duration-150 placeholder:text-a11y-slate-500 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 sm:text-sm"
             />
             <p
-              className={`text-right text-xs tabular-nums transition-colors duration-150 ${
+              className={`text-end text-xs tabular-nums transition-colors duration-150 ${
                 messageReady
                   ? "font-medium text-success"
                   : "text-a11y-slate-500"
@@ -474,11 +513,21 @@ function InviteModal({ talent, onClose }: InviteModalProps) {
             </p>
           </div>
 
-          <div className="flex flex-col-reverse justify-end gap-2 border-t border-slate-100 pt-5 sm:flex-row">
-            <Button variant="secondary" onClick={onClose} disabled={pending}>
+          <div className="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end sm:pt-5">
+            <Button
+              variant="secondary"
+              className={`w-full sm:w-auto ${TOUCH_BTN}`}
+              onClick={onClose}
+              disabled={pending}
+            >
               Cancelar
             </Button>
-            <Button type="submit" variant="primary" disabled={!canSend}>
+            <Button
+              type="submit"
+              variant="primary"
+              className={`w-full sm:w-auto ${TOUCH_BTN}`}
+              disabled={!canSend}
+            >
               <Send className="h-4 w-4" aria-hidden="true" />
               {pending ? "Enviando…" : "Enviar convite"}
             </Button>
@@ -540,13 +589,15 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
 
   return (
     <article
-      className={`${SURFACE} ${CARD_HOVER} flex h-full min-w-0 flex-col p-6 [overflow-wrap:anywhere] sm:p-7`}
+      className={`${SURFACE} ${CARD_HOVER} flex h-full min-w-0 flex-col p-4 [overflow-wrap:anywhere] min-[400px]:p-5 sm:p-7`}
     >
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-3 sm:gap-4">
         <Avatar name={talent.fullName} imageUrl={talent.imageUrl} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <h3 className="min-w-0 break-words font-serif text-xl font-bold leading-snug tracking-tight text-primary">
+          {/* flex-wrap: em telas estreitas o selo desce para a linha de baixo
+              em vez de espremer o nome. */}
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+            <h3 className="min-w-0 flex-1 basis-40 break-words font-serif text-lg font-bold leading-snug tracking-tight text-primary sm:text-xl">
               {talent.fullName}
             </h3>
             <span className="mt-0.5 shrink-0">
@@ -558,7 +609,7 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
               className="mt-0.5 h-4 w-4 shrink-0 text-slate-400"
               aria-hidden="true"
             />
-            <span>
+            <span className="min-w-0">
               {talent.course}
               {talent.semester !== null
                 ? ` · ${talent.semester}º semestre`
@@ -571,7 +622,7 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
       </div>
 
       {selectedSkills.length > 0 ? (
-        <div className="mt-5 flex items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 sm:mt-5">
           <p
             data-testid="skill-match"
             className={`inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${
@@ -586,7 +637,7 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
           </p>
           <span
             aria-hidden="true"
-            className="flex h-1.5 min-w-0 flex-1 gap-1"
+            className="flex h-1.5 min-w-16 flex-1 gap-1"
           >
             {Array.from({ length: meterSegments }, (_, i) => (
               <span
@@ -605,24 +656,24 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
       ) : null}
 
       {talent.headline !== null ? (
-        <p className="mt-5 border-l-2 border-primary/25 pl-3.5 text-sm italic leading-relaxed text-a11y-slate-600">
+        <p className="mt-4 border-s-2 border-primary/25 ps-3.5 text-sm italic leading-relaxed text-a11y-slate-600 sm:mt-5">
           “{talent.headline}”
         </p>
       ) : null}
 
       {visibleSkills.length > 0 ? (
-        <ul className="mt-5 flex flex-wrap gap-2" aria-label="Competências">
+        <ul className="mt-4 flex flex-wrap gap-1.5 sm:mt-5 sm:gap-2" aria-label="Competências">
           {visibleSkills.map((skill) => (
-            <li key={skill}>
+            <li key={skill} className="max-w-full">
               <span
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
+                className={`inline-flex max-w-full items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 sm:px-3 ${
                   isMatch(skill)
                     ? "bg-emerald-50 text-emerald-800 ring-emerald-600/40 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-400/40"
                     : "bg-slate-50 text-slate-700 ring-slate-200 dark:bg-white/5 dark:text-slate-200 dark:ring-white/10"
                 }`}
               >
                 {isMatch(skill) ? (
-                  <Check className="h-3 w-3" aria-hidden="true" />
+                  <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
                 ) : null}
                 {skill}
                 {isMatch(skill) ? (
@@ -645,20 +696,20 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
         </ul>
       ) : null}
 
-      <div className="mt-6 flex flex-col gap-3 text-[0.8125rem] text-a11y-slate-600">
+      <div className="mt-5 flex flex-col gap-3 text-[0.8125rem] text-a11y-slate-600 sm:mt-6">
         <ul aria-label="Disponibilidade" className="flex flex-wrap items-center gap-1.5">
           {talent.availability.map((entry) => (
             <li
               key={entry}
               className="inline-flex items-center gap-1.5 rounded-full bg-[#FDF2F4] px-2.5 py-1 text-xs font-semibold text-primary ring-1 ring-primary/15"
             >
-              <Clock className="h-3 w-3" aria-hidden="true" />
+              <Clock className="h-3 w-3 shrink-0" aria-hidden="true" />
               {AVAILABILITY_LABELS[entry]}
             </li>
           ))}
         </ul>
 
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+        <div className="flex flex-col gap-1.5 min-[400px]:flex-row min-[400px]:flex-wrap min-[400px]:items-center min-[400px]:gap-x-5">
           {talent.location !== null ? (
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
@@ -666,27 +717,29 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
             </span>
           ) : null}
           {talent.languages.length > 0 ? (
-            <span className="inline-flex items-center gap-1.5">
-              <Languages className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-              Idiomas:{" "}
-              {talent.languages
-                .map((l) => `${l.name} (${LEVEL_LABELS[l.level]})`)
-                .join(", ")}
+            <span className="inline-flex items-start gap-1.5">
+              <Languages className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+              <span className="min-w-0">
+                Idiomas:{" "}
+                {talent.languages
+                  .map((l) => `${l.name} (${LEVEL_LABELS[l.level]})`)
+                  .join(", ")}
+              </span>
             </span>
           ) : null}
         </div>
 
         <span
-          className={`inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
+          className={`inline-flex w-fit max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
             talent.contactAllowed
               ? "bg-emerald-50 text-success ring-emerald-600/25 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/25"
               : "bg-slate-50 text-a11y-slate-600 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10"
           }`}
         >
           {talent.contactAllowed ? (
-            <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />  
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           ) : (
-            <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
+            <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           )}
           {talent.contactAllowed
             ? "Contato autorizado pelo aluno"
@@ -696,12 +749,14 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
 
       {/* [RECRUITER_VIEW_PROFILE] "Visualizar Perfil & CV" abre a página
           dedicada (somente leitura). "Convidar" abre o modal de e-mail e só
-          fica ativo se o aluno autorizou contato (R2). */}
-      <div className="mt-auto pt-6">
-        <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-5 dark:border-white/10">
+          fica ativo se o aluno autorizou contato (R2). No mobile os botões
+          empilham em largura total (alvo de toque grande); a partir de `sm`
+          ficam lado a lado. */}
+      <div className="mt-auto pt-5 sm:pt-6">
+        <div className="flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:flex-wrap sm:pt-5 dark:border-white/10">
           <Button
             variant="secondary"
-            className={APPLE_NEUTRAL}
+            className={`${APPLE_NEUTRAL} !w-full sm:!w-auto`}
             onClick={() => {
               navigateTo(candidateProfilePath(talent.studentId));
               window.scrollTo(0, 0);
@@ -712,7 +767,7 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
           </Button>
           <Button
             variant="primary"
-            className={APPLE_PRIMARY}
+            className={`${APPLE_PRIMARY} !w-full sm:!w-auto`}
             disabled={!talent.contactAllowed}
             title={
               talent.contactAllowed ? undefined : "O aluno não autorizou contato"
@@ -731,40 +786,38 @@ function TalentCard({ talent, selectedSkills, onInvite }: TalentCardProps) {
 /** Esqueleto dos resultados: mesma silhueta do card, sem layout shift. */
 function ResultsSkeleton() {
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="grid grid-cols-1 gap-5 xl:grid-cols-2"
-    >
-      <span className="sr-only">Buscando talentos…</span>
-      {[0, 1, 2, 3].map((i) => (
-        <div
-          key={i}
-          aria-hidden="true"
-          className={`${SURFACE} animate-pulse p-7 motion-reduce:animate-none`}
-        >
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-full bg-slate-100" />
-            <div className="flex-1 space-y-2.5">
-              <div className="h-4 w-2/3 rounded-full bg-slate-100" />
-              <div className="h-3 w-1/2 rounded-full bg-slate-100" />
+    <div className="ts-cq">
+      <div role="status" aria-live="polite" className="ts-cards">
+        <span className="sr-only">Buscando talentos…</span>
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            aria-hidden="true"
+            className={`${SURFACE} animate-pulse p-4 min-[400px]:p-5 sm:p-7 motion-reduce:animate-none`}
+          >
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 shrink-0 rounded-full bg-slate-100 sm:h-14 sm:w-14" />
+              <div className="flex-1 space-y-2.5">
+                <div className="h-4 w-2/3 rounded-full bg-slate-100" />
+                <div className="h-3 w-1/2 rounded-full bg-slate-100" />
+              </div>
+            </div>
+            <div className="mt-6 space-y-2.5">
+              <div className="h-3 w-full rounded-full bg-slate-100" />
+              <div className="h-3 w-4/5 rounded-full bg-slate-100" />
+            </div>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <div className="h-7 w-20 rounded-full bg-slate-100" />
+              <div className="h-7 w-16 rounded-full bg-slate-100" />
+              <div className="h-7 w-24 rounded-full bg-slate-100" />
+            </div>
+            <div className="mt-8 flex flex-col gap-2 border-t border-slate-100 pt-5 sm:flex-row">
+              <div className="h-11 w-full rounded-xl bg-slate-100 sm:w-40" />
+              <div className="h-11 w-full rounded-xl bg-slate-100 sm:w-28" />
             </div>
           </div>
-          <div className="mt-6 space-y-2.5">
-            <div className="h-3 w-full rounded-full bg-slate-100" />
-            <div className="h-3 w-4/5 rounded-full bg-slate-100" />
-          </div>
-          <div className="mt-6 flex gap-2">
-            <div className="h-7 w-20 rounded-full bg-slate-100" />
-            <div className="h-7 w-16 rounded-full bg-slate-100" />
-            <div className="h-7 w-24 rounded-full bg-slate-100" />
-          </div>
-          <div className="mt-8 flex gap-2 border-t border-slate-100 pt-5">
-            <div className="h-10 w-40 rounded-xl bg-slate-100" />
-            <div className="h-10 w-28 rounded-xl bg-slate-100" />
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -779,9 +832,20 @@ function ResultsSkeleton() {
  * 1. Cabeçalho editorial + barra de busca larga (contagem e "Limpar");
  * 2. Duas colunas: sidebar de filtros (recolhível no mobile) + conteúdo
  *    com chips dos filtros ativos e dropdown "Ordenar por";
- * 3. Cards em grid (1 coluna até `xl`, 2 a partir de `xl`) com
- *    "Visualizar Perfil & CV" e "Convidar";
+ * 3. Cards em grid (1 ou 2 colunas conforme a LARGURA DA ÁREA DE
+ *    RESULTADOS, via container query) com "Visualizar Perfil & CV" e
+ *    "Convidar";
  * 4. Paginação centralizada no rodapé.
+ *
+ * Responsividade (mobile-first):
+ * - gutters, paddings e tipografia fluidos (`clamp`, `sm:`);
+ * - sidebar vira painel recolhível abaixo de `lg` com botão "Ver N
+ *   resultados" para fechar;
+ * - alvos de toque ≥ 44px em dispositivos touch (`pointer: coarse`);
+ * - inputs com 16px no mobile (sem zoom do iOS);
+ * - modal vira bottom sheet no mobile (`dvh` + safe-area);
+ * - colunas com `minmax(0, 1fr)` para nunca estourar a viewport;
+ * - propriedades lógicas (`ps/pe/ms/me/border-s/text-start/text-end`).
  *
  * Visual alinhado ao Painel Estratégico / Recrutadores (superfícies
  * suaves, serifada nos títulos, sans nos textos, movimento contido).
@@ -929,12 +993,13 @@ export function TalentSearchPage() {
   // Mantém a lista anterior na tela enquanto a nova carrega (sem piscar).
   const { data: result, stale } = useStableQuery(query);
 
-  const showSkeleton = useDelayedFlag(result === undefined, 300);  
+  const showSkeleton = useDelayedFlag(result === undefined, 300);
+
   function clearAll() {
     setSearch("");
     setCourse("");
     setStatus("");
-    setAvailability([]);  
+    setAvailability([]);
     setLocation("");
     setSkills([]);
     setLanguage("");
@@ -1033,19 +1098,20 @@ export function TalentSearchPage() {
   return (
     // [S8-2]: região nomeada em vez de <main> aninhado (o main da página é
     // único, no App — WCAG 1.3.1). Layout full-width (REFACTOR_UI Etapa 2).
+    // `overflow-x-clip` é a rede de segurança contra scroll horizontal.
     <div
       role="region"
       aria-label="Busca de talentos"
-      className="px-6 pb-16 pt-8"
+      className="min-w-0 overflow-x-clip px-4 pb-16 pt-6 sm:px-6 sm:pt-8 lg:px-8"
     >
       <style>{MOTION_CSS}</style>
 
-      {/* 1 — Cabeçalho editorial. */}
-      <header className="ts-rise mb-8 max-w-2xl">
-        <h2 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
+      {/* 1 — Cabeçalho editorial (tipografia fluida). */}
+      <header className="ts-rise mb-6 max-w-2xl sm:mb-8">
+        <h2 className="font-serif text-[clamp(2rem,1.45rem+2.6vw,3rem)] font-bold leading-[1.1] tracking-tight text-primary">
           Banco de Talentos
         </h2>
-        <p className="mt-4 text-base leading-relaxed text-slate-600">
+        <p className="mt-3 text-base leading-relaxed text-slate-600 sm:mt-4">
           Encontre estudantes e egressos por competências, idiomas,
           disponibilidade e previsão de conclusão.
         </p>
@@ -1053,11 +1119,11 @@ export function TalentSearchPage() {
 
       {/* Barra de busca larga + contagem + limpar. */}
       <div
-        className={`${SURFACE} ts-rise relative z-20 mb-8 p-5 sm:p-6`}
+        className={`${SURFACE} ts-rise relative z-20 mb-6 p-4 sm:mb-8 sm:p-6`}
         style={{ animationDelay: "200ms" }}
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <SuperSearch
               id="talent-search"
               ariaLabel="Buscar talentos por nome, curso, competência ou cidade"
@@ -1128,7 +1194,7 @@ export function TalentSearchPage() {
             />
           </div>
 
-          <div className="flex items-center justify-between gap-5 lg:justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-3 lg:flex-nowrap lg:justify-end">
             <p
               className="flex items-baseline gap-1.5 text-sm text-a11y-slate-600"
               aria-live="polite"
@@ -1154,24 +1220,25 @@ export function TalentSearchPage() {
         </div>
       </div>
 
-      {/* Mobile: botão que abre/fecha a sidebar de filtros. */}
+      {/* Mobile/tablet: botão que abre/fecha a sidebar de filtros. */}
       <button
         type="button"
         onClick={() => setFiltersOpen((open) => !open)}
         aria-expanded={filtersOpen}
         aria-controls="talent-filters"
-        className={`mb-5 inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 lg:hidden ${PRESS}`}
+        className={`mb-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:w-auto lg:hidden ${PRESS}`}
       >
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
         Filtros{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
       </button>
 
-      {/* 2 — Duas colunas: sidebar de filtros + conteúdo. */}
-      <div className="grid gap-8 lg:grid-cols-[320px_1fr] lg:items-start">
+      {/* 2 — Duas colunas: sidebar de filtros + conteúdo.
+          `minmax(0, 1fr)` impede que conteúdo largo estoure a coluna. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(17rem,19rem)_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[320px_minmax(0,1fr)]">
         <form
           id="talent-filters"
           aria-label="Filtros do Banco de Talentos"
-          className={`${SURFACE} ts-rise ${filtersOpen ? "ts-pop flex" : "hidden"} flex-col gap-6 p-6 lg:flex`}
+          className={`${SURFACE} ts-rise ${filtersOpen ? "ts-pop flex" : "hidden"} min-w-0 flex-col gap-6 p-5 sm:p-6 lg:flex`}
           style={{ animationDelay: "400ms" }}
           onSubmit={(e) => e.preventDefault()}
         >
@@ -1188,7 +1255,7 @@ export function TalentSearchPage() {
               </span>
             ) : null}
           </div>
-          
+
           <div className="border-t border-slate-100 pt-2">
             <fieldset className="flex min-w-0 flex-col gap-4">
               <legend className={LEGEND_CLASS}>
@@ -1233,7 +1300,7 @@ export function TalentSearchPage() {
                             selected ? cur.filter((v) => v !== value) : [...cur, value],
                           )
                         }
-                        className={`rounded-full border px-3 py-1.5 text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${PRESS} ${
+                        className={`${TOGGLE_CHIP_BASE} ${PRESS} ${
                           selected
                             ? "border-primary bg-[#FDF2F4] font-semibold text-primary"
                             : "border-slate-300 bg-white text-a11y-slate-600 hover:border-primary hover:text-primary"
@@ -1252,13 +1319,16 @@ export function TalentSearchPage() {
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="Ex.: Recife/PE"
+                  autoComplete="address-level2"
                   className={INPUT_CLASS}
                 />
               </label>
               <div className="flex flex-col gap-1.5">
                 <span className={FIELD_LABEL_CLASS}>Idioma</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="min-w-0 flex-1">
+                {/* 1 coluna em telas muito estreitas e na faixa `lg` (sidebar
+                    de ~17rem); 2 colunas quando há espaço real. */}
+                <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+                  <div className="min-w-0">
                     <Combobox
                       ariaLabel="Idioma"
                       groups={[{ label: "Idiomas", items: KNOWN_LANGUAGES }]}
@@ -1281,7 +1351,7 @@ export function TalentSearchPage() {
           </div>
 
           <div className="border-t border-slate-100 pt-6">
-            <fieldset className="flex flex-col gap-3 border-t border-slate-100 pt-2">
+            <fieldset className="flex min-w-0 flex-col gap-3 border-t border-slate-100 pt-2">
               <legend className={LEGEND_CLASS}>
                 <span className={LEGEND_ICON_CLASS}>
                   <CalendarDays className="h-4 w-4" aria-hidden="true" />
@@ -1291,6 +1361,7 @@ export function TalentSearchPage() {
               <div className="flex items-center gap-2">
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={2000}
                   max={2100}
                   value={yearFrom}
@@ -1308,6 +1379,7 @@ export function TalentSearchPage() {
                 </span>
                 <input
                   type="number"
+                  inputMode="numeric"
                   min={2000}
                   max={2100}
                   value={yearTo}
@@ -1340,7 +1412,7 @@ export function TalentSearchPage() {
                         setYearFrom(selected ? "" : year);
                         setYearTo(selected ? "" : year);
                       }}
-                      className={`rounded-full border px-3 py-1 text-xs tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 ${PRESS} ${
+                      className={`${TOGGLE_CHIP_BASE} tabular-nums ${PRESS} ${
                         selected
                           ? "border-primary bg-[#FDF2F4] font-semibold text-primary"
                           : "border-slate-300 bg-white text-a11y-slate-600 hover:border-primary hover:text-primary"
@@ -1355,7 +1427,7 @@ export function TalentSearchPage() {
           </div>
 
           <div className="border-t border-slate-100 pt-6">
-            <fieldset className="flex flex-col gap-3 border-t border-slate-100 pt-1">
+            <fieldset className="flex min-w-0 flex-col gap-3 border-t border-slate-100 pt-1">
               <legend className={LEGEND_CLASS}>
                 <span className={LEGEND_ICON_CLASS}>
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -1393,10 +1465,10 @@ export function TalentSearchPage() {
                         aria-label={`Remover competência ${chip}`}
                         className={`${CHIP_REMOVE_CLASS} ${PRESS}`}
                       >
-                        {/* E aqui também! */}
-                        <span className="truncate flex-1 text-left min-w-0">{chip}</span>
+                        {/* flex-1 + min-w-0 fazem o `truncate` funcionar. */}
+                        <span className="min-w-0 flex-1 truncate text-start">{chip}</span>
                         <X className="h-3 w-3 shrink-0" aria-hidden="true" />
-                      </button> 
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -1404,12 +1476,28 @@ export function TalentSearchPage() {
             </fieldset>
           </div>
 
+          {/* Só abaixo de `lg`: fecha o painel e leva direto aos resultados. */}
+          <Button
+            variant="primary"
+            className={`${APPLE_PRIMARY} !w-full lg:!hidden`}
+            onClick={() => {
+              setFiltersOpen(false);
+              listTopRef.current?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }}
+          >
+            {result === undefined
+              ? "Ver resultados"
+              : `Ver ${result.total} ${result.total === 1 ? "resultado" : "resultados"}`}
+          </Button>
         </form>
 
         {/* Conteúdo principal — chips, ordenação e grid de cards. */}
         <div ref={listTopRef} className="min-w-0 scroll-mt-6">
           <div
-            className="ts-rise mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-3"
+            className="ts-rise mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-4"
             style={{ animationDelay: "600ms" }}
           >
             {activeChips.length > 0 ? (
@@ -1426,18 +1514,18 @@ export function TalentSearchPage() {
                       aria-label={`Remover filtro ${chip.label}`}
                       className={`${CHIP_REMOVE_CLASS} ${PRESS}`}
                     >
-                      {/* O segredo está aqui: flex-1 e min-w-0 forçam o truncate a funcionar */}
-                      <span className="truncate flex-1 text-left min-w-0">{chip.label}</span>
+                      {/* flex-1 + min-w-0 fazem o `truncate` funcionar. */}
+                      <span className="min-w-0 flex-1 truncate text-start">{chip.label}</span>
                       <X className="h-3 w-3 shrink-0" aria-hidden="true" />
                     </button>
                   </li>
                 ))}
               </ul>
             ) : (
-              <span />
+              <span className="hidden sm:block" />
             )}
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex items-center gap-1.5 text-sm font-medium text-a11y-slate-600">
+            <div className="flex w-full items-center gap-2.5 sm:w-auto">
+              <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-a11y-slate-600">
                 <ArrowUpDown
                   className="h-4 w-4 text-primary"
                   aria-hidden="true"
@@ -1446,7 +1534,7 @@ export function TalentSearchPage() {
               </span>
               <CustomSelect
                 label=""
-                className="w-56"
+                className="min-w-0 flex-1 sm:w-56 sm:flex-none"
                 value={sort}
                 onChange={(v) => setSort(v as TalentSortOption)}
                 placeholder="Mais relevantes"
@@ -1461,47 +1549,49 @@ export function TalentSearchPage() {
           {result === undefined ? (
             showSkeleton ? <ResultsSkeleton /> : null
           ) : result.items.length === 0 ? (
-            /* CORREÇÃO AQUI: Fundo transparente escuro e borda suave no dark mode */
             <div
               role="status"
-              className="ts-rise rounded-3xl border border-dashed border-slate-300 bg-white/60 dark:border-white/10 dark:bg-white/5 px-6 py-16 text-center"
+              className="ts-rise rounded-3xl border border-dashed border-slate-300 bg-white/60 px-4 py-12 text-center sm:px-6 sm:py-16 dark:border-white/10 dark:bg-white/5"
             >
               <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FDF2F4] text-primary ring-1 ring-primary/15 dark:bg-primary/20 dark:ring-primary/40">
                 <SearchX className="h-7 w-7" aria-hidden="true" />
               </span>
-              <p className="mx-auto mt-5 max-w-md font-serif text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              <p className="mx-auto mt-5 max-w-md font-serif text-lg font-bold tracking-tight text-slate-900 sm:text-xl dark:text-slate-100">
                 {hasAnyFilter
                   ? "Nenhum talento encontrado com os filtros atuais."
                   : "Nenhum talento disponível no momento."}
               </p>
               {hasAnyFilter ? (
-                <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-a11y-slate-500 dark:text-slate-400 break-all line-clamp-3">
+                <p className="mx-auto mt-2 line-clamp-3 max-w-md text-sm leading-relaxed text-a11y-slate-500 [overflow-wrap:anywhere] dark:text-slate-400">
                   Tente remover algum dos filtros ativos:{" "}
                   {activeLabels.join(" · ")}.
                 </p>
               ) : null}
               {hasAnyFilter ? (
-                <Button variant="secondary" className={`${APPLE_NEUTRAL} mt-6`} onClick={clearAll}>
+                <Button
+                  variant="secondary"
+                  className={`${APPLE_NEUTRAL} mt-6 !w-full sm:!w-auto`}
+                  onClick={clearAll}
+                >
                   <FilterX className="h-4 w-4" aria-hidden="true" />
                   Limpar filtros
                 </Button>
               ) : null}
             </div>
           ) : (
+            /* `ts-cq` só aqui (e não na coluna inteira): o contexto de
+               contenção não prende dropdowns do "Ordenar por". */
             <div
               aria-busy={stale}
-              className={`transition-opacity duration-200 ease-out ${
+              className={`ts-cq transition-opacity duration-200 ease-out ${
                 stale ? "opacity-60" : "opacity-100"
               }`}
             >
-              <ul
-                className="grid grid-cols-1 gap-5 xl:grid-cols-2"
-                aria-label="Talentos encontrados"
-              >
+              <ul className="ts-cards" aria-label="Talentos encontrados">
                 {result.items.map((talent, index) => (
                   <li
                     key={talent.studentId}
-                    className="ts-rise"
+                    className="ts-rise min-w-0"
                     style={{ animationDelay: `${300 + Math.min(index, 7) * 130}ms` }}
                   >
                     <TalentCard
@@ -1519,24 +1609,17 @@ export function TalentSearchPage() {
                 ))}
               </ul>
 
-              {/* 4 — Rodapé: paginação centralizada. */}
+              {/* 4 — Rodapé: paginação. No mobile ocupa a largura toda, com
+                  "Anterior/Próxima" lado a lado e o resumo acima. */}
               <nav
-                className="ts-rise mt-10 flex justify-center"
+                className="ts-rise mt-8 flex justify-center sm:mt-10"
                 style={{ animationDelay: "900ms" }}
                 aria-label="Paginação de resultados"
               >
                 <div
-                  className={`${SURFACE} flex flex-wrap items-center justify-center gap-x-5 gap-y-2 p-2`}
+                  className={`${SURFACE} grid w-full grid-cols-2 gap-2 p-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-center sm:gap-x-5 sm:gap-y-2`}
                 >
-                  <Button
-                    variant="secondary"
-                    disabled={!result.hasPrev || stale}
-                    onClick={() => goToPage(page - 1)}
-                  >
-                    <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-                    Anterior
-                  </Button>
-                  <p className="px-1 text-sm tabular-nums text-a11y-slate-600">
+                  <p className="order-first col-span-2 px-1 pt-1 text-center text-sm tabular-nums text-a11y-slate-600 sm:order-none sm:col-span-1 sm:p-0 sm:px-1">
                     Página {result.page + 1} de {result.pageCount} ·{" "}
                     {result.page * TALENT_PAGE_SIZE + 1}–
                     {result.page * TALENT_PAGE_SIZE + result.items.length} de{" "}
@@ -1544,6 +1627,16 @@ export function TalentSearchPage() {
                   </p>
                   <Button
                     variant="secondary"
+                    className={`w-full sm:order-first sm:w-auto ${TOUCH_BTN}`}
+                    disabled={!result.hasPrev || stale}
+                    onClick={() => goToPage(page - 1)}
+                  >
+                    <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className={`w-full sm:w-auto ${TOUCH_BTN}`}
                     disabled={!result.hasNext || stale}
                     onClick={() => goToPage(page + 1)}
                   >

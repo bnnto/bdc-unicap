@@ -10,13 +10,13 @@ import {
   type ReactNode,
 } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 import { toast } from "sonner";
-import { friendlyErrorMessage } from "../../lib/toastMessages";
-import type { Id } from "../../../convex/_generated/dataModel";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Combobox, type ComboboxGroup } from "../ui/Combobox";
+import { friendlyErrorMessage } from "../../../lib/toastMessages";
+import type { Id } from "../../../../convex/_generated/dataModel";
+import { Button } from "../../ui/button";
+import { Input } from "../../ui/input";
+import { Combobox, type ComboboxGroup } from "../../ui/Combobox";
 import {
   MAX_ACADEMIC,
   MAX_CERTIFICATE_BYTES,
@@ -28,7 +28,7 @@ import {
   normalizeCertifications,
   validateResumeData,
   type AcademicEntry,
-} from "../../lib/resume";
+} from "../../../lib/resume";
 import {
   AVAILABILITY,
   ENROLLMENT_STATUS,
@@ -36,7 +36,7 @@ import {
   validateStudentProfile,
   type Availability,
   type EnrollmentStatus,
-} from "../../lib/studentProfile";
+} from "../../../lib/studentProfile";
 import {
   KNOWN_LANGUAGES,
   LANGUAGE_LEVELS,
@@ -47,7 +47,7 @@ import {
   removeSkill,
   validateLanguages,
   type LanguageEntry,
-} from "../../lib/skills";
+} from "../../../lib/skills";
 import { ResumeBlockContent } from "./ResumeView";
 import { CertificateViewer } from "./CertificateViewer";
 import {
@@ -78,7 +78,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { CustomSelect } from "../ui/CustomSelect";
+import { CustomSelect } from "../../ui/CustomSelect";
 
 /* ==========================================================================
    Tokens de design e movimento
@@ -89,13 +89,17 @@ import { CustomSelect } from "../ui/CustomSelect";
    - ease-in-out     → movimento na tela    (0.77, 0, 0.175, 1)
    Tudo que é transição de estado usa CSS transition (interrompível);
    entradas pontuais usam WAAPI (roda fora da main thread).
+
+   Responsividade (mobile-first): raios/paddings fluidos, alvos de toque
+   ≥ 44px, campos a 16px no mobile (evita zoom do iOS), ações em largura
+   total, safe-area, propriedades lógicas e sem overflow horizontal.
    ========================================================================== */
 
 /** Distância do topo para os elementos sticky (abaixo da navbar do portal). */
 const STICKY_TOP = "top-24";
 
 const SURFACE_BASE =
-  "rounded-3xl border border-transparent bg-white transition-shadow duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+  "rounded-2xl sm:rounded-3xl border border-transparent bg-white transition-shadow duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
 
 const SURFACE = `${SURFACE_BASE} shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)]`;
 
@@ -111,12 +115,28 @@ const PRESS = `transition-[background-color,border-color,color,box-shadow,transf
 const NAV_INDICATOR =
   "transition-[transform,width,height] duration-[450ms] ease-[cubic-bezier(0.77,0,0.175,1)] motion-reduce:transition-none";
 
-/** Campo de texto/textarea/select — alinhado ao raio e foco do design system. */
-const FIELD = `w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 transition-[border-color,box-shadow] duration-[300ms] ${EASE_OUT} hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1`;
+/**
+ * Campo de texto/textarea/select — alinhado ao raio e foco do design system.
+ * 16px no mobile: abaixo disso o iOS dá zoom automático ao focar o campo.
+ */
+const FIELD = `w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-base text-slate-900 placeholder:text-slate-400 transition-[border-color,box-shadow] duration-[300ms] ${EASE_OUT} hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 sm:text-sm`;
 
 /** Cartão de item repetível (histórico, experiência, idioma, certificação). */
 const ITEM =
-  "rounded-2xl bg-slate-50 p-5 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]";
+  "rounded-2xl bg-slate-50 p-4 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] sm:p-5 dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]";
+
+/** Texto auxiliar: 13px no mobile (legível), 12px de sm para cima. */
+const SMALL = "text-[13px] sm:text-xs";
+
+/** Altura de toque: 44px no mobile e em telas de toque; compacto com mouse. */
+const TOUCH_H = "h-11 sm:h-9 [@media(pointer:coarse)]:h-11";
+
+/**
+ * Área de toque ampliada (44px) para botões visualmente pequenos: um
+ * pseudo-elemento invisível estende a zona clicável sem mudar o layout.
+ */
+const TOUCH_AREA =
+  "relative before:absolute before:-inset-2.5 before:content-['']";
 
 /** Cross-fade de ícones (lápis ⇄ X): opacidade + rotação + blur leve. */
 const SWAP = `absolute inset-0 h-4 w-4 transition-[opacity,transform,rotate,scale,filter] duration-[450ms] ${EASE_OUT} motion-reduce:[transition-property:opacity]`;
@@ -288,7 +308,10 @@ function scrollToBlock(index: number): void {
    Componentes de apresentação
    ========================================================================== */
 
-/** Anel de progresso: o traço corre de 0 até o valor ao montar e a cada mudança. */
+/**
+ * Anel de progresso: o traço corre de 0 até o valor ao montar e a cada
+ * mudança. O SVG escala com o contêiner (96px no mobile, 112px de sm).
+ */
 function ProgressRing({
   percent,
   complete,
@@ -303,16 +326,13 @@ function ProgressRing({
   const shown = useSettled(percent, 0);
   return (
     <div
-      className="relative shrink-0"
-      style={{ width: size, height: size }}
+      className="relative h-24 w-24 shrink-0 sm:h-28 sm:w-28"
       role="img"
       aria-label={`Currículo ${percent}% preenchido`}
     >
       <svg
-        width={size}
-        height={size}
         viewBox={`0 0 ${size} ${size}`}
-        className="-rotate-90"
+        className="h-full w-full -rotate-90"
         aria-hidden="true"
       >
         <circle
@@ -341,14 +361,14 @@ function ProgressRing({
           <Enter
             key="done"
             y={4}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#c89d3c] text-[#241703]"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-[#c89d3c] text-[#241703] sm:h-12 sm:w-12"
           >
-            <Check className="h-6 w-6" strokeWidth={3} aria-hidden="true" />
+            <Check className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={3} aria-hidden="true" />
           </Enter>
         ) : (
-          <span className="font-serif text-3xl font-bold tabular-nums tracking-tight text-white">
+          <span className="font-serif text-2xl font-bold tabular-nums tracking-tight text-white sm:text-3xl">
             {percent}
-            <span className="text-lg font-semibold text-white/70">%</span>
+            <span className="text-base font-semibold text-white/70 sm:text-lg">%</span>
           </span>
         )}
       </div>
@@ -393,20 +413,25 @@ function Hero({
     subtitle = `${doneCount} de ${total} blocos preenchidos. Falta pouco para um perfil completo.`;
   }
 
+  // Botões do herói: largura total no mobile, altura mínima de 44px e
+  // texto que pode quebrar linha ("Continuar em Experiências" é longo).
+  const heroButton =
+    "inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c89d3c] sm:w-auto";
+
   return (
     <section
       aria-label="Resumo do preenchimento do currículo"
-      className="relative overflow-hidden rounded-3xl bg-[linear-gradient(120deg,#4f0d1c,#6b1426_45%,#8f2238)] p-6 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_24px_48px_-24px_rgba(79,13,28,0.55)] sm:p-8"
+      className="relative overflow-hidden rounded-2xl bg-[linear-gradient(120deg,#4f0d1c,#6b1426_45%,#8f2238)] p-5 text-white shadow-[0_1px_2px_rgba(15,23,42,0.08),0_24px_48px_-24px_rgba(79,13,28,0.55)] sm:rounded-3xl sm:p-8"
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-16 -top-24 h-80 w-80 rounded-full bg-[radial-gradient(closest-side,rgba(200,157,60,0.32),transparent)]"
+        className="pointer-events-none absolute -end-16 -top-24 h-80 w-80 rounded-full bg-[radial-gradient(closest-side,rgba(200,157,60,0.32),transparent)]"
       />
-      <div className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-8">
+      <div className="relative flex flex-col items-start gap-5 sm:flex-row sm:items-center sm:gap-8">
         <ProgressRing percent={percent} complete={complete} />
 
-        <div className="min-w-0 flex-1">
-          <p className="mt-1 break-words font-serif text-3xl font-bold leading-[1.1] tracking-tight sm:text-4xl">
+        <div className="min-w-0 w-full flex-1">
+          <p className="mt-1 font-serif text-[length:clamp(1.625rem,1.2rem_+_2vw,2.25rem)] font-bold leading-[1.1] tracking-tight [overflow-wrap:anywhere]">
             {title}
           </p>
           <p className="mt-2 max-w-md text-sm leading-relaxed text-white/80">
@@ -427,29 +452,29 @@ function Hero({
           </ol>
         </div>
 
-        <div className="shrink-0">
+        <div className="w-full shrink-0 sm:w-auto">
           {editingLabel !== null ? (
             <button
               type="button"
               onClick={onGoToEditing}
-              className={`inline-flex h-11 items-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-semibold text-white ring-1 ring-inset ring-white/25 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c89d3c] ${PRESS}`}
+              className={`${heroButton} bg-white/10 text-white ring-1 ring-inset ring-white/25 hover:bg-white/20 ${PRESS}`}
             >
-              <Pencil className="h-4 w-4" aria-hidden="true" />
+              <Pencil className="h-4 w-4 shrink-0" aria-hidden="true" />
               Editando {editingLabel}
             </button>
           ) : complete ? (
             <Enter
               y={4}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-semibold text-white ring-1 ring-inset ring-white/25"
+              className={`${heroButton} bg-white/10 text-white ring-1 ring-inset ring-white/25`}
             >
-              <Sparkles className="h-4 w-4 text-[#e6c98a]" aria-hidden="true" />
+              <Sparkles className="h-4 w-4 shrink-0 text-[#e6c98a]" aria-hidden="true" />
               Currículo completo
             </Enter>
           ) : (
             <button
               type="button"
               onClick={onContinue}
-              className={`inline-flex h-11 items-center gap-2 rounded-xl bg-[#ffffff] px-5 text-sm font-semibold text-[#6b1426] shadow-sm hover:bg-[#fdf2f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c89d3c] focus-visible:ring-offset-2 focus-visible:ring-offset-[#6b1426] ${PRESS}`}
+              className={`${heroButton} bg-[#ffffff] text-[#6b1426] shadow-sm hover:bg-[#fdf2f4] focus-visible:ring-offset-2 focus-visible:ring-offset-[#6b1426] ${PRESS}`}
             >
               {hasProfile ? `Continuar em ${nextLabel}` : "Preencher dados pessoais"}
             </button>
@@ -466,7 +491,7 @@ function StatusPill({ done }: { done: boolean }) {
       as="span"
       key={done ? "done" : "todo"}
       y={3}
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold ${SMALL} ${
         done ? "bg-success/10 text-success" : "bg-slate-100 text-slate-600"
       }`}
     >
@@ -491,12 +516,12 @@ function Group({
   return (
     <fieldset
       className={`min-w-0 ${
-        divider ? "border-t border-slate-100 pt-8" : ""
+        divider ? "border-t border-slate-100 pt-6 sm:pt-8" : ""
       }`}
     >
       <legend className="text-sm font-semibold text-slate-900">{title}</legend>
       {hint !== undefined ? (
-        <p className="mt-0.5 text-xs text-slate-500">{hint}</p>
+        <p className={`mt-0.5 text-slate-500 ${SMALL}`}>{hint}</p>
       ) : null}
       <div className="mt-4 flex flex-col gap-4">{children}</div>
     </fieldset>
@@ -520,7 +545,7 @@ function ChoicePill({
   children: ReactNode;
 }) {
   return (
-    <label className="group relative cursor-pointer">
+    <label className="group relative max-w-full cursor-pointer">
       <input
         type={type}
         name={name}
@@ -530,7 +555,7 @@ function ChoicePill({
         className="peer sr-only"
       />
       <span
-        className={`inline-flex select-none items-center gap-2.5 rounded-full border px-4 py-2.5 text-sm font-semibold peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 group-active:scale-[0.97] ${PRESS} ${
+        className={`inline-flex min-h-11 max-w-full select-none items-center gap-2.5 rounded-full border px-4 py-2.5 text-sm font-semibold peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 group-active:scale-[0.97] ${PRESS} ${
           checked
             ? "border-primary bg-[#FDF2F4] text-primary"
             : "border-slate-300 bg-white text-slate-700 hover:border-primary"
@@ -549,7 +574,7 @@ function ChoicePill({
             strokeWidth={3.5}
           />
         </span>
-        {children}
+        <span className="min-w-0">{children}</span>
       </span>
     </label>
   );
@@ -570,8 +595,12 @@ function CharMeter({
   const ratio = Math.min(count / max, 1);
   const enough = min === undefined || count >= min;
   return (
-    <div id={id} aria-live="polite" className="mt-2 flex items-center gap-3">
-      <div className="h-1 flex-1 overflow-hidden rounded-full bg-slate-100">
+    <div
+      id={id}
+      aria-live="polite"
+      className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1"
+    >
+      <div className="h-1 min-w-[8rem] flex-1 overflow-hidden rounded-full bg-slate-100">
         <div
           style={{ transform: `scaleX(${ratio})` }}
           className={`h-full origin-left rounded-full transition-[transform,background-color] duration-[450ms] ${EASE_OUT} motion-reduce:transition-none ${
@@ -579,7 +608,7 @@ function CharMeter({
           }`}
         />
       </div>
-      <span className="shrink-0 text-xs tabular-nums text-slate-500">
+      <span className={`shrink-0 tabular-nums text-slate-500 ${SMALL}`}>
         {count}/{max} caracteres
         {min !== undefined ? ` (mínimo ${min})` : ""}
       </span>
@@ -601,7 +630,7 @@ function FieldLabel({
     <label htmlFor={htmlFor} className="text-sm font-semibold text-slate-700">
       {children}
       {required ? (
-        <span className="ml-0.5 text-danger" aria-hidden="true">
+        <span className="ms-0.5 text-danger" aria-hidden="true">
           *
         </span>
       ) : null}
@@ -622,7 +651,7 @@ function RemoveButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-[#f87171] ${PRESS}`}
+      className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-10 sm:w-10 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 dark:hover:text-[#f87171] ${PRESS}`}
     >
       <Trash2 className="h-4 w-4" aria-hidden="true" />
     </button>
@@ -641,10 +670,10 @@ function AddTile({
     <button
       type="button"
       onClick={onClick}
-      className={`group flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 px-4 py-4 text-sm font-semibold text-slate-600 hover:border-primary hover:bg-[#FDF2F4] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${PRESS}`}
+      className={`group flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 px-4 py-3.5 text-sm font-semibold text-slate-600 hover:border-primary hover:bg-[#FDF2F4] hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:py-4 ${PRESS}`}
     >
       <Plus
-        className={`h-4 w-4 transition-[transform,rotate] duration-[450ms] ${EASE_OUT} [@media(hover:hover)]:group-hover:rotate-90`}
+        className={`h-4 w-4 shrink-0 transition-[transform,rotate] duration-[450ms] ${EASE_OUT} [@media(hover:hover)]:group-hover:rotate-90`}
         aria-hidden="true"
       />
       {children}
@@ -667,8 +696,8 @@ function ItemCard({
   children: ReactNode;
 }) {
   return (
-    <Enter delay={delay} className={ITEM}>
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <Enter delay={delay} className={`min-w-0 ${ITEM}`}>
+      <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
         <p className="text-sm font-semibold text-slate-600">{label}</p>
         <RemoveButton label={removeLabel} onClick={onRemove} />
       </div>
@@ -699,7 +728,7 @@ function CertificateFileRow({
   onView: () => void;
   onRemoveFile: () => void;
 }) {
-  const action = `inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 ${PRESS}`;
+  const action = `inline-flex ${TOUCH_H} cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 font-semibold focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 sm:px-3.5 ${SMALL} ${PRESS}`;
   const picker = (label: string, tone: string) => (
     <label
       className={`${action} ${tone} ${
@@ -717,7 +746,7 @@ function CertificateFileRow({
           if (file !== undefined) onPick(file);
         }}
       />
-      <Paperclip className="h-3.5 w-3.5" aria-hidden="true" />
+      <Paperclip className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       {label}
     </label>
   );
@@ -728,7 +757,7 @@ function CertificateFileRow({
         {uploading ? (
           <span
             role="status"
-            className="inline-flex h-9 items-center gap-2 rounded-full bg-slate-100 px-3.5 text-xs font-semibold text-slate-600"
+            className={`inline-flex ${TOUCH_H} items-center gap-2 rounded-full bg-slate-100 px-3.5 font-semibold text-slate-600 ${SMALL}`}
           >
             <Loader2
               className="h-3.5 w-3.5 animate-spin motion-reduce:animate-pulse"
@@ -738,8 +767,10 @@ function CertificateFileRow({
           </span>
         ) : hasFile ? (
           <>
-            <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-success/10 px-3.5 text-xs font-semibold text-success">
-              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+            <span
+              className={`inline-flex ${TOUCH_H} items-center gap-1.5 rounded-full bg-success/10 px-3.5 font-semibold text-success ${SMALL}`}
+            >
+              <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
               PDF anexado
             </span>
             {url ? (
@@ -770,7 +801,7 @@ function CertificateFileRow({
           )
         )}
       </div>
-      <p className="mt-2 text-xs text-slate-500">
+      <p className={`mt-2 text-slate-500 ${SMALL}`}>
         PDF de até 5MB. O recrutador poderá abrir o certificado para conferir
         a autenticidade.
       </p>
@@ -851,20 +882,21 @@ function DiscardDialog({
   }, [onKeep]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]">
       <div
         ref={backdropRef}
         aria-hidden="true"
         onClick={onKeep}
         className="absolute inset-0 bg-slate-900/50 backdrop-blur-[2px]"
       />
+      {/* max-h em dvh + rolagem: o painel nunca estoura em paisagem/teclado. */}
       <div
         ref={panelRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="discard-title"
         aria-describedby="discard-desc"
-        className={`${SURFACE} relative w-full max-w-md p-6 sm:p-7`}
+        className={`${SURFACE} relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain p-5 sm:p-7`}
       >
         <span
           aria-hidden="true"
@@ -880,7 +912,7 @@ function DiscardDialog({
         </h2>
         <p
           id="discard-desc"
-          className="mt-2 text-sm leading-relaxed text-slate-600"
+          className="mt-2 text-sm leading-relaxed text-slate-600 [overflow-wrap:anywhere]"
         >
           Você está editando “{from}” e as alterações ainda não foram salvas.{" "}
           {to !== null
@@ -891,7 +923,7 @@ function DiscardDialog({
           <button
             type="button"
             onClick={onDiscard}
-            className={`inline-flex h-11 items-center justify-center rounded-xl bg-danger/10 px-5 text-sm font-semibold text-danger hover:bg-danger hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 dark:hover:text-white ${PRESS}`}
+            className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-danger/10 px-5 text-sm font-semibold text-danger hover:bg-danger hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 dark:hover:text-white ${PRESS}`}
           >
             {to !== null ? "Descartar e trocar" : "Descartar e fechar"}
           </button>
@@ -899,7 +931,7 @@ function DiscardDialog({
             ref={keepRef}
             type="button"
             onClick={onKeep}
-            className={`inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${PRESS}`}
+            className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${PRESS}`}
           >
             Continuar editando
           </button>
@@ -918,13 +950,13 @@ function LoadingSkeleton() {
       className="flex flex-col gap-6"
     >
       <span className="sr-only">Carregando currículo…</span>
-      <div className="h-48 animate-pulse rounded-3xl bg-slate-100 motion-reduce:animate-none" />
+      <div className="h-48 animate-pulse rounded-2xl bg-slate-100 motion-reduce:animate-none sm:rounded-3xl" />
       <div className="h-14 animate-pulse rounded-2xl bg-slate-100 motion-reduce:animate-none" />
       {[0, 1, 2].map((i) => (
         <div
           key={i}
           style={{ animationDelay: `${i * 120}ms` }}
-          className="h-40 animate-pulse rounded-3xl bg-slate-100 motion-reduce:animate-none"
+          className="h-40 animate-pulse rounded-2xl bg-slate-100 motion-reduce:animate-none sm:rounded-3xl"
         />
       ))}
     </div>
@@ -1747,7 +1779,7 @@ export function ResumeForm() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-5 sm:gap-6">
       <Enter>
         <Hero
           flags={flags}
@@ -1762,7 +1794,8 @@ export function ResumeForm() {
       </Enter>
 
       {/* Navegação: material translúcido fixo sob a navbar; o conteúdo rola
-          por baixo. O indicador desliza entre os itens (ease-in-out). */}
+          por baixo. O indicador desliza entre os itens (ease-in-out). No
+          mobile a faixa rola na horizontal (snap + overscroll contido). */}
       <Enter delay={100} className={`sticky ${STICKY_TOP} z-20`}>
         <nav
           aria-label="Blocos do currículo"
@@ -1770,7 +1803,7 @@ export function ResumeForm() {
         >
           <ul
             ref={navListRef}
-            className="relative flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="relative flex snap-x gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {indicator !== null ? (
               <li
@@ -1791,7 +1824,7 @@ export function ResumeForm() {
               const isActive = active === block.index;
               const isDone = flags[block.index] === true;
               return (
-                <li key={block.index} className="shrink-0 xl:flex-1">
+                <li key={block.index} className="shrink-0 snap-center xl:flex-1">
                   <button
                     ref={(node) => {
                       navItemRefs.current[block.index] = node;
@@ -1799,7 +1832,7 @@ export function ResumeForm() {
                     type="button"
                     aria-current={isActive ? "true" : undefined}
                     onClick={() => jumpTo(block.index)}
-                    className={`relative flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-[color,background-color,transform,scale] duration-[450ms] ${EASE_OUT} active:scale-[0.97] active:duration-100 motion-reduce:[transition-property:color,background-color] motion-reduce:active:scale-100 ${
+                    className={`relative flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-[color,background-color,transform,scale] duration-[450ms] ${EASE_OUT} active:scale-[0.97] active:duration-100 motion-reduce:[transition-property:color,background-color] motion-reduce:active:scale-100 ${
                       isActive
                         ? "text-primary"
                         : "text-slate-600 hover:text-slate-900 dark:hover:text-slate-100"
@@ -1827,7 +1860,7 @@ export function ResumeForm() {
 
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-6"
+        className="flex min-w-0 flex-col gap-5 sm:gap-6"
         aria-label="Formulário de currículo vitae"
       >
         {BLOCK_LABELS.map((block) => {
@@ -1840,26 +1873,26 @@ export function ResumeForm() {
               delay={200 + block.index * 90}
               id={`bloco-${BLOCO_IDS[block.index]}`}
               data-block={block.index}
-              className={`scroll-mt-44 p-6 sm:p-8 ${
+              className={`min-w-0 scroll-mt-44 p-4 min-[400px]:p-5 sm:p-8 ${
                 isEditing ? SURFACE_EDITING : SURFACE
               }`}
             >
               {/* Cabeçalho do bloco: ícone, título, status e botão de edição. */}
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 items-start gap-4">
+              <div className="flex items-start justify-between gap-3 sm:gap-4">
+                <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                   <span
                     aria-hidden="true"
-                    className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-[background-color,color] duration-[600ms] ${EASE} ${
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl transition-[background-color,color] duration-[600ms] ${EASE} sm:h-12 sm:w-12 ${
                       isEditing
                         ? "bg-primary text-white"
                         : "bg-[#FDF2F4] text-primary"
                     }`}
                   >
-                    <Icon className="h-6 w-6" strokeWidth={2} />
+                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={2} />
                   </span>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                      <h2 className="font-serif text-xl font-bold leading-tight tracking-tight text-slate-900 sm:text-2xl">
+                      <h2 className="font-serif text-lg font-bold leading-tight tracking-tight text-slate-900 [overflow-wrap:anywhere] min-[400px]:text-xl sm:text-2xl">
                         {block.index + 1}. {block.heading}
                       </h2>
                       <StatusPill done={flags[block.index] === true} />
@@ -1875,7 +1908,7 @@ export function ResumeForm() {
                   }}
                   type="button"
                   onClick={() => toggleEdit(block.index)}
-                  className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:px-4 ${PRESS} ${
+                  className={`inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full px-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:h-10 sm:px-4 [@media(pointer:coarse)]:h-11 ${PRESS} ${
                     isEditing
                       ? "bg-primary text-white hover:bg-primary-hover"
                       : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
@@ -1918,7 +1951,7 @@ export function ResumeForm() {
                   somente leitura (o mesmo usado pela página dedicada
                   do candidato no portal do recrutador). */}
               {!isEditing ? (
-                <Enter key="view" y={6} className="mt-7 min-w-0 [overflow-wrap:anywhere]">
+                <Enter key="view" y={6} className="mt-5 min-w-0 [overflow-wrap:anywhere] sm:mt-7">
                   <ResumeBlockContent
                     blockIndex={block.index}
                     data={viewData}
@@ -1930,7 +1963,7 @@ export function ResumeForm() {
                   key="edit"
                   y={8}
                   data-edit-panel=""
-                  className="mt-7 flex flex-col gap-8"
+                  className="mt-5 flex min-w-0 flex-col gap-6 sm:mt-7 sm:gap-8"
                 >
                   {block.index === 0 && (
                     <>
@@ -2164,7 +2197,7 @@ export function ResumeForm() {
                         </FieldLabel>
                         <div className="flex flex-wrap items-start gap-2">
                           <div
-                            className="min-w-52 flex-1"
+                            className="min-w-0 flex-1 basis-52"
                             onKeyDown={(e) => {
                               // 1º Enter escolhe a opção (o Combobox já cuida); com a lista
                               // fechada, Enter adiciona a competência e nunca salva o bloco.
@@ -2188,7 +2221,7 @@ export function ResumeForm() {
                           </div>
                           <Button
                             variant="secondary"
-                            className="h-10 shrink-0"
+                            className="min-h-11 w-full shrink-0 sm:w-auto"
                             disabled={skillDraft.trim().length === 0}
                             onClick={addSkillDraft}
                           >
@@ -2198,7 +2231,7 @@ export function ResumeForm() {
                         </div>
                         <p
                           id="resume-skill-hint"
-                          className="text-xs text-slate-500"
+                          className={`text-slate-500 ${SMALL}`}
                         >
                           {skills.length}/{MAX_SKILLS} — só termos do
                           dicionário oficial
@@ -2215,16 +2248,18 @@ export function ResumeForm() {
                             key={skill}
                             y={4}
                             delay={Math.min(index, 8) * 30}
-                            className="inline-flex items-center gap-1 rounded-full bg-[#FDF2F4] py-1 pl-3.5 pr-1 text-sm font-semibold text-primary shadow-[inset_0_0_0_1px_rgba(107,20,38,0.12)]"
+                            className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#FDF2F4] py-1 ps-3.5 pe-1 text-sm font-semibold text-primary shadow-[inset_0_0_0_1px_rgba(107,20,38,0.12)]"
                           >
-                            {skill}
+                            <span className="min-w-0 [overflow-wrap:anywhere]">
+                              {skill}
+                            </span>
                             <button
                               type="button"
                               aria-label={`Remover competência ${skill}`}
                               onClick={() =>
                                 setSkills((list) => removeSkill(list, skill))
                               }
-                              className={`grid h-6 w-6 place-items-center rounded-full text-primary/70 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-[#e9b8c3] ${PRESS}`}
+                              className={`${TOUCH_AREA} grid h-6 w-6 shrink-0 place-items-center rounded-full text-primary/70 hover:bg-primary/10 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:text-[#e9b8c3] ${PRESS}`}
                             >
                               <X className="h-3.5 w-3.5" aria-hidden="true" />
                             </button>
@@ -2237,9 +2272,9 @@ export function ResumeForm() {
                   {block.index === 4 && (
                     <div className="flex flex-col gap-4">
                       {languages.map((language, index) => (
-                        <Enter key={index} className={ITEM}>
+                        <Enter key={index} className={`min-w-0 ${ITEM}`}>
                           <div className="flex flex-wrap items-end gap-4">
-                            <div className="flex min-w-52 flex-1 flex-col gap-1.5">
+                            <div className="flex min-w-0 flex-1 basis-52 flex-col gap-1.5">
                               <FieldLabel
                                 htmlFor={`resume-language-name-${index}`}
                                 required
@@ -2271,14 +2306,16 @@ export function ResumeForm() {
                               className="w-full sm:w-48"
                             />
 
-                            <RemoveButton
-                              label="Remover"
-                              onClick={() =>
-                                setLanguages((list) =>
-                                  list.filter((_, i) => i !== index),
-                                )
-                              }
-                            />
+                            <div className="max-sm:ms-auto">
+                              <RemoveButton
+                                label="Remover"
+                                onClick={() =>
+                                  setLanguages((list) =>
+                                    list.filter((_, i) => i !== index),
+                                  )
+                                }
+                              />
+                            </div>
                           </div>
                         </Enter>
                       ))}
@@ -2305,7 +2342,8 @@ export function ResumeForm() {
                             }
                           >
                             <div className="flex flex-col gap-4">
-                              <div className="grid gap-4 sm:grid-cols-3">
+                              {/* Colunas por conteúdo: 1 no mobile, até 3 quando cabem (≥ 12rem cada). */}
+                              <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-4">
                                 <Input
                                   label="Empresa"
                                   required
@@ -2378,7 +2416,7 @@ export function ResumeForm() {
                         ) : null}
                       </Group>
 
-                      <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-8">
+                      <div className="flex flex-col gap-1.5 border-t border-slate-100 pt-6 sm:pt-8">
                         <FieldLabel htmlFor="resume-projects-edit">
                           Projetos de Extensão (texto livre)
                         </FieldLabel>
@@ -2466,11 +2504,11 @@ export function ResumeForm() {
                           className="mt-0.5 h-5 w-5 shrink-0 text-danger"
                           aria-hidden="true"
                         />
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-sm font-semibold text-danger">
                             Corrija os pontos abaixo:
                           </p>
-                          <ul className="mt-1 list-disc pl-5 text-sm text-danger">
+                          <ul className="mt-1 list-disc ps-5 text-sm text-danger [overflow-wrap:anywhere]">
                             {errors.map((e) => (
                               <li key={e}>{e}</li>
                             ))}
@@ -2481,17 +2519,20 @@ export function ResumeForm() {
                   ) : null}
 
                   {/* Barra de ação do bloco em edição — translúcida e fixa ao
-                      rodapé enquanto o bloco estiver na tela. */}
+                      rodapé enquanto o bloco estiver na tela. No mobile os
+                      dois botões dividem a largura (44px de altura mínima) e
+                      respeitam a safe-area inferior. */}
                   <div
-                    className={`sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl bg-white/90 px-4 py-3 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_12px_32px_-12px_rgba(15,23,42,0.25)] backdrop-blur-xl dark:bg-[#171b22]/90 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none`}
+                    className={`sticky bottom-[max(1rem,env(safe-area-inset-bottom))] z-10 flex items-center justify-between gap-3 rounded-2xl bg-white/90 p-3 shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_12px_32px_-12px_rgba(15,23,42,0.25)] backdrop-blur-xl sm:px-4 dark:bg-[#171b22]/90 dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none`}
                   >
-                    <p className="hidden text-xs text-slate-500 sm:block">
+                    <p className={`hidden text-slate-500 sm:block ${SMALL}`}>
                       As alterações só valem depois de salvar.
                     </p>
                     <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
                       <Button
                         type="button"
                         variant="secondary"
+                        className="min-h-11 flex-1 sm:flex-none"
                         onClick={cancelEdit}
                         disabled={pending || uploadingKey !== null}
                       >
@@ -2501,6 +2542,7 @@ export function ResumeForm() {
                       <Button
                         type="button"
                         variant="primary"
+                        className="min-h-11 flex-1 sm:flex-none"
                         onClick={() => void persist()}
                         disabled={pending || uploadingKey !== null}
                       >

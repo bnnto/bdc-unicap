@@ -42,21 +42,27 @@ const MAX_REASON = 500;
 /** Mesma superfície do Painel Estratégico: anel semitransparente + sombra
  *  longa e suave; no alto contraste volta uma borda sólida. */
 const SURFACE =
-  "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+  "rounded-2xl sm:rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+
+/** Padding fluido: ~20px em 320px, cresce suavemente até 28px. */
+const FLUID_PADDING = "p-[clamp(1.25rem,0.9rem+1.2vw,1.75rem)]";
+
+/** Marca o elemento como "container" para as container queries dos filhos. */
+const CONTAINER = "[container-type:inline-size]";
 
 const PRESS =
   "transition-[background-color,color,border-color,box-shadow,transform] duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.985] active:duration-150 motion-reduce:[transition-property:background-color,color,border-color,opacity] motion-reduce:active:scale-100";
 
 const LINK =
-  "inline-flex items-center gap-1 rounded-md font-semibold text-primary transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+  "inline-flex items-center gap-1 rounded-md font-semibold [@media(pointer:coarse)]:min-h-11 text-primary transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
 /** Primário estilo Apple, versão plana: cor sólida, realce de 1px e sombra curta. */
 const APPLE_PRIMARY =
-  "group !h-11 !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100";
+  "group !h-11 flex-1 basis-[8rem] [@container(min-width:48rem)]:flex-none !justify-center !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100";
 
 /** Destrutivo "tinted": fundo suave da cor, sem contorno forte. */
 const APPLE_DANGER =
-  "inline-flex h-11 items-center gap-2 rounded-xl bg-red-50 px-4 text-sm font-semibold text-red-700 shadow-[inset_0_0_0_1px_rgba(220,38,38,0.16)] transition-[background-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 motion-reduce:active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:shadow-[inset_0_0_0_1px_rgba(248,113,113,0.25)] dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-500/20";
+  "inline-flex h-11 flex-1 basis-[8rem] [@container(min-width:48rem)]:flex-none items-center justify-center gap-2 rounded-xl bg-red-50 px-4 text-sm font-semibold text-red-700 shadow-[inset_0_0_0_1px_rgba(220,38,38,0.16)] transition-[background-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 motion-reduce:active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:shadow-[inset_0_0_0_1px_rgba(248,113,113,0.25)] dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-500/20";
 
 function initials(name: string) {
   return (
@@ -80,7 +86,10 @@ function ListSkeleton() {
     <div role="status" aria-live="polite" className="animate-pulse space-y-3">
       <span className="sr-only">Carregando recrutadores…</span>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-24 rounded-3xl bg-slate-100" />
+        <div
+          key={i}
+          className="h-44 rounded-2xl bg-slate-100 sm:rounded-3xl [@container(min-width:48rem)]:h-28"
+        />
       ))}
     </div>
   );
@@ -93,6 +102,13 @@ function ListSkeleton() {
  * Visual alinhado ao Painel Estratégico: filtro em controle segmentado,
  * linhas em superfícies suaves com avatar, ação destrutiva discreta e
  * modal com contador de caracteres. Lógica e fluxos inalterados.
+ *
+ * Responsividade (mobile-first): título fluido via clamp(); filtro em grade
+ * 2x2 no celular e pílula a partir de `sm`; cada linha reage à largura do
+ * PRÓPRIO bloco (container queries `[@container(min-width:48rem)]`), não à
+ * da janela; botões lado a lado/empilhados conforme o espaço; alvos de toque
+ * >= 44px em `pointer:coarse`; textarea com 16px no celular (evita o zoom do
+ * iOS ao focar); propriedades lógicas (`ps-*`); safe-area no rodapé.
  */
 export function ManagerRecruitersPage() {
   const [filter, setFilter] = useState<Filter>("pendente");
@@ -175,24 +191,35 @@ export function ManagerRecruitersPage() {
   const reasonLength = reason.trim().length;
 
   return (
-    <section aria-label="Recrutadores" className="flex flex-col gap-8 pb-16 pt-6">
+    <section
+      aria-label="Recrutadores"
+      // `min-w-0 max-w-full` evita estouro horizontal dentro de flex/grid.
+      // O padding inferior respeita a safe-area (iOS).
+      className="flex min-w-0 max-w-full flex-col gap-6 pb-[max(3rem,env(safe-area-inset-bottom))] pt-4 sm:gap-8 sm:pb-16 sm:pt-6"
+    >
       <header className="rise flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
-        <div className="min-w-0 max-w-2xl">
-          <h2 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
+        {/* basis de 20rem: o filtro desce para a linha de baixo quando falta espaço. */}
+        <div className="min-w-0 max-w-2xl [flex:1_1_20rem]">
+          <h2 className="font-serif text-[clamp(1.875rem,1.25rem+2.6vw,3rem)] font-bold leading-[1.1] tracking-tight text-primary [overflow-wrap:anywhere] [text-wrap:balance]">
             Recrutadores
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-slate-600">
+          <p className="mt-3 text-[0.9375rem] leading-relaxed text-slate-600 sm:mt-4 sm:text-base">
             Aprove ou recuse os cadastros de recrutadores e revogue acessos
             quando necessário.
           </p>
         </div>
 
-        {/* Controle segmentado: o filtro ativo "sobe" como uma peça branca. */}
+        {/*
+          Controle segmentado: grade 2x2 ocupando a largura toda no celular
+          (4 abas lado a lado não cabem em 320px); de `sm` em diante vira a
+          pílula compacta. O ResizeObserver abaixo re-mede a peça branca
+          sempre que o layout muda.
+        */}
         <div
           ref={tabsRef}
           role="group"
           aria-label="Filtrar por situação"
-          className="relative inline-flex max-w-full flex-wrap gap-1 rounded-2xl bg-[#e8ecf1] p-1 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.07)] dark:bg-[#242b3a] dark:shadow-none"
+          className="relative grid w-full max-w-full grid-cols-2 gap-1 rounded-2xl bg-[#e8ecf1] p-1 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.07)] dark:bg-[#242b3a] dark:shadow-none sm:inline-flex sm:w-auto sm:flex-wrap"
         >
           {/* Peça branca única que desliza entre as opções (só transform). */}
           {pill !== null ? (
@@ -220,7 +247,7 @@ export function ManagerRecruitersPage() {
                 type="button"
                 aria-pressed={active}
                 onClick={() => setFilter(item.key)}
-                className={`relative z-10 inline-flex min-w-[6.75rem] items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold before:absolute before:-left-[2.5px] before:bottom-2.5 before:top-2.5 before:w-px before:bg-slate-300 before:transition-opacity before:duration-[450ms] dark:before:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${PRESS} ${
+                className={`relative z-10 inline-flex min-h-[2.5rem] items-center justify-center rounded-xl px-3 py-2 text-sm font-semibold sm:min-w-[6.75rem] sm:px-4 [@media(pointer:coarse)]:min-h-11 [@media(max-width:639px)]:before:!opacity-0 before:absolute before:-left-[2.5px] before:bottom-2.5 before:top-2.5 before:w-px before:bg-slate-300 before:transition-opacity before:duration-[450ms] dark:before:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${PRESS} ${
                   showDivider ? "before:opacity-100" : "before:opacity-0"
                 } ${
                   active
@@ -234,7 +261,7 @@ export function ManagerRecruitersPage() {
           })}
         </div>
       </header>
-      <div key={filter}>
+      <div key={filter} className={CONTAINER}>
         {rows === undefined ? (
           <ListSkeleton />
         ) : rows.length === 0 ? (
@@ -252,13 +279,13 @@ export function ManagerRecruitersPage() {
               return (
                 <li
                   key={row.userId}
-                  className={`rise ${SURFACE} flex flex-col gap-5 p-6 [overflow-wrap:anywhere] lg:flex-row lg:items-center lg:justify-between`}
+                  className={`rise ${SURFACE} ${FLUID_PADDING} flex min-w-0 flex-col gap-5 [overflow-wrap:anywhere] [@container(min-width:48rem)]:flex-row [@container(min-width:48rem)]:items-center [@container(min-width:48rem)]:justify-between`}
                   style={{ animationDelay: `${200 + Math.min(index, 6) * 130}ms` }}
                 >
-                  <div className="flex min-w-0 items-start gap-4">
+                  <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                     <span
                       aria-hidden="true"
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] font-serif text-base font-bold text-primary"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] sm:h-12 sm:w-12 font-serif text-base font-bold text-primary"
                     >
                       {initials(row.name)}
                     </span>
@@ -270,7 +297,7 @@ export function ManagerRecruitersPage() {
                         </p>
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </div>
-                      <p className="mt-0.5 truncate text-sm text-slate-600">
+                      <p className="mt-0.5 break-words text-sm text-slate-600">
                         {row.email}
                       </p>
 
@@ -314,10 +341,10 @@ export function ManagerRecruitersPage() {
                             contas anteriores
                           </p>
                           <details className="mt-1.5">
-                            <summary className="w-fit cursor-pointer rounded font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                            <summary className="w-fit cursor-pointer rounded font-semibold [@media(pointer:coarse)]:py-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                               Ver detalhes
                             </summary>
-                            <ul className="mt-2 list-disc space-y-1 pl-5 leading-relaxed">
+                            <ul className="mt-2 list-disc space-y-1 ps-5 leading-relaxed">
                               {row.previous.map((item, index) => (
                                 <li key={index}>
                                   {new Date(item.at).toLocaleDateString("pt-BR")}{" "}
@@ -335,7 +362,7 @@ export function ManagerRecruitersPage() {
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 [@container(min-width:48rem)]:shrink-0">
                     {row.status !== "aprovado" ? (
                       <Button
                         variant="primary"
@@ -376,7 +403,7 @@ export function ManagerRecruitersPage() {
         <Modal titleId={titleId} onClose={closeRefuse}>
           <h3
             id={titleId}
-            className="flex items-center gap-2.5 font-serif text-xl font-bold tracking-tight text-slate-900"
+            className="flex items-center gap-2.5 font-serif text-lg font-bold tracking-tight text-slate-900 [text-wrap:balance] sm:text-xl"
           >
             <span aria-hidden="true" className="text-primary">
               <UserX className="h-5 w-5" />
@@ -395,7 +422,7 @@ export function ManagerRecruitersPage() {
               rows={4}
               maxLength={MAX_REASON}
               aria-describedby={`${titleId}-hint`}
-              className="resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-normal text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              className="resize-none rounded-xl border border-slate-300 bg-white p-3 text-base font-normal text-slate-900 sm:text-sm transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             />
           </label>
           <p
@@ -412,16 +439,17 @@ export function ManagerRecruitersPage() {
             </span>
           </p>
 
-          <div className="mt-6 flex justify-end gap-2">
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={closeRefuse}
-              className={`rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-white/5 ${PRESS}`}
+              className={`inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:hover:bg-white/5 ${PRESS}`}
             >
               Cancelar
             </button>
             <Button
               variant="primary"
+              className="!w-full !justify-center sm:!w-auto [@media(pointer:coarse)]:!min-h-11"
               disabled={busy || reasonLength < MIN_REASON}
               onClick={() => void confirmRefuse()}
             >

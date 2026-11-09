@@ -17,8 +17,10 @@
  *    ícones, texto ≥ 4.5:1, `motion-reduce` desliga o movimento.
  *
  * Movimento: só transform/opacity/filter/cor; ease-out forte; entrada
- * escalonada de 70ms; press em scale(0.97); hover SOMENTE em dispositivos
+ * gradual com a classe global `.rise` + `animationDelay` (igual ao
+ * OperationalPanel); press em scale(0.97); hover SOMENTE em dispositivos
  * com hover real (`@media (hover:hover)`); nada animado em ação frequente.
+ * O esqueleto só aparece se o carregamento passar de 800ms (evita piscar).
  *
  * `navbar`: a navbar do papel, montada pelo AuthGate (App.tsx).
  *
@@ -41,7 +43,7 @@ import { printResumeDocument } from "../../lib/resumePrint";
 import type { Availability } from "../../lib/studentProfile";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { ResumeView, type ResumeBlockData } from "../student/ResumeView";
+import { ResumeView, type ResumeBlockData } from "../student/meucurriculo/ResumeView";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -106,9 +108,26 @@ function prettyUrl(href: string): string {
 }
 
 /**
- * Entrada escalonada: opacity + translateY(8px) → 0 depois do primeiro
- * paint. É transição (não keyframe), então não reinicia se o React
- * re-renderizar no meio. Sem movimento em `prefers-reduced-motion`.
+ * Mostra `true` só depois de `delayMs` com `active` ligado. Usado para o
+ * esqueleto não piscar em carregamentos rápidos (mesmo hook do
+ * OperationalPanel).
+ */
+function useDelayedFlag(active: boolean, delayMs = 300): boolean {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setShow(false);
+      return;
+    }
+    const id = window.setTimeout(() => setShow(true), delayMs);
+    return () => window.clearTimeout(id);
+  }, [active, delayMs]);
+  return show;
+}
+
+/**
+ * Entrada gradual: usa a classe global `.rise` (a mesma do
+ * OperationalPanel) com atraso via `animationDelay`.
  */
 function Reveal({
   delay = 0,
@@ -119,24 +138,8 @@ function Reveal({
   className?: string;
   children: ReactNode;
 }) {
-  const [shown, setShown] = useState(false);
-  useEffect(() => {
-    let second = 0;
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => setShown(true));
-    });
-    return () => {
-      cancelAnimationFrame(first);
-      cancelAnimationFrame(second);
-    };
-  }, []);
   return (
-    <div
-      style={{ transitionDelay: shown ? `${delay}ms` : "0ms" }}
-      className={`transition-[opacity,transform] duration-[400ms] ${EASE_OUT} motion-reduce:transition-none ${
-        shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
-      } ${className}`}
-    >
+    <div className={`rise ${className}`} style={{ animationDelay: `${delay}ms` }}>
       {children}
     </div>
   );
@@ -150,7 +153,7 @@ function InitialsAvatar({
   imageUrl?: string | null;
 }) {
   return (
-    <div className="shrink-0 rounded-full bg-[conic-gradient(from_200deg,#6b1426,#c89d3c,#6b1426)] p-[3px] shadow-[0_8px_24px_-8px_rgba(79,13,28,0.55)]">
+    <div className="shrink-0 self-start rounded-full bg-[conic-gradient(from_200deg,#6b1426,#c89d3c,#6b1426)] p-[3px] shadow-[0_8px_24px_-8px_rgba(79,13,28,0.55)]">
       {imageUrl ? (
         <img
           src={imageUrl}
@@ -193,19 +196,29 @@ function FactTile({
   icon: Icon,
   label,
   children,
+  delay = 0,
 }: {
   icon: LucideIcon;
   label: string;
   children: ReactNode;
+  /** Atraso (ms) da entrada gradual do conteúdo desta célula. */
+  delay?: number;
 }) {
+  const rise = { animationDelay: `${delay}ms` };
   return (
+    // A célula (fundo + filete) fica estática; só o conteúdo "sobe".
+    // Assim o fundo cinza do grid nunca aparece por trás de um tile vazio.
     <div className="min-w-0 bg-slate-50 p-5">
-      <dt className="flex items-center gap-2 text-xs font-medium text-slate-600">
+      <dt
+        style={rise}
+        className="rise flex items-center gap-2 text-xs font-medium text-slate-600"
+      >
         <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         {label}
       </dt>
       <dd
-        className={`mt-2 font-serif text-xl font-bold leading-snug tracking-tight text-slate-900 ${WRAP}`}
+        style={rise}
+        className={`rise mt-2 font-serif text-xl font-bold leading-snug tracking-tight text-slate-900 ${WRAP}`}
       >
         {children}
       </dd>
@@ -431,6 +444,9 @@ export function CandidateProfilePage({
   const denied = invalidId || profile === null;
   const loading = profile === undefined && !denied;
   const ready = profile !== undefined && profile !== null;
+  // Esqueleto só se o carregamento demorar bastante. Esta query é mais lenta
+  // que as do OperationalPanel (resolve foto/capa), então o atraso é maior.
+  const showSkeleton = useDelayedFlag(loading, 800);
 
   const resume = profile?.resume;
   const viewData: ResumeBlockData = {
@@ -531,7 +547,7 @@ export function CandidateProfilePage({
       >
         {!ready ? <h1 className="sr-only">Perfil do candidato</h1> : null}
 
-        {loading ? <ProfileSkeleton /> : null}
+        {loading && showSkeleton ? <ProfileSkeleton /> : null}
 
         {denied ? (
           <Reveal>
@@ -656,7 +672,7 @@ export function CandidateProfilePage({
                   ) : null}
 
                   <dl className="mt-8 grid grid-cols-1 gap-px overflow-hidden rounded-2xl bg-slate-200/70 ring-1 ring-slate-200/70 sm:grid-cols-2 xl:grid-cols-4 dark:bg-white/[0.08] dark:ring-white/[0.08]">
-                    <FactTile icon={CalendarDays} label="Previsão de conclusão">
+                    <FactTile icon={CalendarDays} label="Previsão de conclusão" delay={200}>
                       <span className="tabular-nums">
                         {profile.graduationYear}
                       </span>
@@ -664,7 +680,7 @@ export function CandidateProfilePage({
                         ? ` · ${profile.semester}º período`
                         : ""}
                     </FactTile>
-                    <FactTile icon={MapPin} label="Localização">
+                    <FactTile icon={MapPin} label="Localização" delay={320}>
                       {profile.location !== null &&
                       profile.location.trim() !== "" ? (
                         profile.location
@@ -672,7 +688,7 @@ export function CandidateProfilePage({
                         <Muted>Não informada</Muted>
                       )}
                     </FactTile>
-                    <FactTile icon={Briefcase} label="Disponibilidade">
+                    <FactTile icon={Briefcase} label="Disponibilidade" delay={440}>
                       {profile.availability.length > 0 ? (
                         <ul className="flex flex-wrap gap-1.5 font-sans">
                           {profile.availability.map((entry) => (
@@ -688,7 +704,7 @@ export function CandidateProfilePage({
                         <Muted>Não informada</Muted>
                       )}
                     </FactTile>
-                    <FactTile icon={Sparkles} label="Competências">
+                    <FactTile icon={Sparkles} label="Competências" delay={560}>
                       <span className="tabular-nums">{skillsCount}</span>
                       <span className="ml-1.5 font-sans text-sm font-medium tracking-normal text-slate-600">
                         {skillsCount === 1 ? "cadastrada" : "cadastradas"}
@@ -706,7 +722,7 @@ export function CandidateProfilePage({
                 aria-label="Contato do candidato"
                 className="min-w-0 xl:col-start-2 xl:row-start-1"
               >
-                <Reveal delay={70}>
+                <Reveal delay={700}>
                   <section
                     className={`${SURFACE} p-6 sm:p-7`}
                     aria-labelledby="contato-titulo"
@@ -774,7 +790,7 @@ export function CandidateProfilePage({
               </aside>
 
               {/* Currículo: leitura principal. */}
-              <Reveal delay={140} className="min-w-0 xl:col-start-1 xl:row-start-1">
+              <Reveal delay={900} className="min-w-0 xl:col-start-1 xl:row-start-1">
                 <section
                   aria-labelledby="curriculo-titulo"
                   className={`${SURFACE} min-w-0 overflow-hidden`}

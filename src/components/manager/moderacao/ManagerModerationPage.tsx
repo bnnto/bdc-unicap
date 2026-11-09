@@ -62,25 +62,31 @@ const MAX_REASON = 500;
 
 /** Mesma superfície do Painel Estratégico e da aba Recrutadores. */
 const SURFACE =
-  "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+  "rounded-2xl sm:rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+
+/** Padding fluido: ~20px em 320px, cresce suavemente até 28px. */
+const FLUID_PADDING = "p-[clamp(1.25rem,0.9rem+1.2vw,1.75rem)]";
+
+/** Marca o elemento como "container" para as container queries dos filhos. */
+const CONTAINER = "[container-type:inline-size]";
 
 const PRESS =
   "transition-[background-color,color,border-color,box-shadow,transform] duration-[450ms] ease-[cubic-bezier(0.32,0.72,0,1)] active:scale-[0.985] active:duration-150 motion-reduce:[transition-property:background-color,color,border-color,opacity] motion-reduce:active:scale-100";
 
 const LINK =
-  "inline-flex items-center gap-1 rounded-md font-semibold text-primary transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+  "inline-flex items-center gap-1 rounded-md font-semibold [@media(pointer:coarse)]:min-h-11 text-primary transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
 /** Primário estilo Apple, versão plana: cor sólida, realce de 1px e sombra curta. */
 const APPLE_PRIMARY =
-  "group !h-11 !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100";
+  "group !h-11 flex-1 basis-[9rem] [@container(min-width:48rem)]:flex-none !justify-center !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100";
 
 /** Destrutivo "tinted": fundo suave da cor, sem contorno forte. */
 const APPLE_DANGER =
-  "inline-flex h-11 items-center gap-2 rounded-xl bg-red-50 px-4 text-sm font-semibold text-red-700 shadow-[inset_0_0_0_1px_rgba(220,38,38,0.16)] transition-[background-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 motion-reduce:active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:shadow-[inset_0_0_0_1px_rgba(248,113,113,0.25)] dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-500/20";
+  "inline-flex h-11 flex-1 basis-[9rem] [@container(min-width:48rem)]:flex-none items-center justify-center gap-2 rounded-xl bg-red-50 px-4 text-sm font-semibold text-red-700 shadow-[inset_0_0_0_1px_rgba(220,38,38,0.16)] transition-[background-color,color,box-shadow,transform] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.97] active:duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 motion-reduce:active:scale-100 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:shadow-[inset_0_0_0_1px_rgba(248,113,113,0.25)] dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-red-500/20";
 
 /** Secundário "tinted" neutro (cinza): ação segura, sem competir com o primário. */
 const APPLE_NEUTRAL =
-  "group !h-11 !gap-2 !rounded-xl !border-transparent !bg-slate-100 !px-4 !text-slate-700 !shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!bg-slate-200/70 active:!scale-[0.97] active:!duration-100 dark:!bg-[#2c1a21] dark:!text-[#e9b8c3] dark:!shadow-[inset_0_0_0_1px_rgba(233,184,195,0.22)] dark:hover:!bg-[#3a2029]";
+  "group !h-11 flex-1 basis-[9rem] [@container(min-width:48rem)]:flex-none !justify-center !gap-2 !rounded-xl !border-transparent !bg-slate-100 !px-4 !text-slate-700 !shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!bg-slate-200/70 active:!scale-[0.97] active:!duration-100 dark:!bg-[#2c1a21] dark:!text-[#e9b8c3] dark:!shadow-[inset_0_0_0_1px_rgba(233,184,195,0.22)] dark:hover:!bg-[#3a2029]";
   
 function OutLink({ href, label }: { href: string; label: string }) {
   return (
@@ -132,7 +138,7 @@ function ReportSummary({
         <Flag className="h-3.5 w-3.5" aria-hidden="true" />
         {count} denúncia(s) de alunos
       </p>
-      <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
+      <ul className="mt-1.5 list-disc space-y-0.5 ps-5">
         {breakdown.map((item) => (
           <li key={item.reason}>
             {REPORT_REASON_LABELS[item.reason]}: {item.count}
@@ -141,10 +147,10 @@ function ReportSummary({
       </ul>
       {details.length > 0 ? (
         <details className="mt-2">
-          <summary className="w-fit cursor-pointer rounded font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <summary className="w-fit cursor-pointer rounded font-semibold [@media(pointer:coarse)]:py-3.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             Ver relatos
           </summary>
-          <ul className="mt-1.5 list-disc space-y-1 pl-5 leading-relaxed">
+          <ul className="mt-1.5 list-disc space-y-1 ps-5 leading-relaxed">
             {details.map((text, index) => (
               <li key={index}>{text}</li>
             ))}
@@ -192,7 +198,7 @@ function Disclosure({
 }) {
   return (
     <details className="mt-4">
-      <summary className="w-fit cursor-pointer rounded text-sm font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+      <summary className="w-fit cursor-pointer rounded text-sm font-semibold text-primary [@media(pointer:coarse)]:py-3 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
         {summary}
       </summary>
       <p className="mt-2 max-w-prose whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
@@ -234,7 +240,10 @@ function ListSkeleton() {
     <div role="status" aria-live="polite" className="[animation-duration:2.5s] animate-pulse space-y-4">
       <span className="sr-only">Carregando…</span>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="h-32 rounded-3xl bg-slate-100" />
+        <div
+          key={i}
+          className="h-44 rounded-2xl bg-slate-100 sm:rounded-3xl [@container(min-width:48rem)]:h-32"
+        />
       ))}
     </div>
   );
@@ -247,6 +256,13 @@ function ListSkeleton() {
  * Visual alinhado ao Painel Estratégico e à aba Recrutadores: controle
  * segmentado, superfícies suaves, interruptor no filtro de denúncias e
  * modal com contador. Lógica e fluxos inalterados.
+ *
+ * Responsividade (mobile-first): título fluido via clamp(); abas em 3 colunas
+ * (ícone sobre o rótulo) no celular e pílula horizontal a partir de `sm`;
+ * ações e cartões reagem à largura do PRÓPRIO bloco (container queries
+ * `[@container(min-width:48rem)]`), não à da janela; alvos de toque >= 44px
+ * em `pointer:coarse`; textarea com 16px no celular (evita o zoom do iOS);
+ * propriedades lógicas (`ps-*`, `after:start-*`); safe-area no rodapé.
  */
 export function ManagerModerationPage() {
   const [view, setView] = useState<View>("pendencias");
@@ -355,23 +371,34 @@ export function ManagerModerationPage() {
   const reasonLength = reason.trim().length;
 
   return (
-    <section aria-label="Moderação" className="flex flex-col gap-8 pb-16 pt-6">
+    <section
+      aria-label="Moderação"
+      // `min-w-0 max-w-full` evita estouro horizontal dentro de flex/grid.
+      // O padding inferior respeita a safe-area (iOS).
+      className="flex min-w-0 max-w-full flex-col gap-6 pb-[max(3rem,env(safe-area-inset-bottom))] pt-4 sm:gap-8 sm:pb-16 sm:pt-6"
+    >
       <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5">
-        <div className="min-w-0 max-w-2xl">
-          <h2 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
+        {/* basis de 20rem: as abas descem para a linha de baixo quando falta espaço. */}
+        <div className="min-w-0 max-w-2xl [flex:1_1_20rem]">
+          <h2 className="font-serif text-[clamp(1.875rem,1.25rem+2.6vw,3rem)] font-bold leading-[1.1] tracking-tight text-primary [overflow-wrap:anywhere] [text-wrap:balance]">
             Moderação
           </h2>
-          <p className="mt-4 text-base leading-relaxed text-slate-600">
+          <p className="mt-3 text-[0.9375rem] leading-relaxed text-slate-600 sm:mt-4 sm:text-base">
             Revise vagas, acompanhe denúncias dos alunos e consulte o histórico
             de decisões.
           </p>
         </div>
 
+        {/*
+          Controle segmentado: no celular as 3 abas dividem a largura (ícone
+          sobre o rótulo); de `sm` em diante vira a pílula horizontal. O
+          ResizeObserver abaixo re-mede a peça branca quando o layout muda.
+        */}
         <div
           ref={tabsRef}
           role="group"
           aria-label="Visão"
-          className="relative inline-flex max-w-full flex-wrap gap-1 rounded-2xl bg-[#e8ecf1] p-1 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.07)] dark:bg-[#242b3a] dark:shadow-none"
+          className="relative grid w-full max-w-full grid-cols-3 gap-1 sm:inline-flex sm:w-auto sm:flex-wrap rounded-2xl bg-[#e8ecf1] p-1 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.07)] dark:bg-[#242b3a] dark:shadow-none"
         >
           {/* Peça branca única que desliza entre as opções. */}
           {pill !== null ? (
@@ -399,7 +426,7 @@ export function ManagerModerationPage() {
                 type="button"
                 aria-pressed={active}
                 onClick={() => setView(item.key)}
-                className={`relative z-10 inline-flex min-w-[10.5rem] items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold before:absolute before:-left-[2.5px] before:bottom-2.5 before:top-2.5 before:w-px before:bg-slate-300 before:transition-opacity before:duration-[450ms] dark:before:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${PRESS} ${
+                className={`relative z-10 inline-flex min-h-[2.5rem] flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-center text-[0.8125rem] font-semibold leading-tight sm:min-w-[10.5rem] sm:flex-row sm:gap-2 sm:px-4 sm:text-sm [@media(pointer:coarse)]:min-h-11 before:absolute before:-left-[2.5px] before:bottom-2.5 before:top-2.5 before:w-px before:bg-slate-300 before:transition-opacity before:duration-[450ms] dark:before:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${PRESS} ${
                   showDivider ? "before:opacity-100" : "before:opacity-0"
                 } ${
                   active
@@ -407,7 +434,7 @@ export function ManagerModerationPage() {
                     : "text-slate-600 hover:bg-white/60 hover:text-slate-900 dark:hover:bg-white/5 dark:hover:text-slate-100"
                 }`}
               >
-                <item.icon className="h-4 w-4" aria-hidden="true" />
+                <item.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {item.label}
               </button>
             );
@@ -415,7 +442,7 @@ export function ManagerModerationPage() {
         </div>
       </header>
     
-    <div key={view} className="view-enter flex flex-col gap-8">
+    <div key={view} className={`view-enter flex flex-col gap-6 sm:gap-8 ${CONTAINER}`}>
       {view === "pendencias" ? (
         pending === undefined ? (
           <ListSkeleton />
@@ -428,7 +455,7 @@ export function ManagerModerationPage() {
         ) : (
           <ul className="flex flex-col gap-4" aria-label="Vagas em moderação">
             {pending.map((row) => (
-              <li key={row.jobId} className={`${SURFACE} p-6 [overflow-wrap:anywhere]`}>
+              <li key={row.jobId} className={`${SURFACE} ${FLUID_PADDING} min-w-0 [overflow-wrap:anywhere]`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <JobHeading
                     title={row.title}
@@ -470,7 +497,7 @@ export function ManagerModerationPage() {
                   {row.description}
                 </Disclosure>
 
-                <div className="mt-6 flex flex-wrap gap-2">
+                <div className="mt-5 flex flex-wrap gap-2 sm:mt-6">
                   <Button
                     variant="primary"
                     className={APPLE_PRIMARY}
@@ -501,7 +528,7 @@ export function ManagerModerationPage() {
         <>
           {/* Interruptor: continua sendo um checkbox nativo (teclado e leitor
               de tela), só que desenhado como switch. */}
-          <label className="group flex w-fit cursor-pointer items-center gap-3 text-sm font-semibold text-slate-700">
+          <label className="group flex w-fit cursor-pointer items-center gap-3 text-sm font-semibold text-slate-700 [@media(pointer:coarse)]:min-h-11">
             <input
               type="checkbox"
               checked={onlyReported}
@@ -510,7 +537,7 @@ export function ManagerModerationPage() {
             />
             <span
               aria-hidden="true"
-              className="relative h-6 w-11 rounded-full bg-slate-300 transition-colors duration-[450ms] peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-[450ms] after:ease-[cubic-bezier(0.32,0.72,0,1)] peer-checked:after:translate-x-5"
+              className="relative h-6 w-11 shrink-0 rounded-full bg-slate-300 transition-colors duration-[450ms] peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 after:absolute after:start-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:duration-[450ms] after:ease-[cubic-bezier(0.32,0.72,0,1)] peer-checked:after:translate-x-5 rtl:peer-checked:after:-translate-x-5"
             />
             Só vagas com denúncias
           </label>
@@ -530,7 +557,7 @@ export function ManagerModerationPage() {
           ) : (
             <ul className="flex flex-col gap-4" aria-label="Vagas abertas">
               {liveRows.map((row) => (
-                <li key={row.jobId} className={`${SURFACE} p-6 [overflow-wrap:anywhere]`}>
+                <li key={row.jobId} className={`${SURFACE} ${FLUID_PADDING} min-w-0 [overflow-wrap:anywhere]`}>
                   <JobHeading
                     title={row.title}
                     contractType={row.contractType}
@@ -551,7 +578,7 @@ export function ManagerModerationPage() {
                   <Disclosure summary="Ver descrição completa">
                     {row.description}
                   </Disclosure>
-                  <div className="mt-6 flex flex-wrap gap-2">
+                  <div className="mt-5 flex flex-wrap gap-2 sm:mt-6">
                     <SuspendButton
                       busy={busy}
                       onClick={() =>
@@ -592,7 +619,7 @@ export function ManagerModerationPage() {
             aria-label="Histórico de moderação"
           >
             {history.map((row) => (
-              <li key={row.logId} className={`${SURFACE} p-6 [overflow-wrap:anywhere]`}>
+              <li key={row.logId} className={`${SURFACE} ${FLUID_PADDING} min-w-0 [overflow-wrap:anywhere]`}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-base font-semibold text-slate-900">
                     {row.jobTitle}
@@ -626,7 +653,7 @@ export function ManagerModerationPage() {
         <Modal titleId={titleId} onClose={closeModal}>
           <h3
             id={titleId}
-            className="flex items-center gap-2.5 font-serif text-xl font-bold tracking-tight text-slate-900"
+            className="flex items-center gap-2.5 font-serif text-lg font-bold tracking-tight text-slate-900 [text-wrap:balance] sm:text-xl"
           >
             <span aria-hidden="true" className="text-primary">
               <Ban className="h-5 w-5" />
@@ -645,7 +672,7 @@ export function ManagerModerationPage() {
               rows={4}
               maxLength={MAX_REASON}
               aria-describedby={`${titleId}-hint`}
-              className="resize-none rounded-xl border border-slate-300 bg-white p-3 text-sm font-normal text-slate-900 transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+              className="resize-none rounded-xl border border-slate-300 bg-white p-3 text-base font-normal text-slate-900 sm:text-sm transition-colors hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
             />
           </label>
           <p
@@ -662,16 +689,17 @@ export function ManagerModerationPage() {
             </span>
           </p>
 
-          <div className="mt-6 flex justify-end gap-2">
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={closeModal}
-              className={`rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${PRESS}`}
+              className={`inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${PRESS}`}
             >
               Cancelar
             </button>
             <Button
               variant="primary"
+              className="!w-full !justify-center sm:!w-auto [@media(pointer:coarse)]:!min-h-11"
               disabled={busy || reasonLength < MIN_REASON}
               onClick={() => void suspend()}
             >

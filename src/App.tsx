@@ -29,7 +29,7 @@ import {
   parseStudentTabPath,
   studentTabPath,
   type StudentTab,
-} from "./components/student/StudentShell";
+} from "./components/student/meucurriculo/StudentShell";
 
 /**
  * Shell da aplicação (issue [S1-1]): usuários autenticados veem o painel

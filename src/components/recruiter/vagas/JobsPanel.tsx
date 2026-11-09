@@ -36,6 +36,7 @@ import {
   PageHeader,
   PRESS,
   SURFACE,
+  TOUCH_BTN,
 } from "./jobsUi";
 
 /* ------------------------------------------------------------------ */
@@ -101,12 +102,22 @@ const NEXT_STATUS: Record<
 /** Curva forte de saída (skill: nunca ease-in em UI). */
 const EASE_OUT = "ease-[cubic-bezier(0.23,1,0.32,1)]";
 
-/** Presets dos botões de ação do card (mesma altura/raio; sombra tingida por variante). */
-const ACTION_BASE = "group !h-11 !gap-2 !rounded-xl !px-4";
-const ACTION_PRIMARY = `${ACTION_BASE} hover:!shadow-[0_12px_24px_-10px_rgba(107,20,38,0.2)]`;
-const ACTION_ACCENT = `${ACTION_BASE} hover:!shadow-[0_12px_24px_-10px_rgba(200,157,60,0.25)]`;
+/**
+ * Presets dos botões de ação do card (mesma altura/raio; sombra tingida por
+ * variante). Responsivo: no mobile os botões ocupam a célula do grid de 2
+ * colunas (`!w-full`); a partir de `sm` voltam ao tamanho natural.
+ */
+const ACTION_BASE = `group !h-11 !gap-2 !rounded-xl !px-3 min-w-[calc(50%-0.25rem)] !flex-1 sm:!flex-none sm:min-w-0 sm:!px-4 ${TOUCH_BTN}`;
+/** Ação principal/longa: linha inteira no mobile. Os demais botões dividem a
+ *  linha em 2 (`flex-1` + min-width 50%) e o último, se sobrar, se expande. */
+const ACTION_WIDE = "!min-w-full sm:!min-w-0";
+const ACTION_PRIMARY = `${ACTION_BASE} ${ACTION_WIDE} hover:!shadow-[0_12px_24px_-10px_rgba(107,20,38,0.2)]`;
+const ACTION_ACCENT = `${ACTION_BASE} ${ACTION_WIDE} hover:!shadow-[0_12px_24px_-10px_rgba(200,157,60,0.25)]`;
 const ACTION_SECONDARY = `${ACTION_BASE} shadow-[0_1px_2px_rgba(15,23,42,0.05)] hover:!shadow-[0_6px_16px_-8px_rgba(107,20,38,0.3)]`;
 const ACTION_DANGER = `${ACTION_BASE} hover:!shadow-[0_6px_16px_-8px_rgba(220,38,38,0.4)]`;
+
+/** Botões das caixas de confirmação: lado a lado no mobile (2 colunas). */
+const CONFIRM_BTN = `w-full sm:w-auto ${TOUCH_BTN}`;
 
 /* ------------------------------------------------------------------ */
 /* Utilidades                                                           */
@@ -235,14 +246,15 @@ function StatusPill({ status }: { status: Doc<"jobs">["status"] }) {
   );
 }
 
-/** Metadado em pílula discreta (contrato, salário, local). */
+/** Metadado em pílula discreta (contrato, salário, local). Quebra linha
+ *  em textos longos (ex.: localização) em vez de estourar o card. */
 function MetaChip({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-a11y-slate-600 ring-1 ring-slate-200/70 dark:bg-white/5 dark:ring-white/10">
-      <span aria-hidden="true" className="text-primary">
+    <span className="inline-flex max-w-full items-start gap-1.5 rounded-2xl bg-slate-50 px-2.5 py-1 text-xs font-medium text-a11y-slate-600 ring-1 ring-slate-200/70 [overflow-wrap:anywhere] dark:bg-white/5 dark:ring-white/10">
+      <span aria-hidden="true" className="mt-px shrink-0 text-primary">
         {icon}
       </span>
-      {children}
+      <span className="min-w-0">{children}</span>
     </span>
   );
 }
@@ -281,21 +293,21 @@ function StatTile({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`${SURFACE} ${PRESS} flex w-full items-center gap-3.5 px-5 py-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-px ${
+      className={`${SURFACE} ${PRESS} flex w-full min-w-0 flex-col items-start gap-2.5 px-3.5 py-3.5 text-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 min-[440px]:flex-row min-[440px]:items-center min-[440px]:gap-3.5 min-[440px]:px-4 sm:px-5 sm:py-4 [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-px ${
         active ? "!border-primary" : ""
       }`}
     >
       <span
         aria-hidden="true"
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${STAT_ICON_TONE[tone]}`}
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 sm:h-10 sm:w-10 ${STAT_ICON_TONE[tone]}`}
       >
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-xs font-medium text-a11y-slate-500">
+        <span className="block text-xs font-medium leading-tight text-a11y-slate-500">
           {label}
         </span>
-        <span className="mt-1 block font-serif text-3xl font-bold leading-none tracking-tight tabular-nums text-primary">
+        <span className="mt-1 block font-serif text-2xl font-bold leading-none tracking-tight tabular-nums text-primary sm:text-3xl">
           {value}
         </span>
       </span>
@@ -321,7 +333,7 @@ function Reveal({
   const [isIntro] = useState(intro);
   return (
     <li
-      className={isIntro ? "jb-rise" : "jb-quick"}
+      className={`min-w-0 ${isIntro ? "jb-rise" : "jb-quick"}`}
       style={
         isIntro
           ? { animationDelay: `${300 + Math.min(index, 6) * 70}ms` }
@@ -337,34 +349,38 @@ function Reveal({
 function JobsSkeleton() {
   const bone = "bg-slate-100 dark:bg-white/10";
   return (
-    <div role="status" aria-live="polite" className="flex flex-col gap-5">
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex flex-col gap-4 sm:gap-5"
+    >
       <span className="sr-only">Carregando vagas…</span>
       {[0, 1, 2].map((i) => (
         <div
           key={i}
           aria-hidden="true"
-          className={`${SURFACE} animate-pulse p-7 motion-reduce:animate-none`}
+          className={`${SURFACE} animate-pulse p-4 min-[400px]:p-5 sm:p-7 motion-reduce:animate-none`}
         >
           <div className="flex items-start justify-between gap-4">
-            <div className="flex flex-1 items-start gap-4">
-              <div className={`h-11 w-11 rounded-2xl ${bone}`} />
+            <div className="flex flex-1 items-start gap-3 sm:gap-4">
+              <div className={`h-11 w-11 shrink-0 rounded-2xl ${bone}`} />
               <div className="flex-1 space-y-3">
-                <div className={`h-5 w-1/3 rounded-full ${bone}`} />
-                <div className="flex gap-2">
+                <div className={`h-5 w-1/2 rounded-full sm:w-1/3 ${bone}`} />
+                <div className="flex flex-wrap gap-2">
                   <div className={`h-6 w-24 rounded-full ${bone}`} />
                   <div className={`h-6 w-28 rounded-full ${bone}`} />
                 </div>
               </div>
             </div>
-            <div className={`h-7 w-20 rounded-full ${bone}`} />
+            <div className={`h-7 w-20 shrink-0 rounded-full ${bone}`} />
           </div>
           <div className="mt-6 space-y-2.5">
             <div className={`h-3 w-full rounded-full ${bone}`} />
             <div className={`h-3 w-4/5 rounded-full ${bone}`} />
           </div>
-          <div className="mt-6 flex gap-2">
-            <div className={`h-10 w-36 rounded-xl ${bone}`} />
-            <div className={`h-10 w-24 rounded-xl ${bone}`} />
+          <div className="mt-6 grid grid-cols-2 gap-2 sm:flex">
+            <div className={`h-11 rounded-xl sm:w-36 ${bone}`} />
+            <div className={`h-11 rounded-xl sm:w-24 ${bone}`} />
           </div>
         </div>
       ))}
@@ -385,6 +401,12 @@ function JobsSkeleton() {
  * barra de distribuição, cards com trilho de status, medidor de prazo,
  * metadados em pílulas e ações agrupadas (seguras à esquerda, destrutivas
  * à direita). Lógica, mutations e fluxos de confirmação inalterados.
+ *
+ * Responsividade: paddings e tipografia fluidos; ações do card em grid de
+ * 2 colunas no mobile (principal em largura total) e em linha a partir de
+ * `sm`; caixas de confirmação com botões lado a lado; alvos de toque de
+ * 44px em touch; textos longos (título, local, pré-requisitos) quebram em
+ * vez de estourar; propriedades lógicas (`start`, `ps`, `ms`, `me`).
  */
 export function JobsPanel({
   onViewCandidates,
@@ -482,7 +504,7 @@ export function JobsPanel({
 
   if (mode.kind === "new" || mode.kind === "edit") {
     return (
-      <div className="mx-auto w-full max-w-4xl pb-16 pt-2">
+      <div className="mx-auto w-full min-w-0 max-w-4xl pb-16 pt-2">
         <MotionStyles />
         <PageHeader
           title={
@@ -518,7 +540,7 @@ export function JobsPanel({
     jobs !== undefined ? jobs.filter((j) => matchesFilter(j.status, filter)) : [];
 
   return (
-    <div className="pb-16 pt-2">
+    <div className="min-w-0 pb-16 pt-2">
       <MotionStyles />
       <PageHeader
         title="Minhas vagas"
@@ -526,7 +548,7 @@ export function JobsPanel({
         actions={
           <Button
             variant="primary"
-            className="group !h-12 !gap-2.5 !rounded-xl !pl-3 !pr-5 !text-[0.9375rem] shadow-[0_8px_20px_-8px_rgba(107,20,38,0.55)] hover:shadow-[0_12px_24px_-8px_rgba(107,20,38,0.6)]"
+            className={`group !h-12 !w-full !justify-center !gap-2.5 !rounded-xl !ps-3 !pe-5 !text-[0.9375rem] shadow-[0_8px_20px_-8px_rgba(107,20,38,0.55)] hover:shadow-[0_12px_24px_-8px_rgba(107,20,38,0.6)] sm:!w-auto`}
             onClick={() => setMode({ kind: "new" })}
           >
             <span
@@ -541,11 +563,14 @@ export function JobsPanel({
       />
 
       {counts !== null && counts.total > 0 ? (
-        <div className="jb-rise mb-8" style={{ animationDelay: "200ms" }}>
+        <div
+          className="jb-rise mb-6 sm:mb-8"
+          style={{ animationDelay: "200ms" }}
+        >
           <div
             role="group"
             aria-label="Filtrar vagas por status"
-            className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+            className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4"
           >
             <StatTile
               label="Total de vagas"
@@ -595,7 +620,7 @@ export function JobsPanel({
         ) : null
       ) : jobs.length === 0 ? (
         /* [UX-P3] H4-2 — empty state com CTA real (não só instrução textual). */
-        <div className={`jb-fade ${SURFACE} px-6 py-10`}>
+        <div className={`jb-fade ${SURFACE} px-4 py-8 sm:px-6 sm:py-10`}>
           <EmptyState
             icon={Plus}
             title="Nenhuma vaga publicada ainda"
@@ -609,7 +634,7 @@ export function JobsPanel({
       ) : visibleJobs.length === 0 ? (
         <div
           role="status"
-          className={`jb-quick ${SURFACE} flex flex-col items-center px-6 py-14 text-center`}
+          className={`jb-quick ${SURFACE} flex flex-col items-center px-4 py-12 text-center sm:px-6 sm:py-14`}
         >
           <span
             aria-hidden="true"
@@ -617,7 +642,7 @@ export function JobsPanel({
           >
             <FilterX className="h-6 w-6" />
           </span>
-          <p className="mt-4 font-serif text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+          <p className="mt-4 font-serif text-lg font-bold tracking-tight text-slate-900 sm:text-xl dark:text-slate-100">
             Nenhuma vaga neste filtro
           </p>
           <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-a11y-slate-500">
@@ -625,14 +650,14 @@ export function JobsPanel({
           </p>
           <Button
             variant="secondary"
-            className="mt-5"
+            className={`mt-5 w-full sm:w-auto ${TOUCH_BTN}`}
             onClick={() => setFilter("all")}
           >
             Ver todas as vagas
           </Button>
         </div>
       ) : (
-        <ul className="flex flex-col gap-5" aria-label="Minhas vagas">
+        <ul className="flex flex-col gap-4 sm:gap-5" aria-label="Minhas vagas">
           {visibleJobs.map((job, index) => {
             const busy = actionPending === String(job._id);
             const underReview =
@@ -647,55 +672,57 @@ export function JobsPanel({
             return (
               <Reveal key={job._id} intro={introActive} index={index}>
                 <article
-                  className={`${SURFACE} ${CARD_HOVER} relative overflow-hidden p-6 sm:p-7`}
+                  className={`${SURFACE} ${CARD_HOVER} relative min-w-0 overflow-hidden p-4 min-[400px]:p-5 sm:p-7`}
                 >
                   {/* Trilho de status: leitura instantânea na varredura. */}
                   <span
                     aria-hidden="true"
-                    className={`absolute inset-y-7 left-2.5 w-[3px] rounded-full ${STATUS_DOT[job.status]} opacity-50`}
+                    className={`absolute inset-y-6 start-1.5 w-[3px] rounded-full sm:inset-y-7 sm:start-2.5 ${STATUS_DOT[job.status]} opacity-50`}
                   />
 
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div className="flex min-w-0 items-start gap-4">
-                      <IconTile size="lg">
-                        <Briefcase className="h-5 w-5" />
-                      </IconTile>
-                      <div className="min-w-0">
-                        <h3 className="break-words font-serif text-xl font-bold leading-snug tracking-tight text-primary">
-                          {job.title}
-                        </h3>
-                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                          <MetaChip icon={<Briefcase className="h-3.5 w-3.5" />}>
-                            {CONTRACT_LABELS[job.contractType]}
-                          </MetaChip>
-                          <MetaChip icon={<Banknote className="h-3.5 w-3.5" />}>
-                            {formatSalaryRange(
-                              job.salaryMin ?? null,
-                              job.salaryMax ?? null,
-                            )}
-                          </MetaChip>
-                          {job.location !== undefined ? (
-                            <MetaChip icon={<MapPin className="h-3.5 w-3.5" />}>
-                              {job.location}
-                            </MetaChip>
-                          ) : null}
-                        </div>
-                      </div>
+                  {/* Linha 1: ícone + título + status. Os metadados ficam numa
+                      linha própria, com a largura TOTAL do card (no mobile a
+                      coluna do título é estreita e espremia as chips). A partir
+                      de `sm` eles se alinham ao título (ícone 44px + gap 16px). */}
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <IconTile size="lg">
+                      <Briefcase className="h-5 w-5" />
+                    </IconTile>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <h3 className="font-serif text-lg font-bold leading-snug tracking-tight text-primary [overflow-wrap:anywhere] sm:text-xl">
+                        {job.title}
+                      </h3>
                     </div>
                     <StatusPill status={job.status} />
                   </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 sm:ps-[3.75rem]">
+                    <MetaChip icon={<Briefcase className="h-3.5 w-3.5" />}>
+                      {CONTRACT_LABELS[job.contractType]}
+                    </MetaChip>
+                    <MetaChip icon={<Banknote className="h-3.5 w-3.5" />}>
+                      {formatSalaryRange(
+                        job.salaryMin ?? null,
+                        job.salaryMax ?? null,
+                      )}
+                    </MetaChip>
+                    {job.location !== undefined ? (
+                      <MetaChip icon={<MapPin className="h-3.5 w-3.5" />}>
+                        {job.location}
+                      </MetaChip>
+                    ) : null}
+                  </div>
 
-                  <p className="mt-5 line-clamp-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                  <p className="mt-4 line-clamp-3 text-sm leading-relaxed text-slate-600 sm:mt-5 sm:line-clamp-2 dark:text-slate-400">
                     {job.description}
                   </p>
 
-                  <div className="mt-5">
-                    <p className="flex flex-wrap items-center gap-x-1 text-xs text-a11y-slate-500">
+                  <div className="mt-4 sm:mt-5">
+                    <p className="flex items-start gap-x-1 text-xs text-a11y-slate-500">
                       <CalendarDays
-                        className="mr-1 h-3.5 w-3.5 text-slate-400"
+                        className="me-1 mt-px h-3.5 w-3.5 shrink-0 text-slate-400"
                         aria-hidden="true"
                       />
-                      <span className="tabular-nums">
+                      <span className="min-w-0 tabular-nums">
                         Publicada em {formatDay(job.publishedAt)} · expira em{" "}
                         {formatDay(job.expiresAt)}
                         <ExpiryNote job={job} />
@@ -707,7 +734,7 @@ export function JobsPanel({
                   {underReview ? (
                     <div
                       role="status"
-                      className="mt-5 flex w-fit max-w-full items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-50 px-4 py-3 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200"
+                      className="mt-5 flex w-fit max-w-full items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-50 px-3.5 py-3 text-xs text-amber-900 sm:px-4 dark:bg-amber-500/10 dark:text-amber-200"
                     >
                       <ShieldAlert
                         className="mt-0.5 h-4 w-4 shrink-0"
@@ -725,7 +752,7 @@ export function JobsPanel({
                             : "Fora do ar e sem novas candidaturas."}
                         </p>
                         {job.moderationReason ? (
-                          <p className="mt-0.5 line-clamp-2 opacity-80">
+                          <p className="mt-0.5 line-clamp-2 opacity-80 [overflow-wrap:anywhere]">
                             Motivo: {job.moderationReason}
                           </p>
                         ) : null}
@@ -734,7 +761,7 @@ export function JobsPanel({
                   ) : null}
 
                   {job.prerequisites.length > 0 ? (
-                    <div className="mt-6">
+                    <div className="mt-5 sm:mt-6">
                       <p
                         aria-hidden="true"
                         className="text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-a11y-slate-500"
@@ -742,13 +769,13 @@ export function JobsPanel({
                         Pré-requisitos
                       </p>
                       <ul
-                        className="mt-2.5 flex flex-wrap gap-2"
+                        className="mt-2.5 flex flex-wrap gap-1.5 sm:gap-2"
                         aria-label="Pré-requisitos"
                       >
                         {job.prerequisites.map((p, i) => (
-                          <li key={`${p.item}-${i}`}>
+                          <li key={`${p.item}-${i}`} className="max-w-full">
                             <span
-                              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ${
+                              className={`inline-flex max-w-full items-center rounded-2xl px-2.5 py-1 text-xs font-semibold ring-1 [overflow-wrap:anywhere] sm:px-3 ${
                                 p.required && isVerifiablePrerequisite(p)
                                   ? "bg-[#FDF2F4] text-primary ring-primary/25 dark:bg-primary/15"
                                   : "bg-slate-50 text-slate-700 ring-slate-200 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10"
@@ -767,8 +794,11 @@ export function JobsPanel({
                     </div>
                   ) : null}
 
+                  {/* Ações: no mobile, grid de 2 colunas (ação principal e
+                      "Renovar" em largura total); a partir de `sm`, em linha,
+                      com as destrutivas isoladas à direita. */}
                   <div
-                    className={`mt-6 flex flex-wrap items-center gap-2 border-t ${DIVIDER} pt-5`}
+                    className={`mt-5 flex flex-wrap gap-2 border-t ${DIVIDER} pt-4 sm:mt-6 sm:items-center sm:pt-5`}
                   >
                     {/* [RECRUITER_UX_UPGRADE] Master-Detail: a lista é a tela;
                         o pipeline abre num clique, com a vaga já selecionada. */}
@@ -811,7 +841,7 @@ export function JobsPanel({
                         key={option.value}
                         variant="secondary"
                         className={ACTION_SECONDARY}
-                        disabled={busy} 
+                        disabled={busy}
                         onClick={() => requestStatus(job._id, option.value)}
                       >
                         {STATUS_BUTTON_ICON[option.value]}
@@ -821,7 +851,7 @@ export function JobsPanel({
 
                     {/* Ações destrutivas isoladas à direita, longe do clique rápido. */}
                     {hasDanger ? (
-                      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+                      <div className="flex w-full gap-2 sm:ms-auto sm:w-auto sm:flex-wrap sm:items-center">
                         {dangerOptions.map((option) => (
                           <Button
                             key={option.value}
@@ -859,7 +889,7 @@ export function JobsPanel({
                           setPendingStatus(null);
                         }
                       }}
-                      className="jb-quick mt-5 rounded-2xl border border-amber-500/40 bg-amber-50 p-4 dark:border-amber-400/30 dark:bg-amber-500/10"
+                      className="jb-quick mt-5 rounded-2xl border border-amber-500/40 bg-amber-50 p-3.5 sm:p-4 dark:border-amber-400/30 dark:bg-amber-500/10"
                     >
                       <div className="flex items-start gap-3">
                         <span
@@ -884,9 +914,10 @@ export function JobsPanel({
                           </p>
                         </div>
                       </div>
-                      <div className="mt-3 flex flex-wrap gap-2 sm:pl-12">
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:ps-12">
                         <Button
                           variant="primary"
+                          className={CONFIRM_BTN}
                           aria-label="Confirmar mudança de status"
                           disabled={busy}
                           onClick={() => {
@@ -902,6 +933,7 @@ export function JobsPanel({
                         </Button>
                         <Button
                           variant="secondary"
+                          className={CONFIRM_BTN}
                           onClick={() => setPendingStatus(null)}
                         >
                           <X className="h-4 w-4" aria-hidden="true" />
@@ -921,7 +953,7 @@ export function JobsPanel({
                           setPendingDelete(null);
                         }
                       }}
-                      className="jb-quick mt-5 rounded-2xl border border-rose-500/40 bg-rose-50 p-4 dark:border-rose-400/30 dark:bg-rose-500/10"
+                      className="jb-quick mt-5 rounded-2xl border border-rose-500/40 bg-rose-50 p-3.5 sm:p-4 dark:border-rose-400/30 dark:bg-rose-500/10"
                     >
                       <div className="flex items-start gap-3">
                         <span
@@ -943,9 +975,10 @@ export function JobsPanel({
                           </p>
                         </div>
                       </div>
-                      <div className="mt-3 flex flex-wrap gap-2 sm:pl-12">
+                      <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:ps-12">
                         <Button
                           variant="danger"
+                          className={CONFIRM_BTN}
                           aria-label="Confirmar exclusão da vaga"
                           disabled={busy}
                           onClick={() => void handleDelete(job._id)}
@@ -955,6 +988,7 @@ export function JobsPanel({
                         </Button>
                         <Button
                           variant="secondary"
+                          className={CONFIRM_BTN}
                           onClick={() => setPendingDelete(null)}
                         >
                           <X className="h-4 w-4" aria-hidden="true" />

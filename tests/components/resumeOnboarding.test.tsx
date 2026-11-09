@@ -38,7 +38,7 @@ vi.mock("../../convex/_generated/api", () => ({
 
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
-import { ResumeBuilderPage } from "../../src/components/student/ResumeBuilderPage";
+import { ResumeBuilderPage } from "../../src/components/student/meucurriculo/ResumeBuilderPage";
 
 const mockedUseQuery = vi.mocked(useQuery);
 const mockedUseMutation = vi.mocked(useMutation);

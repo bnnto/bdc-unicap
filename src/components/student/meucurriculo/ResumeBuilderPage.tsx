@@ -16,6 +16,14 @@
  * negativo; superfícies planas (borda OU sombra, nunca as duas); a faixa
  * do cartão de identidade é cor chapada (sem gradiente); a navegação
  * rápida usa check/bolha em vez de check/× (× lê como erro).
+ *
+ * Responsividade (mobile-first):
+ *  - < md  : tudo em 1 coluna (identidade, privacidade, formulário);
+ *  - md    : identidade e privacidade lado a lado;
+ *  - lg    : sidebar de 19rem + conteúdo; a sidebar só fica sticky quando a
+ *            janela é alta o bastante (senão o fim dela ficaria inacessível);
+ *  - padding lateral fluido com safe-area, título com clamp(), alvos de
+ *    toque de 44px nos switches e textos auxiliares de 13px no mobile.
  */
 import {
   useLayoutEffect,
@@ -25,8 +33,8 @@ import {
   type ReactNode,
 } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc } from "../../../convex/_generated/dataModel";
+import { api } from "../../../../convex/_generated/api";
+import type { Doc } from "../../../../convex/_generated/dataModel";
 import { ResumeForm } from "./ResumeForm";
 import { ResumeDownload } from "./ResumeDownload";
 import {
@@ -40,21 +48,24 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { friendlyErrorMessage } from "../../lib/toastMessages";
-import { useAuthState } from "../auth/authContext";
+import { friendlyErrorMessage } from "../../../lib/toastMessages";
+import { useAuthState } from "../../auth/authContext";
 
 /* ==========================================================================
    Tokens (espelham os do ResumeForm / ProfilePage)
    ========================================================================== */
 
 const SURFACE =
-  "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+  "rounded-2xl sm:rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
 
 const EASE = "ease-[cubic-bezier(0.32,0.72,0,1)]";
 const EASE_OUT = "ease-[cubic-bezier(0.23,1,0.32,1)]";
 
+/** Texto auxiliar: 13px no mobile (legível), 12px de sm para cima. */
+const SMALL = "text-[13px] sm:text-xs";
+
 /** Troca de ícone: opacidade + escala + blur leve (nunca scale(0)). */
-const ICON_SWAP = `col-start-1 row-start-1 h-5 w-5 transition-[opacity,transform,scale,filter]  -300 ${EASE_OUT} motion-reduce:[transition-property:opacity]`;
+const ICON_SWAP = `col-start-1 row-start-1 h-5 w-5 transition-[opacity,transform,scale,filter] duration-300 ${EASE_OUT} motion-reduce:[transition-property:opacity]`;
 
 function prefersReducedMotion(): boolean {
   return (
@@ -117,6 +128,7 @@ function initialsOf(name: string): string {
  * Linha de privacidade: ícone que troca conforme o estado, switch nativo
  * (`<input type="checkbox" role="switch">` — teclado e leitor de tela de
  * graça) e a explicação do estado atual, que entra com um fade curto.
+ * A linha inteira é a área de toque (mín. 44px de altura).
  */
 function SwitchRow({
   labelId,
@@ -140,7 +152,7 @@ function SwitchRow({
   return (
     <div>
       <label
-        className={`flex items-center justify-between gap-4 ${
+        className={`flex min-h-11 items-center justify-between gap-4 ${
           disabled ? "cursor-not-allowed" : "cursor-pointer"
         }`}
       >
@@ -166,7 +178,7 @@ function SwitchRow({
           </span>
           <span
             id={labelId}
-            className="text-sm font-semibold leading-snug text-slate-900"
+            className="min-w-0 text-sm font-semibold leading-snug text-slate-900"
           >
             {label}
           </span>
@@ -192,7 +204,7 @@ function SwitchRow({
         as="p"
         key={String(checked)}
         y={3}
-        className="mt-3 text-xs leading-relaxed text-slate-500"
+        className={`mt-3 leading-relaxed text-slate-500 ${SMALL}`}
       >
         {children}
       </Enter>
@@ -202,9 +214,11 @@ function SwitchRow({
 
 function ProfileMeta({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
-      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      {children}
+    <span
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full bg-slate-50 px-3 py-1 font-medium text-slate-600 ${SMALL}`}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
     </span>
   );
 }
@@ -247,24 +261,28 @@ export function ResumeBuilderPage() {
   const switchesDisabled = profile === undefined || profile === null;
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-6 pb-20 pt-8 sm:px-8">
+    // Padding lateral fluido; safe-area respeita o notch em paisagem;
+    // overflow-x-clip evita rolagem horizontal sem quebrar elementos sticky.
+    <div className="mx-auto w-full max-w-[1440px] overflow-x-clip pb-[max(5rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 sm:px-6 sm:pt-8 lg:px-8">
       {/* Cabeçalho da página (h1 único da tela). */}
-      <Enter as="header" y={8} className="mb-8">
-        <h1 className="font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
+      <Enter as="header" y={8} className="mb-6 sm:mb-8">
+        <h1 className="font-serif text-[length:clamp(1.875rem,1.4rem_+_2.4vw,3rem)] font-bold leading-[1.1] tracking-tight text-primary [overflow-wrap:anywhere]">
           Meu Currículo
         </h1>
-        <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
+        <p className="mt-3 max-w-2xl text-[0.9375rem] leading-relaxed text-slate-600 sm:mt-4 sm:text-base">
           Mantenha seus dados acadêmicos, técnicos e projetos atualizados. O PDF
           gerado é o espelho exato desta tela, cores, colunas e identidade
           UNICAP preservadas na impressão.
         </p>
       </Enter>
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]">
-        {/* SIDEBAR — fixa/sticky na rolagem (Etapa 2.1). */}
-        <aside className="flex flex-col gap-6 lg:sticky lg:top-24">
+      <div className="grid grid-cols-1 items-start gap-5 sm:gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]">
+        {/* SIDEBAR — 1 coluna no mobile, 2 lado a lado em md, e coluna fixa em
+            lg. Só fica sticky quando a janela é alta (≥ 52rem); em telas
+            baixas o fim da sidebar ficaria inalcançável. */}
+        <aside className="grid min-w-0 grid-cols-1 items-start gap-5 sm:gap-6 md:grid-cols-2 lg:grid-cols-1 lg:[@media(min-height:52rem)]:sticky lg:[@media(min-height:52rem)]:top-24">
           {/* Cartão de identidade. */}
-          <Enter delay={90}>
+          <Enter delay={90} className="min-w-0">
             <section className={`${SURFACE} overflow-hidden`}>
               <div
                 aria-hidden="true"
@@ -275,14 +293,15 @@ export function ResumeBuilderPage() {
                     <img
                       src={bannerUrl}
                       alt=""
+                      decoding="async"
                       className="h-full w-full object-cover"
                     />
                   </Enter>
                 ) : (
-                  <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(closest-side,rgba(200,157,60,0.32),transparent)]" />
+                  <div className="absolute -end-10 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(closest-side,rgba(200,157,60,0.32),transparent)]" />
                 )}
               </div>
-              <div className="relative -mt-12 flex flex-col items-center px-6 pb-7 text-center">
+              <div className="relative -mt-12 flex flex-col items-center px-5 pb-6 text-center sm:px-6 sm:pb-7">
                 {/* Avatar com aro bordô e dourado (igual ao da ProfilePage). */}
                 <div className="rounded-full bg-[conic-gradient(from_200deg,#6b1426,#c89d3c,#6b1426)] p-[3px]">
                   <span className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-[#FDF2F4] font-serif text-3xl font-bold text-primary ring-4 ring-white dark:ring-[#171b22]">
@@ -290,6 +309,7 @@ export function ResumeBuilderPage() {
                       <img
                         src={user.image}
                         alt="Sua foto de perfil"
+                        decoding="async"
                         className="h-full w-full object-cover"
                       />
                     ) : profile === undefined || profile === null ? (
@@ -318,11 +338,11 @@ export function ResumeBuilderPage() {
                     salve — seus dados ficam por aqui, direto no currículo.
                   </p>
                 ) : (
-                  <Enter y={6} className="mt-4 flex flex-col items-center">
-                    <h2 className="break-words font-serif text-xl font-bold leading-tight tracking-tight text-slate-900">
+                  <Enter y={6} className="mt-4 flex min-w-0 max-w-full flex-col items-center">
+                    <h2 className="font-serif text-xl font-bold leading-tight tracking-tight text-slate-900 [overflow-wrap:anywhere]">
                       {profile.fullName}
                     </h2>
-                    <p className="mt-1 text-sm font-semibold text-primary">
+                    <p className="mt-1 text-sm font-semibold text-primary [overflow-wrap:anywhere]">
                       {profile.course}
                     </p>
                     <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -347,10 +367,10 @@ export function ResumeBuilderPage() {
           </Enter>
 
           {/* Privacidade (R2) — Público vs Privado + consentimento de contato. */}
-          <Enter delay={180}>
+          <Enter delay={180} className="min-w-0">
             <section
               aria-label="Privacidade do currículo"
-              className={`${SURFACE} flex flex-col gap-6 p-6`}
+              className={`${SURFACE} flex flex-col gap-5 p-5 sm:gap-6 sm:p-6`}
             >
               <SwitchRow
                 labelId="visibility-switch-label"
@@ -381,7 +401,7 @@ export function ResumeBuilderPage() {
                 )}
               </SwitchRow>
 
-              <div className="border-t border-slate-100 pt-6">
+              <div className="border-t border-slate-100 pt-5 sm:pt-6">
                 <SwitchRow
                   labelId="contact-switch-label"
                   label="Permitir contato de recrutadores"
@@ -414,25 +434,25 @@ export function ResumeBuilderPage() {
         </aside>
 
         {/* CONTEÚDO — os 7 blocos + exportação (Etapa 2.2/2.3). */}
-        <div className="flex min-w-0 flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-5 sm:gap-6">
           <ResumeForm />
           <Enter
             as="section"
             id="bloco-exportar"
             aria-labelledby="exportar-heading"
-            className={`${SURFACE} scroll-mt-44 p-6 sm:p-8`}
+            className={`${SURFACE} min-w-0 scroll-mt-44 p-4 min-[400px]:p-5 sm:p-8`}
           >
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 sm:gap-4">
               <span
                 aria-hidden="true"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FDF2F4] text-primary"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FDF2F4] text-primary sm:h-12 sm:w-12"
               >
-                <FileDown className="h-6 w-6" strokeWidth={2} />
+                <FileDown className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={2} />
               </span>
               <div className="min-w-0">
                 <h2
                   id="exportar-heading"
-                  className="font-serif text-xl font-bold leading-tight tracking-tight text-slate-900 sm:text-2xl"
+                  className="font-serif text-lg font-bold leading-tight tracking-tight text-slate-900 [overflow-wrap:anywhere] min-[400px]:text-xl sm:text-2xl"
                 >
                   Visualizador e Exportação PDF
                 </h2>
@@ -441,7 +461,7 @@ export function ResumeBuilderPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-7">
+            <div className="mt-5 sm:mt-7">
               <ResumeDownload />
             </div>
           </Enter>

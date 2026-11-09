@@ -1,38 +1,38 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc } from "../../../convex/_generated/dataModel";
-import { Badge } from "../ui/badge";
-import { Button } from "../ui/button";
-import { CustomSelect } from "../ui/CustomSelect";
-import { SuperSearch, type SuperSearchSource } from "../ui/SuperSearch";
-import { friendlyErrorMessage } from "../../lib/toastMessages";
+import { api } from "../../../../convex/_generated/api";
+import type { Doc } from "../../../../convex/_generated/dataModel";
+import { Badge } from "../../ui/badge";
+import { Button } from "../../ui/button";
+import { CustomSelect } from "../../ui/CustomSelect";
+import { SuperSearch, type SuperSearchSource } from "../../ui/SuperSearch";
+import { friendlyErrorMessage } from "../../../lib/toastMessages";
 import {
   STAGE_LABELS,
   checkRequiredPrerequisites,
-} from "../../lib/application";
+} from "../../../lib/application";
 import {
   CONTRACT_LABELS,
   formatSalaryRange,
   type ContractType,
   isVerifiablePrerequisite,
-} from "../../lib/job";
+} from "../../../lib/job";
 import {
   DEFAULT_JOB_FILTERS,
   filterOpenJobs,
   sortOpenJobs,
   type JobSortOrder,
   type OpenJobFilters,
-} from "../../lib/jobSearch";
+} from "../../../lib/jobSearch";
 import {
   REPORT_DETAILS_MAX,
   REPORT_OTHER_MIN,
   REPORT_REASONS,
   REPORT_REASON_LABELS,
   type ReportReason,
-} from "../../lib/jobReport";
-import { MATCH_BAND_LABELS, matchBand } from "../../lib/matching";
+} from "../../../lib/jobReport";
+import { MATCH_BAND_LABELS, matchBand } from "../../../lib/matching";
 import {
   AlertTriangle,
   Banknote,
@@ -47,8 +47,8 @@ import {
   Send,
   X,
 } from "lucide-react";
-import { EmptyState } from "../ui/emptyState";
-import { Modal } from "../ui/modal";
+import { EmptyState } from "../../ui/emptyState";
+import { Modal } from "../../ui/modal";
 
 /** Vaga do mural — `matchScore` chega calculado no servidor (R8). */
 type OpenJob = Doc<"jobs"> & { matchScore?: number | null };
@@ -61,7 +61,7 @@ const SALARY_STEPS = [1000, 1500, 2000, 3000, 5000];
 /* ------------------------------------------------------------------ */
 
 const SURFACE =
-  "rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
+  "rounded-2xl sm:rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
 
 /** Card de vaga: sobe 2px no hover (só com mouse) e ganha profundidade. */
 const CARD = `${SURFACE} transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5 [@media(hover:hover)_and_(pointer:fine)]:hover:shadow-[0_0_0_1px_rgba(107,20,38,0.18),0_2px_4px_rgba(15,23,42,0.04),0_20px_40px_-20px_rgba(107,20,38,0.28)] motion-reduce:transition-none`;
@@ -69,11 +69,22 @@ const CARD = `${SURFACE} transition-[transform,box-shadow] duration-300 ease-[cu
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
 
+/**
+ * Área de toque ampliada (44px) para botões visualmente pequenos:
+ * um pseudo-elemento invisível estende a zona clicável sem mudar o layout.
+ */
+const TOUCH_AREA =
+  "relative before:absolute before:-inset-2.5 before:content-['']";
+
+/** Texto auxiliar: 13px no mobile (legível), 12px de sm para cima. */
+const SMALL_TEXT = "text-[13px] sm:text-xs";
+
+/** Botões já têm !h-11 (44px); aqui só a largura responsiva. */
 const APPLE_NEUTRAL =
-  "group !h-11 !gap-2 !rounded-xl !border-transparent !bg-slate-100 !px-4 !text-slate-700 !shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!bg-slate-200/70 active:!scale-[0.97] active:!duration-100 dark:!bg-[#2c1a21] dark:!text-[#e9b8c3] dark:!shadow-[inset_0_0_0_1px_rgba(233,184,195,0.22)] dark:hover:!bg-[#3a2029]";
+  "group !h-11 !gap-2 !rounded-xl !border-transparent !bg-slate-100 !px-4 !text-slate-700 !shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!bg-slate-200/70 active:!scale-[0.97] active:!duration-100 dark:!bg-[#2c1a21] dark:!text-[#e9b8c3] dark:!shadow-[inset_0_0_0_1px_rgba(233,184,195,0.22)] dark:hover:!bg-[#3a2029] w-full sm:w-auto";
 
 const APPLE_PRIMARY =
-  "group !h-11 !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100 disabled:active:!scale-100";
+  "group !h-11 !gap-2 !rounded-xl !px-4 !shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] !transition-[background-color,box-shadow,transform] !duration-200 !ease-[cubic-bezier(0.23,1,0.32,1)] hover:!translate-y-0 hover:!shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_1px_2px_rgba(107,20,38,0.25)] active:!scale-[0.97] active:!duration-100 disabled:active:!scale-100 w-full sm:w-auto";
 
 /** Normaliza para comparar sem acento/caixa (mesma regra do SuperSearch). */
 function fold(text: string): string {
@@ -121,7 +132,8 @@ function ScoreRing({ score, delay = 0 }: { score: number; delay?: number }) {
       title={MATCH_BAND_LABELS[band]}
       className="flex shrink-0 flex-col items-center gap-1"
     >
-      <div className="relative h-14 w-14">
+      {/* O SVG escala com o contêiner: 48px no mobile, 56px de sm para cima. */}
+      <div className="relative h-12 w-12 sm:h-14 sm:w-14">
         <svg
           viewBox="0 0 56 56"
           aria-hidden="true"
@@ -149,7 +161,7 @@ function ScoreRing({ score, delay = 0 }: { score: number; delay?: number }) {
         </svg>
         <span
           aria-hidden="true"
-          className={`absolute inset-0 grid place-items-center text-sm font-bold tabular-nums ${text}`}
+          className={`absolute inset-0 grid place-items-center text-[13px] font-bold tabular-nums sm:text-sm ${text}`}
         >
           {score}%
         </span>
@@ -169,15 +181,17 @@ function FilterChip({
   onRemove: () => void;
 }) {
   return (
-      <span className="rise inline-flex items-center gap-1 rounded-full bg-[#FDF2F4] py-1 pl-3 pr-1 text-xs font-semibold text-primary [animation-duration:500ms]">
-      {label}
+    <span
+      className={`rise inline-flex max-w-full items-center gap-1 rounded-full bg-[#FDF2F4] py-1 ps-3 pe-1 font-semibold text-primary [animation-duration:500ms] ${SMALL_TEXT}`}
+    >
+      <span className="min-w-0 truncate">{label}</span>
       <button
         type="button"
         aria-label={`Remover filtro: ${label}`}
         onClick={onRemove}
-        className={`grid h-5 w-5 place-items-center rounded-full transition-[background-color,transform] duration-150 ease-out hover:bg-primary/10 active:scale-90 motion-reduce:active:scale-100 ${FOCUS}`}
+        className={`${TOUCH_AREA} grid h-6 w-6 shrink-0 place-items-center rounded-full transition-[background-color,transform] duration-150 ease-out hover:bg-primary/10 active:scale-90 motion-reduce:active:scale-100 ${FOCUS}`}
       >
-        <X className="h-3 w-3" aria-hidden="true" />
+        <X className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
     </span>
   );
@@ -192,6 +206,11 @@ function FilterChip({
  *   SERVIDOR (R8) em `applications.openJobs`;
  * - candidatura em um clique (bloqueio nos pré-requisitos obrigatórios
  *   vem da mesma regra do servidor) e denúncia de vaga.
+ *
+ * Responsividade (mobile-first): grade de cards por conteúdo (auto-fill),
+ * tipografia e espaçamentos fluidos, alvos de toque ≥ 44px, botões em
+ * largura total no mobile, modal com altura segura (dvh) e inputs a 16px
+ * (evita zoom automático no iOS), safe-area e propriedades lógicas.
  */
 export function JobOpportunities() {
   const openJobs = useQuery(api.applications.openJobs, {});
@@ -224,7 +243,7 @@ export function JobOpportunities() {
     myApplications !== undefined &&
     profile !== undefined &&
     reportedIds !== undefined;
-  
+
   // "Carregando…" só aparece se a espera passar de 500ms (evita piscar).
   const [showLoading, setShowLoading] = useState(false);
   useEffect(() => {
@@ -456,17 +475,19 @@ export function JobOpportunities() {
   }
 
   return (
+    // Safe-area: respeita o notch em paisagem; overflow-x-clip evita
+    // rolagem horizontal sem quebrar elementos sticky.
     <div
       role="region"
       aria-label="Oportunidades"
-      className="mx-auto w-full max-w-[1440px] px-8 pb-20 pt-8"
+      className="mx-auto w-full max-w-[1440px] overflow-x-clip pb-[max(5rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-6 sm:px-6 sm:pt-8 lg:px-8"
     >
-      <header className="mb-8">
-        <h1 className="rise font-serif text-4xl font-bold leading-[1.1] tracking-tight text-primary sm:text-5xl">
+      <header className="mb-6 sm:mb-8">
+        <h1 className="rise font-serif text-[length:clamp(1.875rem,1.4rem_+_2.4vw,3rem)] font-bold leading-[1.1] tracking-tight text-primary [overflow-wrap:anywhere]">
           Oportunidades
         </h1>
         <p
-          className="rise mt-4 max-w-2xl text-base leading-relaxed text-slate-600"
+          className="rise mt-3 max-w-2xl text-[0.9375rem] leading-relaxed text-slate-600 sm:mt-4 sm:text-base"
           style={{ animationDelay: "120ms" }}
         >
           Vagas abertas de empresas. Filtre por contrato, localidade e
@@ -478,7 +499,7 @@ export function JobOpportunities() {
       {/* Busca + filtros. `relative z-20` mantém os menus acima dos cards. */}
       <section
         aria-label="Busca e filtros"
-        className={`rise relative z-20 mb-6 p-6 xl:p-8 ${SURFACE}`}
+        className={`rise relative z-20 mb-5 p-4 sm:mb-6 sm:p-6 xl:p-8 ${SURFACE}`}
         style={{ animationDelay: "240ms" }}
       >
         <div className="flex flex-col gap-1.5">
@@ -550,7 +571,7 @@ export function JobOpportunities() {
           />
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
+        <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:mt-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <p
             key={loaded ? visibleJobs.length : "carregando"}
             className="rise min-h-[1.25rem] text-sm tabular-nums text-slate-600 [animation-duration:600ms]"
@@ -577,7 +598,7 @@ export function JobOpportunities() {
         {chips.length > 0 ? (
           <ul aria-label="Filtros ativos" className="mt-4 flex flex-wrap gap-2">
             {chips.map((chip) => (
-              <li key={chip.key}>
+              <li key={chip.key} className="min-w-0 max-w-full">
                 <FilterChip label={chip.label} onRemove={chip.remove} />
               </li>
             ))}
@@ -588,18 +609,20 @@ export function JobOpportunities() {
       {notice !== null ? (
         <div
           role="status"
-          className="rise mb-6 flex items-start gap-3 rounded-2xl bg-success/10 px-5 py-4 text-sm font-medium text-success [animation-duration:600ms]"
+          className="rise mb-5 flex items-start gap-3 rounded-2xl bg-success/10 px-4 py-4 text-sm font-medium text-success [animation-duration:600ms] sm:mb-6 sm:px-5"
         >
           <CheckCircle2
             className="mt-0.5 h-5 w-5 shrink-0"
             aria-hidden="true"
           />
-          <p className="min-w-0 flex-1 leading-relaxed">{notice}</p>
+          <p className="min-w-0 flex-1 leading-relaxed [overflow-wrap:anywhere]">
+            {notice}
+          </p>
           <button
             type="button"
             aria-label="Dispensar aviso"
             onClick={() => setNotice(null)}
-            className={`grid h-7 w-7 shrink-0 place-items-center rounded-full transition-[background-color,transform] duration-150 ease-out hover:bg-success/10 active:scale-90 motion-reduce:active:scale-100 ${FOCUS}`}
+            className={`${TOUCH_AREA} grid h-7 w-7 shrink-0 place-items-center rounded-full transition-[background-color,transform] duration-150 ease-out hover:bg-success/10 active:scale-90 motion-reduce:active:scale-100 ${FOCUS}`}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -631,7 +654,9 @@ export function JobOpportunities() {
         <ul
           key={listKey}
           aria-label="Vagas encontradas"
-          className="grid grid-cols-1 gap-5 xl:grid-cols-2"
+          // Grade por conteúdo: tantas colunas quantas couberem com ≥ 30rem
+          // (1 no mobile/tablet estreito, 2 em telas largas) — sem breakpoint fixo.
+          className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,30rem),1fr))] gap-4 sm:gap-5"
         >
           {visibleJobs.map((job, index) => {
             const id = String(job._id);
@@ -648,30 +673,33 @@ export function JobOpportunities() {
             return (
               <li
                 key={job._id}
-                className={`rise flex min-w-0 flex-col gap-4 p-6 [animation-duration:1600ms] xl:p-7 ${CARD}`}
+                className={`rise flex min-w-0 flex-col gap-4 p-5 [animation-duration:1600ms] sm:p-6 xl:p-7 ${CARD}`}
                 style={{
                   animationDelay: `${80 + Math.min(index, 9) * 180}ms`,
                 }}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 items-start gap-4">
+                <div className="flex items-start justify-between gap-3 sm:gap-4">
+                  <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                    {/* Em telas muito estreitas o ícone cede espaço ao título. */}
                     <span
                       aria-hidden="true"
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FDF2F4] text-primary"
+                      className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#FDF2F4] text-primary min-[400px]:flex sm:h-12 sm:w-12"
                     >
-                      <Briefcase className="h-6 w-6" />
+                      <Briefcase className="h-5 w-5 sm:h-6 sm:w-6" />
                     </span>
                     <div className="min-w-0">
-                      <h2 className="break-words font-serif text-xl font-bold leading-snug tracking-tight text-primary">
+                      <h2 className="font-serif text-lg font-bold leading-snug tracking-tight text-primary [overflow-wrap:anywhere] sm:text-xl">
                         {job.title}
                       </h2>
-                      <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-slate-500">
+                      <p
+                        className={`mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-slate-500 ${SMALL_TEXT}`}
+                      >
                         <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
                           {CONTRACT_LABELS[job.contractType]}
                         </span>
                         <span className="inline-flex items-center gap-1 tabular-nums">
                           <Banknote
-                            className="h-3.5 w-3.5"
+                            className="h-3.5 w-3.5 shrink-0"
                             aria-hidden="true"
                           />
                           {formatSalaryRange(
@@ -681,12 +709,14 @@ export function JobOpportunities() {
                         </span>
                         {job.location !== undefined &&
                         job.location !== null ? (
-                          <span className="inline-flex items-center gap-1">
+                          <span className="inline-flex min-w-0 items-center gap-1">
                             <MapPin
                               className="h-3.5 w-3.5 shrink-0"
                               aria-hidden="true"
                             />
-                            {job.location}
+                            <span className="min-w-0 [overflow-wrap:anywhere]">
+                              {job.location}
+                            </span>
                           </span>
                         ) : null}
                       </p>
@@ -697,7 +727,7 @@ export function JobOpportunities() {
                   ) : null}
                 </div>
 
-                <p className="line-clamp-3 break-words text-sm leading-relaxed text-slate-600">
+                <p className="line-clamp-3 text-sm leading-relaxed text-slate-600 [overflow-wrap:anywhere]">
                   {job.description}
                 </p>
 
@@ -714,7 +744,7 @@ export function JobOpportunities() {
                       <li key={`${p.item}-${i}`} className="min-w-0 max-w-full">
                         <span
                           title={p.item}
-                          className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+                          className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-1 font-semibold ${SMALL_TEXT} ${
                             blocking
                               ? "border-primary/30 bg-[#FDF2F4] text-primary"
                               : "border-slate-200 bg-white text-slate-700"
@@ -749,13 +779,13 @@ export function JobOpportunities() {
                 {blocked ? (
                   <p
                     role="alert"
-                    className="flex items-start gap-2.5 rounded-2xl bg-warning/10 px-4 py-3 text-xs font-medium leading-relaxed text-warning"
+                    className={`flex items-start gap-2.5 rounded-2xl bg-warning/10 px-4 py-3 font-medium leading-relaxed text-warning ${SMALL_TEXT}`}
                   >
                     <AlertTriangle
                       className="mt-0.5 h-4 w-4 shrink-0"
                       aria-hidden="true"
                     />
-                    <span>
+                    <span className="min-w-0 [overflow-wrap:anywhere]">
                       {missing.length === 1
                         ? `Requisito obrigatório não atendido: ${missing[0]}.`
                         : `Requisitos obrigatórios não atendidos: ${missing.join(", ")}.`}{" "}
@@ -765,13 +795,15 @@ export function JobOpportunities() {
                   </p>
                 ) : null}
 
-                <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                {/* Rodapé: empilhado no mobile (ação principal primeiro),
+                    em linha de sm para cima. */}
+                <div className="mt-auto flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   {applied ? (
                     <Badge variant="andamento">
                       Candidatura enviada · Etapa: {STAGE_LABELS.inscrito}
                     </Badge>
                   ) : null}
-                  <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <div className="flex w-full flex-col gap-2 sm:ms-auto sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
                     <Button
                       variant="secondary"
                       className={APPLE_NEUTRAL}
@@ -786,7 +818,7 @@ export function JobOpportunities() {
                     </Button>
                     <Button
                       variant="primary"
-                      className={APPLE_PRIMARY}
+                      className={`${APPLE_PRIMARY} max-sm:order-first`}
                       disabled={applied || applying || !hasProfile || blocked}
                       title={
                         blocked
@@ -809,7 +841,10 @@ export function JobOpportunities() {
                   </div>
                 </div>
                 {error !== undefined ? (
-                  <span className="text-xs font-medium text-danger" role="alert">
+                  <span
+                    className={`font-medium text-danger [overflow-wrap:anywhere] ${SMALL_TEXT}`}
+                    role="alert"
+                  >
                     {error}
                   </span>
                 ) : null}
@@ -821,15 +856,17 @@ export function JobOpportunities() {
 
       {reportTarget !== null ? (
         <Modal titleId={reportTitleId} onClose={closeReport}>
-          <div className="-mx-2 max-h-[calc(100dvh-18rem)] overflow-y-auto px-2 py-1 [scrollbar-width:thin]">
+          {/* Altura segura: usa dvh (barra do navegador mobile) e nunca
+              menos que o conteúdo mínimo, inclusive em paisagem. */}
+          <div className="-mx-2 max-h-[min(70dvh,34rem)] overflow-y-auto overscroll-contain px-2 py-1 [scrollbar-width:thin]">
             <h2
               id={reportTitleId}
-              className="flex items-center gap-2.5 font-serif text-xl font-bold tracking-tight text-primary"
+              className="flex items-center gap-2.5 font-serif text-lg font-bold tracking-tight text-primary sm:text-xl"
             >
-              <Flag className="h-5 w-5" aria-hidden="true" />
+              <Flag className="h-5 w-5 shrink-0" aria-hidden="true" />
               Denunciar vaga
             </h2>
-            <p className="mt-1.5 text-sm text-slate-600">
+            <p className="mt-1.5 text-sm text-slate-600 [overflow-wrap:anywhere]">
               “{reportTarget.title}”
             </p>
 
@@ -850,7 +887,7 @@ export function JobOpportunities() {
                       className="peer sr-only"
                     />
                     <span
-                      className={`flex items-center gap-3 rounded-2xl border px-4 py-2.5 text-sm transition-[background-color,border-color,transform] duration-500 group-active:duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] group-active:scale-[0.985] peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:group-active:scale-100 ${
+                      className={`flex min-h-11 items-center gap-3 rounded-2xl border px-4 py-2.5 text-sm transition-[background-color,border-color,transform] duration-500 group-active:duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] group-active:scale-[0.985] peer-focus-visible:ring-2 peer-focus-visible:ring-primary peer-focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:group-active:scale-100 ${
                         checked
                           ? "border-primary bg-[#FDF2F4] font-semibold text-primary"
                           : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:hover:border-white/20 dark:hover:bg-white/[0.06]"
@@ -870,7 +907,7 @@ export function JobOpportunities() {
                           }`}
                         />
                       </span>
-                      {REPORT_REASON_LABELS[reason]}
+                      <span className="min-w-0">{REPORT_REASON_LABELS[reason]}</span>
                     </span>
                   </label>
                 );
@@ -887,37 +924,43 @@ export function JobOpportunities() {
                   {reportDetails.length}/{REPORT_DETAILS_MAX}
                 </span>
               </span>
+              {/* 16px no mobile: abaixo disso o iOS dá zoom ao focar o campo. */}
               <textarea
                 value={reportDetails}
                 onChange={(e) => setReportDetails(e.target.value)}
-                rows={2}
+                rows={3}
                 maxLength={REPORT_DETAILS_MAX}
-                className="w-full resize-none rounded-2xl border border-slate-300 bg-white p-3.5 text-sm font-normal text-slate-900 transition-colors duration-150 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 dark:focus:ring-offset-[#0f1218]"
+                className="w-full resize-none rounded-2xl border border-slate-300 bg-white p-3.5 text-base font-normal text-slate-900 transition-colors duration-150 hover:border-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 sm:text-sm dark:focus:ring-offset-[#0f1218]"
               />
             </label>
-            <p className="mt-3 text-xs leading-relaxed text-slate-500">
+            <p className="mt-3 text-[13px] leading-relaxed text-slate-500 sm:text-xs">
               O recrutador não vê quem denunciou.
             </p>
           </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <Button variant="secondary" onClick={closeReport}>
-                <X className="h-4 w-4" aria-hidden="true" />
-                Cancelar
-              </Button>
-              <Button
-                variant="primary"
-                disabled={
-                  reporting ||
-                  reportReason === null ||
-                  (reportReason === "outro" &&
-                    reportDetails.trim().length < REPORT_OTHER_MIN)
-                }
-                onClick={() => void submitReport()}
-              >
-                <Flag className="h-4 w-4" aria-hidden="true" />
-                {reporting ? "Enviando…" : "Enviar denúncia"}
-              </Button>
-            </div>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:mt-6 sm:flex-row sm:justify-end">
+            <Button
+              variant="secondary"
+              className="min-h-11 w-full sm:w-auto"
+              onClick={closeReport}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              className="min-h-11 w-full sm:w-auto"
+              disabled={
+                reporting ||
+                reportReason === null ||
+                (reportReason === "outro" &&
+                  reportDetails.trim().length < REPORT_OTHER_MIN)
+              }
+              onClick={() => void submitReport()}
+            >
+              <Flag className="h-4 w-4" aria-hidden="true" />
+              {reporting ? "Enviando…" : "Enviar denúncia"}
+            </Button>
+          </div>
         </Modal>
       ) : null}
     </div>

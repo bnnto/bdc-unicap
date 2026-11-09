@@ -40,7 +40,7 @@ import {
   Inbox,
   LayoutGrid,
   List as ListIcon,
-  Mail, 
+  Mail,
   Target,
   UserCheck,
   UserX,
@@ -59,6 +59,7 @@ import {
   PRESS,
   SELECT_CLASS,
   SURFACE,
+  TOUCH_BTN,
   TextField,
 } from "./jobsUi";
 
@@ -86,22 +87,31 @@ const MATCH_BAR: Record<ReturnType<typeof matchBand>, string> = {
   low: "bg-rose-500",
 };
 
-/** Botão compacto das ações do card (hover só com ponteiro preciso). */
+/**
+ * Botão compacto das ações do card (hover só com ponteiro preciso).
+ * Em dispositivos touch (`pointer: coarse`) cresce para 44px.
+ */
 const CARD_BTN =
-  "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 [@media(hover:hover)_and_(pointer:fine)]:hover:border-primary/40 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary";
+  "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:px-3.5 [@media(hover:hover)_and_(pointer:fine)]:hover:border-primary/40 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary";
 const CARD_BTN_DANGER =
-  "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 [@media(hover:hover)_and_(pointer:fine)]:hover:border-rose-400/60 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-rose-50 [@media(hover:hover)_and_(pointer:fine)]:hover:text-rose-700 dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-rose-500/10 dark:[@media(hover:hover)_and_(pointer:fine)]:hover:text-rose-300";
+  "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11 [@media(pointer:coarse)]:px-3.5 [@media(hover:hover)_and_(pointer:fine)]:hover:border-rose-400/60 [@media(hover:hover)_and_(pointer:fine)]:hover:bg-rose-50 [@media(hover:hover)_and_(pointer:fine)]:hover:text-rose-700 dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-rose-500/10 dark:[@media(hover:hover)_and_(pointer:fine)]:hover:text-rose-300";
 
 /** Voltar: contorno e texto na cor primária (o "secondary" some no claro). */
-const BACK_BTN = `inline-flex h-10 items-center gap-2 rounded-xl border border-primary/40 bg-white px-4 text-sm font-semibold text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 dark:border-primary/50 dark:bg-primary/10 ${PRESS} [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#FDF2F4] dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-primary/20`;
+const BACK_BTN = `inline-flex h-10 items-center gap-2 rounded-xl border border-primary/40 bg-white px-4 text-sm font-semibold text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 dark:border-primary/50 dark:bg-primary/10 [@media(pointer:coarse)]:h-11 ${PRESS} [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#FDF2F4] dark:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-primary/20`;
 
-/** Chips de filtro (faixa de compatibilidade). */
+/** Chips de filtro (faixa de compatibilidade). No mobile dividem a linha
+ *  igualmente (`flex-1`); a partir de `sm` voltam ao tamanho natural. */
 const CHIP =
-  "inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1";
+  "inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 sm:flex-none [@media(pointer:coarse)]:h-11";
 const CHIP_ON =
   "border-primary/40 bg-[#FDF2F4] text-primary dark:bg-primary/15";
 const CHIP_OFF =
   "border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 [@media(hover:hover)_and_(pointer:fine)]:hover:border-primary/30 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary";
+
+/** Largura das colunas do quadro: no mobile ~85% da tela (a próxima coluna
+ *  "espia" na borda, sugerindo o scroll); a partir de `sm`, flexível. */
+const COLUMN_WIDTH =
+  "w-[85%] max-w-[22rem] shrink-0 snap-start sm:w-auto sm:min-w-[272px] sm:max-w-none sm:flex-1";
 
 type ViewMode = "board" | "list";
 type SortMode = "match" | "recent";
@@ -116,12 +126,20 @@ const BAND_FILTERS: { value: BandFilter; label: string }[] = [
 
 const VIEW_STORAGE_KEY = "jobKanban:view";
 
-/** Preferência por-visualizador; pode falhar (janela privada etc.). */
+/**
+ * Preferência por-visualizador; pode falhar (janela privada etc.).
+ * Sem preferência salva, celulares (< 640px) começam na LISTA: arrastar
+ * cards entre colunas não é prático no touch, e a lista tem menu de etapa.
+ */
 function readStoredView(): ViewMode {
   try {
-    return window.localStorage.getItem(VIEW_STORAGE_KEY) === "list"
-      ? "list"
-      : "board";
+    const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
+    if (stored === "list" || stored === "board") return stored;
+  } catch {
+    // segue para o padrão por tamanho de tela
+  }
+  try {
+    return window.matchMedia("(max-width: 639px)").matches ? "list" : "board";
   } catch {
     return "board";
   }
@@ -220,10 +238,10 @@ function ModalTitle({
   return (
     <h3
       id={id}
-      className="flex items-center gap-3 font-serif text-xl font-bold tracking-tight text-primary"
+      className="flex items-center gap-3 font-serif text-lg font-bold tracking-tight text-primary sm:text-xl"
     >
       <IconTile>{icon}</IconTile>
-      {children}
+      <span className="min-w-0">{children}</span>
     </h3>
   );
 }
@@ -235,10 +253,16 @@ function ModalError({ children }: { children: ReactNode }) {
       className="mt-4 flex items-start gap-2 rounded-xl border border-danger/40 bg-rose-50 px-3.5 py-2.5 text-sm text-danger dark:bg-rose-500/10"
     >
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-      <span>{children}</span>
+      <span className="min-w-0">{children}</span>
     </p>
   );
 }
+
+/** Rodapé dos modais: botões empilhados em largura total no mobile
+ *  (principal em cima), lado a lado e à direita a partir de `sm`. */
+const MODAL_FOOTER =
+  "mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end";
+const MODAL_BTN = `w-full sm:w-auto ${TOUCH_BTN}`;
 
 /** Esqueleto do board: mesma silhueta das colunas e dos cards. */
 function BoardSkeleton() {
@@ -249,7 +273,7 @@ function BoardSkeleton() {
         <div
           key={col}
           aria-hidden="true"
-          className="min-h-72 min-w-[272px] flex-1 animate-pulse rounded-3xl border border-slate-200/80 bg-slate-50/70 p-4 motion-reduce:animate-none dark:border-white/10 dark:bg-white/[0.03]"
+          className="min-h-72 w-[85%] max-w-[22rem] shrink-0 animate-pulse rounded-3xl border border-slate-200/80 bg-slate-50/70 p-4 motion-reduce:animate-none sm:w-auto sm:min-w-[272px] sm:max-w-none sm:flex-1 dark:border-white/10 dark:bg-white/[0.03]"
         >
           <div className="mb-4 h-4 w-1/2 rounded-full bg-slate-200/80 dark:bg-white/10" />
           {[0, 1].map((card) => (
@@ -325,6 +349,15 @@ type BoardApplication = {
  * 3. coluna "Reprovado" recolhida (continua aceitando soltar);
  * 4. alternância Quadro/Lista (lista com menu de etapa por linha).
  * A lógica de mover/reprovar/agendar não mudou.
+ *
+ * Responsividade:
+ * - celulares começam na Lista (sem preferência salva); o Quadro rola na
+ *   horizontal com scroll-snap e colunas de ~85% da tela;
+ * - barra de controles em grid de 2 colunas no mobile (busca, filtros e
+ *   alternância em largura total) e em linha a partir de `sm`;
+ * - linhas da lista empilham (identificação → etapa → ações);
+ * - alvos de toque de 44px em touch; modais com botões empilhados;
+ * - `dvh` na altura das colunas e propriedades lógicas (`ms`, `ps`, `start`).
  */
 export function JobKanban({
   initialJobId = null,
@@ -633,7 +666,7 @@ export function JobKanban({
 
   if (jobs === undefined && selectedJobId === null) {
     return (
-      <div className="pb-16 pt-2">
+      <div className="min-w-0 pb-16 pt-2">
         <div role="status" aria-live="polite" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <span className="sr-only">Carregando vagas…</span>
           {[0, 1, 2].map((i) => (
@@ -650,13 +683,13 @@ export function JobKanban({
 
   if (jobs?.length === 0 && selectedJobId === null) {
     return (
-      <div className="pb-16 pt-2">
+      <div className="min-w-0 pb-16 pt-2">
         <MotionStyles />
         <PageHeader
           title="Pipeline de candidaturas"
           description="Acompanhe cada candidato da inscrição à contratação."
         />
-        <div className={`${SURFACE} px-6 py-10`}>
+        <div className={`${SURFACE} px-4 py-8 sm:px-6 sm:py-10`}>
           <EmptyState
             icon={Briefcase}
             title="Nenhuma vaga publicada"
@@ -669,28 +702,28 @@ export function JobKanban({
 
   if (selectedJobId === null) {
     return (
-      <div className="pb-16 pt-2">
+      <div className="min-w-0 pb-16 pt-2">
         <MotionStyles />
         <PageHeader
           title="Pipeline de candidaturas"
           description="Escolha a vaga para visualizar o pipeline Kanban:"
         />
-        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
           {(jobs ?? []).map((job: Doc<"jobs">, index) => (
             <li
               key={job._id}
-              className="jb-rise"
+              className="jb-rise min-w-0"
               style={{ animationDelay: `${Math.min(index, 6) * 35}ms` }}
             >
               <button
                 type="button"
                 onClick={() => setSelectedJobId(job._id)}
-                className={`${SURFACE} ${PRESS} flex w-full items-center gap-4 p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary [@media(hover:hover)_and_(pointer:fine)]:hover:border-primary/30`}
+                className={`${SURFACE} ${PRESS} flex min-h-14 w-full items-center gap-3 p-4 text-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:gap-4 sm:p-5 [@media(hover:hover)_and_(pointer:fine)]:hover:border-primary/30`}
               >
                 <IconTile size="lg">
                   <Briefcase className="h-5 w-5" />
                 </IconTile>
-                <span className="min-w-0 flex-1 truncate font-semibold text-slate-900 dark:text-slate-100">
+                <span className="min-w-0 flex-1 font-semibold text-slate-900 [overflow-wrap:anywhere] dark:text-slate-100">
                   {job.title}
                 </span>
                 <ArrowRight
@@ -707,10 +740,10 @@ export function JobKanban({
 
   if (boardNotFound) {
     return (
-      <div className="pb-16 pt-2">
+      <div className="min-w-0 pb-16 pt-2">
         <MotionStyles />
         <PageHeader title="Pipeline de candidaturas" />
-        <div className={`${SURFACE} px-6 py-10`}>
+        <div className={`${SURFACE} px-4 py-8 sm:px-6 sm:py-10`}>
           <EmptyState
             icon={Briefcase}
             title="Vaga não encontrada"
@@ -868,7 +901,7 @@ export function JobKanban({
             void handleMove(application.applicationId, nextStage);
           }
         }}
-        className={`${CARD_SURFACE} ${CARD_HOVER} ${enterClass} shrink-0 cursor-grab p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing ${
+        className={`${CARD_SURFACE} ${CARD_HOVER} ${enterClass} min-w-0 shrink-0 cursor-grab p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing ${
           draggingId === application.applicationId ? "opacity-50" : ""
         }`}
       >
@@ -878,7 +911,7 @@ export function JobKanban({
           aria-expanded={open}
           aria-controls={detailsId}
           onClick={() => toggleExpanded(application.applicationId)}
-          className="flex w-full items-center gap-2.5 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
+          className="flex w-full items-center gap-2.5 rounded-lg text-start focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 [@media(pointer:coarse)]:min-h-11"
         >
           <span
             aria-hidden="true"
@@ -981,11 +1014,11 @@ export function JobKanban({
               )}
             </p>
             {application.contactReleased ? (
-              <p className="mt-2 flex flex-wrap items-center gap-x-1 text-xs text-primary">
+              <p className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-primary">
                 {application.email !== undefined ? (
                   <a
                     href={`mailto:${application.email}`}
-                    className="inline-flex min-w-0 items-center gap-1 break-all hover:underline"
+                    className="inline-flex min-w-0 items-center gap-1 break-all hover:underline [@media(pointer:coarse)]:min-h-11"
                     onClick={() =>
                       void trackProfileView({
                         applicationId:
@@ -1006,7 +1039,7 @@ export function JobKanban({
                       href={application.linkedinUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 hover:underline"
+                      className="inline-flex items-center gap-1 hover:underline [@media(pointer:coarse)]:min-h-11"
                       onClick={() =>
                         void trackProfileView({
                           applicationId:
@@ -1024,7 +1057,7 @@ export function JobKanban({
             <div className="mt-3.5 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-3 dark:border-white/10">
               {prevStage !== null ? (
                 <CardButton
-                  className="w-8 px-0"
+                  className="w-8 px-0 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:px-0"
                   disabled={saving}
                   aria-label={`Mover ${application.fullName} para ${STAGE_LABELS[prevStage]}`}
                   onClick={() =>
@@ -1036,7 +1069,7 @@ export function JobKanban({
               ) : null}
               {nextStage !== null ? (
                 <CardButton
-                  className="w-8 px-0"
+                  className="w-8 px-0 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:px-0"
                   disabled={saving}
                   aria-label={`Mover ${application.fullName} para ${STAGE_LABELS[nextStage]}`}
                   onClick={() =>
@@ -1049,7 +1082,7 @@ export function JobKanban({
               {/* [RECRUITER_VIEW_PROFILE] Etapa 3 — acesso à
                   página dedicada (currículo somente leitura). */}
               <CardButton
-                className="ml-auto"
+                className="ms-auto"
                 onClick={() =>
                   navigateTo(candidateProfilePath(application.studentId))
                 }
@@ -1086,7 +1119,7 @@ export function JobKanban({
         <section
           key={`${stage}-collapsed`}
           aria-label={`${STAGE_LABELS[stage]} — ${count} candidatura(s), recolhida`}
-          className={`flex max-h-[70vh] min-h-48 w-14 shrink-0 flex-col rounded-3xl border transition-colors duration-200 ${columnTone(stage)}`}
+          className={`flex max-h-[70dvh] min-h-48 w-14 shrink-0 snap-start flex-col rounded-3xl border transition-colors duration-200 ${columnTone(stage)}`}
           {...columnDropProps(stage)}
         >
           <button
@@ -1125,16 +1158,16 @@ export function JobKanban({
       <section
         key={stage}
         aria-label={`${STAGE_LABELS[stage]} — ${count} candidatura(s)`}
-        className={`flex max-h-[70vh] min-h-48 min-w-[272px] flex-1 flex-col gap-4 rounded-3xl border p-4 transition-colors duration-200 ${
+        className={`flex max-h-[70dvh] min-h-48 ${COLUMN_WIDTH} flex-col gap-4 rounded-3xl border p-3 transition-colors duration-200 sm:p-4 ${
           isRejected ? "jb-fade" : ""
         } ${columnTone(stage)}`}
         {...columnDropProps(stage)}
       >
         <h3 className="flex items-center justify-between gap-2 px-1 font-serif text-[0.9375rem] font-bold text-primary">
-          <span className="flex items-center gap-2">
+          <span className="flex min-w-0 items-center gap-2">
             <span
               aria-hidden="true"
-              className={`h-2 w-2 rounded-full ${dotOf(stage)}`}
+              className={`h-2 w-2 shrink-0 rounded-full ${dotOf(stage)}`}
             />
             {STAGE_LABELS[stage]}
           </span>
@@ -1151,7 +1184,7 @@ export function JobKanban({
                 aria-expanded
                 aria-label={`Recolher coluna ${STAGE_LABELS[stage]}`}
                 onClick={() => setRejectedOpen(false)}
-                className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${PRESS} [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary`}
+                className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11 ${PRESS} [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary`}
               >
                 <ChevronRight className="h-4 w-4 rotate-180" aria-hidden="true" />
               </button>
@@ -1161,7 +1194,7 @@ export function JobKanban({
 
         {/* [RECRUITER_UX_UPGRADE] Muitos candidatos não partem o
             ecrã: a coluna cresce até max-h e o corpo rola. */}
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-0.5">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain p-0.5">
           {count === 0 ? (
             <div className="flex flex-col items-center gap-1.5 rounded-2xl border border-dashed border-slate-300/80 px-2 py-8 text-center dark:border-white/15">
               <Inbox
@@ -1179,12 +1212,13 @@ export function JobKanban({
     );
   };
 
-  /** Modo lista: uma linha por candidato com menu para mudar a etapa. */
+  /** Modo lista: uma linha por candidato com menu para mudar a etapa.
+   *  Mobile: empilha (identificação+match → etapa → ações); `sm+`: em linha. */
   const renderList = () => {
     const rows = sortApplications(visible, sortMode);
     if (rows.length === 0) {
       return (
-        <div className={`${SURFACE} px-6 py-10`}>
+        <div className={`${SURFACE} px-4 py-8 sm:px-6 sm:py-10`}>
           <EmptyState
             icon={Inbox}
             title={
@@ -1218,16 +1252,16 @@ export function JobKanban({
           return (
             <li
               key={application.applicationId}
-              className={`${CARD_SURFACE} flex flex-wrap items-center gap-x-4 gap-y-3 p-3`}
+              className={`${CARD_SURFACE} flex min-w-0 flex-col gap-3 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4`}
             >
-              <div className="flex min-w-0 flex-1 basis-64 items-center gap-2.5">
+              <div className="flex w-full min-w-0 items-center gap-2.5 sm:w-auto sm:flex-1 sm:basis-64">
                 <span
                   aria-hidden="true"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FDF2F4] font-serif text-xs font-bold text-primary ring-1 ring-primary/20 dark:bg-primary/15"
                 >
                   {initialsOf(application.fullName)}
                 </span>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <button
                     type="button"
                     aria-label={`Ver perfil de ${application.fullName}`}
@@ -1235,25 +1269,25 @@ export function JobKanban({
                     onClick={() =>
                       navigateTo(candidateProfilePath(application.studentId))
                     }
-                    className="block max-w-full truncate rounded text-left text-sm font-semibold text-slate-900 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-100 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
+                    className="block max-w-full truncate rounded text-start text-sm font-semibold text-slate-900 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary dark:text-slate-100 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary [@media(hover:hover)_and_(pointer:fine)]:hover:underline"
                   >
                     {application.fullName}
                   </button>
-                  <p className="truncate text-xs text-a11y-slate-500">
+                  <p className="line-clamp-2 break-words text-xs text-a11y-slate-500 sm:line-clamp-none sm:truncate">
                     {application.course} · Candidatou-se em{" "}
                     {formatDay(application.appliedAt)}
                     {application.contactReleased ? " · Contato liberado" : ""}
                   </p>
                 </div>
+                <span
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums ${MATCH_TONE[band]}`}
+                >
+                  <Target className="h-3 w-3" aria-hidden="true" />
+                  {application.matchScore}%
+                </span>
               </div>
-              <span
-                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold tabular-nums ${MATCH_TONE[band]}`}
-              >
-                <Target className="h-3 w-3" aria-hidden="true" />
-                {application.matchScore}%
-              </span>
               <CustomSelect
-                className="w-40 shrink-0"
+                className="w-full min-w-0 sm:w-40 sm:shrink-0"
                 label=""
                 placeholder={`Etapa de ${application.fullName}`}
                 value={application.stage}
@@ -1262,8 +1296,9 @@ export function JobKanban({
                 }
                 options={stageOptions.map((o) => ({ value: o, label: STAGE_LABELS[o] }))}
               />
-              <div className="flex shrink-0 items-center gap-1.5">
+              <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0 sm:gap-1.5">
                 <CardButton
+                  className="flex-1 sm:flex-none"
                   onClick={() =>
                     navigateTo(candidateProfilePath(application.studentId))
                   }
@@ -1274,6 +1309,7 @@ export function JobKanban({
                 {application.stage !== "reprovado" ? (
                   <CardButton
                     danger
+                    className="flex-1 sm:flex-none"
                     disabled={saving}
                     aria-label={`Reprovar ${application.fullName} com motivo padronizado`}
                     onClick={() => openReject(application.applicationId)}
@@ -1299,7 +1335,7 @@ export function JobKanban({
   };
 
   return (
-    <div className="pb-16 pt-2">
+    <div className="min-w-0 pb-16 pt-2">
       <MotionStyles />
       <PageHeader
         leading={
@@ -1363,9 +1399,12 @@ export function JobKanban({
           </div>
 
           {/* [SCALE_UPGRADE] Barra de controle: busca, faixa de match,
-              ordenação, etapa (só lista) e alternância Quadro/Lista. */}
-          <div className="mb-5 flex flex-wrap items-center gap-3">
-            <div className="min-w-[220px] flex-1 sm:max-w-sm">
+              ordenação, etapa (só lista) e alternância Quadro/Lista.
+              Mobile: grid de 2 colunas (busca, chips e alternância em
+              largura total; os selects dividem a linha na lista).
+              `sm+`: uma linha com quebra. */}
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
+            <div className="col-span-2 min-w-0 sm:min-w-[220px] sm:max-w-sm sm:flex-1">
               <SuperSearch
                 ariaLabel="Buscar candidato por nome ou curso"
                 placeholder="Buscar por nome ou curso"
@@ -1379,7 +1418,7 @@ export function JobKanban({
             <div
               role="group"
               aria-label="Filtrar por compatibilidade"
-              className="flex flex-wrap items-center gap-1.5"
+              className="col-span-2 flex w-full items-center gap-1.5 sm:w-auto"
             >
               {BAND_FILTERS.map((filter) => (
                 <button
@@ -1403,7 +1442,7 @@ export function JobKanban({
             </div>
 
             <CustomSelect
-              className="w-52"
+              className={`${viewMode === "board" ? "col-span-2" : ""} min-w-0 sm:col-span-1 sm:w-52`}
               label=""
               placeholder="Ordenar candidatos"
               value={sortMode}
@@ -1416,7 +1455,7 @@ export function JobKanban({
 
             {viewMode === "list" ? (
               <CustomSelect
-                className="w-48"
+                className="min-w-0 sm:w-48"
                 label=""
                 placeholder="Filtrar por etapa"
                 value={stageFilter}
@@ -1431,7 +1470,7 @@ export function JobKanban({
             <div
               role="group"
               aria-label="Modo de visualização"
-              className="ml-auto flex rounded-xl border border-slate-200 bg-white p-0.5 dark:border-white/10 dark:bg-white/5"
+              className="col-span-2 flex w-full rounded-xl border border-slate-200 bg-white p-0.5 sm:ms-auto sm:w-auto dark:border-white/10 dark:bg-white/5"
             >
               {(
                 [
@@ -1444,7 +1483,7 @@ export function JobKanban({
                   type="button"
                   aria-pressed={viewMode === value}
                   onClick={() => changeView(value)}
-                  className={`inline-flex h-9 items-center gap-1.5 rounded-[10px] px-3 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${PRESS} ${
+                  className={`inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-[10px] px-3 text-xs font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:flex-none [@media(pointer:coarse)]:h-11 ${PRESS} ${
                     viewMode === value
                       ? "bg-[#FDF2F4] text-primary dark:bg-primary/15"
                       : "text-slate-600 dark:text-slate-300 [@media(hover:hover)_and_(pointer:fine)]:hover:text-primary"
@@ -1473,7 +1512,7 @@ export function JobKanban({
               <button
                 type="button"
                 onClick={clearFilters}
-                className="rounded font-semibold text-primary underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:underline"
+                className="rounded font-semibold text-primary underline-offset-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary hover:underline [@media(pointer:coarse)]:min-h-11"
               >
                 Limpar filtros
               </button>
@@ -1481,7 +1520,9 @@ export function JobKanban({
           </div>
 
           {viewMode === "board" ? (
-            <div className="-mx-1 flex gap-4 overflow-x-auto px-1 pb-4">
+            /* Quadro: scroll horizontal com snap no mobile (cada coluna
+               "encaixa" ao soltar); sem snap no desktop. */
+            <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain scroll-px-1 px-1 pb-4 sm:snap-none sm:gap-4">
               {APPLICATION_STAGES.map((stage) => renderColumn(stage))}
             </div>
           ) : (
@@ -1513,7 +1554,7 @@ export function JobKanban({
           <div className="mt-5 flex flex-col gap-1.5">
             <label
               htmlFor="reject-reason-select"
-              className={`${LABEL_CLASS} after:ml-0.5 after:text-danger after:content-['*']`}
+              className={`${LABEL_CLASS} after:ms-0.5 after:text-danger after:content-['*']`}
             >
               Motivo da reprovação (obrigatório)
             </label>
@@ -1538,13 +1579,18 @@ export function JobKanban({
               {cardErrors[rejectingApplication.applicationId]}
             </ModalError>
           ) : null}
-          <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
-            <Button variant="secondary" onClick={closeReject}>
+          <div className={MODAL_FOOTER}>
+            <Button
+              variant="secondary"
+              className={MODAL_BTN}
+              onClick={closeReject}
+            >
               <X className="h-4 w-4" aria-hidden="true" />
               Cancelar
             </Button>
             <Button
               variant="danger"
+              className={MODAL_BTN}
               aria-label="Confirmar reprovação com o motivo selecionado"
               disabled={reasonDraft === "" || saving}
               onClick={() =>
@@ -1631,13 +1677,18 @@ export function JobKanban({
               {cardErrors[pendingApplication.applicationId]}
             </ModalError>
           ) : null}
-          <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
-            <Button variant="secondary" onClick={closePendingMove}>
+          <div className={MODAL_FOOTER}>
+            <Button
+              variant="secondary"
+              className={MODAL_BTN}
+              onClick={closePendingMove}
+            >
               <X className="h-4 w-4" aria-hidden="true" />
               Cancelar
             </Button>
             <Button
               variant="primary"
+              className={MODAL_BTN}
               aria-label="Salvar entrevista e mover o card"
               disabled={
                 saving ||
@@ -1693,13 +1744,18 @@ export function JobKanban({
               {cardErrors[pendingApplication.applicationId]}
             </ModalError>
           ) : null}
-          <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
-            <Button variant="secondary" onClick={closePendingMove}>
+          <div className={MODAL_FOOTER}>
+            <Button
+              variant="secondary"
+              className={MODAL_BTN}
+              onClick={closePendingMove}
+            >
               <X className="h-4 w-4" aria-hidden="true" />
               Cancelar
             </Button>
             <Button
               variant="primary"
+              className={MODAL_BTN}
               aria-label="Confirmar contratação com a data de início"
               disabled={saving || startDraft === ""}
               onClick={() =>

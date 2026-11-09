@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { api } from "../../../../convex/_generated/api";
 import {
   buildResumeDocument,
   buildResumeMarkup,
   formatResumeFileName,
-} from "../../lib/resumeDocument";
+} from "../../../lib/resumeDocument";
 import {
   printResumeDocument,
   injectResumePrintStyle,
-} from "../../lib/resumePrint";
-import { Button } from "../ui/button";
+} from "../../../lib/resumePrint";
+import { Button } from "../../ui/button";
 import { Download, Eye } from "lucide-react";
 
 /**
@@ -19,6 +19,10 @@ import { Download, Eye } from "lucide-react";
  * `buildResumeDocument` e impresso pelo próprio navegador
  * (`window.print()` → "Salvar como PDF"), sempre a partir dos dados
  * salvos do formulário (CA 1) com identidade UNICAP (CA 2).
+ *
+ * Responsividade: botões em largura total (44px) no celular; a prévia do
+ * documento (layout de página) rola na horizontal dentro de uma região
+ * focável, sem estourar a largura da tela.
  */
 export function ResumeDownload() {
   const profile = useQuery(api.students.myProfile, {});
@@ -55,7 +59,7 @@ export function ResumeDownload() {
   const markup = useMemo(
     () => (doc !== null && doc.ok ? buildResumeMarkup(doc) : null),
     [doc],
-  ); 
+  );
 
   useEffect(() => {
     if (showPreview && markup !== null) {
@@ -85,21 +89,21 @@ export function ResumeDownload() {
   function handleDownload(): void {
     // Adicionamos o !doc.ok aqui para o TypeScript ter 100% de certeza que temos os dados
     if (markup === null || doc === null || !doc.ok) return;
-    
+
     // Agora o TypeScript já sabe que doc.student existe!
     const fileName = formatResumeFileName(
       doc.student.fullName,
       doc.student.course,
       doc.student.graduationYear
     );
-    
+
     printResumeDocument(markup, fileName);
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex min-w-0 flex-col gap-5">
       {/* Bloco de instrução amigável e destacado */}
-      <div className="rounded-xl bg-[#FDF2F4] p-6 text-sm leading-relaxed text-slate-700">
+      <div className="rounded-xl bg-[#FDF2F4] p-4 text-sm leading-relaxed text-slate-700 sm:p-6">
         O seu currículo já está formatado no{" "}
         <strong className="font-semibold text-primary">
           padrão oficial da UNICAP
@@ -111,26 +115,31 @@ export function ResumeDownload() {
         na janela de impressão do seu navegador.
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="primary"
-          onClick={handleDownload}
-          aria-label={`Baixar currículo em PDF (${formatResumeFileName(doc.student.fullName, doc.student.course, doc.student.graduationYear)})`}
-        >
-          <Download className="h-4 w-4" aria-hidden="true" />
-          Baixar currículo (PDF)
-        </Button>
-        <Button
-          variant="secondary"
-          aria-expanded={showPreview}
-          onClick={() => setShowPreview((value) => !value)}
-        >
-          <Eye className="h-4 w-4" aria-hidden="true" />
-          {showPreview ? "Ocultar prévia" : "Visualizar antes de baixar"}
-        </Button>
+      {/* Mobile: botões empilhados em largura total (44px). sm+: em linha. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="w-full sm:w-auto [&>button]:min-h-11 [&>button]:w-full sm:[&>button]:w-auto">
+          <Button
+            variant="primary"
+            onClick={handleDownload}
+            aria-label={`Baixar currículo em PDF (${formatResumeFileName(doc.student.fullName, doc.student.course, doc.student.graduationYear)})`}
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Baixar currículo (PDF)
+          </Button>
+        </div>
+        <div className="w-full sm:w-auto [&>button]:min-h-11 [&>button]:w-full sm:[&>button]:w-auto">
+          <Button
+            variant="secondary"
+            aria-expanded={showPreview}
+            onClick={() => setShowPreview((value) => !value)}
+          >
+            <Eye className="h-4 w-4" aria-hidden="true" />
+            {showPreview ? "Ocultar prévia" : "Visualizar antes de baixar"}
+          </Button>
+        </div>
       </div>
 
-      <p className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+      <p className="flex flex-wrap items-center gap-2 text-[13px] text-slate-500 sm:text-xs">
         Nome sugerido para o arquivo:
         <code className="min-w-0 max-w-full break-all rounded-md border border-slate-200 bg-slate-100 px-2 py-1 font-mono text-slate-600">
           {formatResumeFileName(
@@ -142,12 +151,20 @@ export function ResumeDownload() {
       </p>
 
       {showPreview ? (
-        <div
-          className="max-w-full overflow-x-auto rounded-xl border border-slate-200 lg:p-8"
-          style={{ backgroundColor: 'white', color: 'black' }}
-          data-testid="resume-preview"
-          dangerouslySetInnerHTML={{ __html: markup ?? "" }}
-        />
+        <>
+          {/* A folha do currículo é fluida (largura 100% até 210mm), então
+              raramente rola; a região continua focável e com rolagem
+              contida como rede de segurança (ex.: URLs enormes). */}
+          <div
+            role="region"
+            aria-label="Prévia do currículo"
+            tabIndex={0}
+            className="max-w-full overflow-x-auto overscroll-x-contain rounded-xl border border-slate-200 p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-4 lg:p-8"
+            style={{ backgroundColor: 'white', color: 'black' }}
+            data-testid="resume-preview"
+            dangerouslySetInnerHTML={{ __html: markup ?? "" }}
+          />
+        </>
       ) : null}
     </div>
   );

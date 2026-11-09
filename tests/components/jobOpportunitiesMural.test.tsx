@@ -33,7 +33,7 @@ vi.mock("../../convex/_generated/api", () => ({
 }));
 
 import { useMutation, useQuery } from "convex/react";
-import { JobOpportunities } from "../../src/components/student/JobOpportunities";
+import { JobOpportunities } from "../../src/components/student/oportunidades/JobOpportunities";
 
 /** Cards filhos diretos do feed (ignora li's aninhados de pré-requisitos). */
 function cardsOf(feed: HTMLElement): HTMLElement[] {
