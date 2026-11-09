@@ -64,7 +64,7 @@ const SURFACE =
   "rounded-2xl sm:rounded-3xl border border-transparent bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.04),0_12px_32px_-16px_rgba(15,23,42,0.12)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.07)] [.high-contrast_&]:border-black [.high-contrast_&]:shadow-none [.dark.high-contrast_&]:border-white";
 
 /** Card de vaga: sobe 2px no hover (só com mouse) e ganha profundidade. */
-const CARD = `${SURFACE} transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5 [@media(hover:hover)_and_(pointer:fine)]:hover:shadow-[0_0_0_1px_rgba(107,20,38,0.18),0_2px_4px_rgba(15,23,42,0.04),0_20px_40px_-20px_rgba(107,20,38,0.28)] motion-reduce:transition-none`;
+const CARD = `${SURFACE} transition-[transform,box-shadow] duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5 [@media(hover:hover)_and_(pointer:fine)]:hover:shadow-[0_0_0_1px_rgba(107,20,38,0.18),0_2px_4px_rgba(15,23,42,0.04),0_8px_40px_-20px_rgba(107,20,38,0.28)] motion-reduce:transition-none`;
 
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
@@ -441,7 +441,7 @@ export function JobOpportunities() {
   if (filters.contract !== "todos") {
     chips.push({
       key: "contract",
-      label: CONTRACT_LABELS[filters.contract as ContractType],
+      label: CONTRACT_LABELS[filters.contract],
       remove: () => update("contract", "todos"),
     });
   }
@@ -490,9 +490,8 @@ export function JobOpportunities() {
           className="rise mt-3 max-w-2xl text-[0.9375rem] leading-relaxed text-slate-600 sm:mt-4 sm:text-base"
           style={{ animationDelay: "120ms" }}
         >
-          Vagas abertas de empresas. Filtre por contrato, localidade e
-          salário; o percentual de compatibilidade é calculado a partir do seu
-          currículo.
+          Vagas abertas de empresas. Filtre por contrato, localidade e salário;
+          o percentual de compatibilidade é calculado a partir do seu currículo.
         </p>
       </header>
 
@@ -549,7 +548,10 @@ export function JobOpportunities() {
             placeholder="Qualquer"
             value={filters.minSalary === null ? "" : String(filters.minSalary)}
             onChange={(v) =>
-              update("minSalary", v.length === 0 ? null : Number.parseInt(v, 10))
+              update(
+                "minSalary",
+                v.length === 0 ? null : Number.parseInt(v, 10),
+              )
             }
             options={[
               { value: "", label: "Qualquer" },
@@ -588,7 +590,11 @@ export function JobOpportunities() {
             {loaded ? "." : ""}
           </p>
           {hasActiveFilters ? (
-            <Button variant="secondary" className={APPLE_NEUTRAL} onClick={clearAll}>
+            <Button
+              variant="secondary"
+              className={APPLE_NEUTRAL}
+              onClick={clearAll}
+            >
               <FilterX className="h-4 w-4" aria-hidden="true" />
               Limpar filtros
             </Button>
@@ -707,8 +713,7 @@ export function JobOpportunities() {
                             job.salaryMax ?? null,
                           )}
                         </span>
-                        {job.location !== undefined &&
-                        job.location !== null ? (
+                        {job.location !== undefined && job.location !== null ? (
                           <span className="inline-flex min-w-0 items-center gap-1">
                             <MapPin
                               className="h-3.5 w-3.5 shrink-0"
@@ -723,7 +728,10 @@ export function JobOpportunities() {
                     </div>
                   </div>
                   {score !== null ? (
-                    <ScoreRing score={score} delay={80 + Math.min(index, 9) * 180 + 300} />
+                    <ScoreRing
+                      score={score}
+                      delay={80 + Math.min(index, 9) * 180 + 300}
+                    />
                   ) : null}
                 </div>
 
@@ -789,8 +797,8 @@ export function JobOpportunities() {
                       {missing.length === 1
                         ? `Requisito obrigatório não atendido: ${missing[0]}.`
                         : `Requisitos obrigatórios não atendidos: ${missing.join(", ")}.`}{" "}
-                      Complete o perfil com as competências necessárias para
-                      se candidatar.
+                      Complete o perfil com as competências necessárias para se
+                      candidatar.
                     </span>
                   </p>
                 ) : null}
@@ -907,7 +915,9 @@ export function JobOpportunities() {
                           }`}
                         />
                       </span>
-                      <span className="min-w-0">{REPORT_REASON_LABELS[reason]}</span>
+                      <span className="min-w-0">
+                        {REPORT_REASON_LABELS[reason]}
+                      </span>
                     </span>
                   </label>
                 );

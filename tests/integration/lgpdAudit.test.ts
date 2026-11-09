@@ -144,7 +144,9 @@ function toExposures(
     applicationId: string;
     contactReleased: boolean;
     releaseReason:
-      "autorizacao_geral" | "aceite_no_processo" | "sem_autorizacao";
+      | "autorizacao_geral"
+      | "aceite_no_processo"
+      | "sem_autorizacao";
     email?: string;
     phone?: string;
   }>,
@@ -246,7 +248,7 @@ describe("S8-1 — checklist LGPD via lgpd.runAudit (integração)", () => {
   });
 
   it("cada execução grava um snapshot na trilha de auditoria", async () => {
-    const t = convexTest(schema, modules);
+    const t = convexTest( schema, modules);
     const { managerId } = await seedWorld(t);
     const identity = asManager(t, managerId);
     const first = await identity.mutation(api.lgpd.runAudit, {});
@@ -262,8 +264,8 @@ describe("S8-1 — checklist LGPD via lgpd.runAudit (integração)", () => {
     expect(snapshot).toMatchObject({
       actorRole: "gestor",
       report: { passed: first.passed },
-      createdAt: expect.any(Number),
     });
+    expect(typeof snapshot.createdAt).toBe("number");
     const snapshotItems = (snapshot.report as { items: unknown[] }).items;
     expect(snapshotItems).toHaveLength(second.items.length);
   });
@@ -355,7 +357,9 @@ describe("S8-1 — relatório de dados do titular (art. 18, II)", () => {
         Date.now(),
       );
 
-      expect(report.items.find((i) => i.id === "autorizacao_contato")).toMatchObject({
+      expect(
+        report.items.find((i) => i.id === "autorizacao_contato"),
+      ).toMatchObject({
         status: "ok",
       });
     });

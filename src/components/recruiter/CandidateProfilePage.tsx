@@ -40,6 +40,7 @@ import {
   formatResumeFileName,
 } from "../../lib/resumeDocument";
 import { printResumeDocument } from "../../lib/resumePrint";
+import { safeImageUrl } from "../../lib/secureImageUrl";
 import type { Availability } from "../../lib/studentProfile";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -154,11 +155,12 @@ function InitialsAvatar({
 }) {
   return (
     <div className="shrink-0 self-start rounded-full bg-[conic-gradient(from_200deg,#6b1426,#c89d3c,#6b1426)] p-[3px] shadow-[0_8px_24px_-8px_rgba(79,13,28,0.55)]">
-      {imageUrl ? (
+      {safeImageUrl(imageUrl) ? (
         <img
           src={imageUrl}
           alt={`Foto de ${name}`}
           className="h-28 w-28 rounded-full bg-primary object-cover ring-4 ring-white sm:h-32 sm:w-32 dark:ring-[#171b22]"
+          referrerPolicy="no-referrer"
         />
       ) : (
         <span
@@ -590,12 +592,13 @@ export function CandidateProfilePage({
                 className={`${SURFACE} overflow-hidden`}
               >
                 <div className="relative h-36 overflow-hidden bg-[linear-gradient(120deg,#4f0d1c,#6b1426_45%,#8f2238)] sm:h-40">
-                  {profile.bannerUrl ? (
+                  {safeImageUrl(profile.bannerUrl) ? (
                     <>
                       <img
                         src={profile.bannerUrl}
                         alt=""
                         className="absolute inset-0 h-full w-full object-cover"
+                        referrerPolicy="no-referrer"
                       />
                       <span
                         aria-hidden="true"

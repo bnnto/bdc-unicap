@@ -72,13 +72,7 @@ type TalentScanIndex = keyof typeof TALENT_SCAN_SCHEMA;
  * "relevancia" preserva a ordem da varredura indexada (padrão); as demais
  * ordenam após os filtros, antes da paginação.
  */
-const TALENT_SORT_OPTIONS = [
-  "relevancia",
-  "nome",
-  "conclusao_proxima",
-] as const;
-
-export type TalentSortOption = (typeof TALENT_SORT_OPTIONS)[number];
+export type TalentSortOption = "relevancia" | "nome" | "conclusao_proxima";
 
 /**
  * Escolhe o índice de entrada a partir dos filtros (regra pura, testável).
@@ -256,7 +250,7 @@ function matchesTextFilters(
     return false;
 
   // [QUICK_WIN_MULTI] o campo é um array: o filtro casa se o aluno
-  // marcou AQUela disponibilidade ("contém", não igualdade de array).
+  // marcou AQUELA disponibilidade ("contém", não igualdade de array).
   if (
     filters.availability !== undefined &&
     !candidate.availability.includes(filters.availability)
@@ -346,8 +340,7 @@ export function filterTalentCandidates(
       score: countSkillMatches(candidate, chips),
     }));
     scored.sort(
-      (a, b) =>
-        b.score - a.score || comparator(a.candidate, b.candidate),
+      (a, b) => b.score - a.score || comparator(a.candidate, b.candidate),
     );
     sorted = scored.map((entry) => entry.candidate);
   } else {
