@@ -6,7 +6,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import {
   KNOWN_LANGUAGES,
   MAX_LANGUAGES,
@@ -126,131 +126,207 @@ const REQUIRED_LANGUAGES_EXTRA = [
   "Hindi",
 ];
 
+// Limites mínimos exigidos pelo briefing (constantes nomeadas).
+const MIN_SKILLS = 200;
+const MIN_LANGUAGES = 40;
+const MIN_MUTATIONS_COM_VALIDACAO = 2;
+
+/** Termos de `terms` que NÃO estão em `list` (vazio = tudo presente). */
+function missingFrom(list: readonly string[], terms: readonly string[]) {
+  return terms.filter((term) => !list.includes(term));
+}
+
+type Validation =
+  ReturnType<typeof validateSkills> | ReturnType<typeof validateLanguages>;
+
+/** Exige validação com erro; estreita o tipo e confere as mensagens. */
+function expectInvalid(result: Validation, ...patterns: RegExp[]) {
+  assert(!result.ok, "esperava validação com erro (ok === false)");
+  const message = result.errors.join(" ");
+  for (const pattern of patterns) {
+    expect(message).toMatch(pattern);
+  }
+}
+
+const REQUIRED_SKILL_GROUPS: Array<[string, string[]]> = [
+  ["Tech", REQUIRED_TECH],
+  ["Game Dev", REQUIRED_GAME],
+  ["Design", REQUIRED_DESIGN],
+  ["Gestão/Engenharias", REQUIRED_GESTAO],
+];
+
+const EXPANSION_SKILL_GROUPS: Array<[string, string[]]> = [
+  ["Engenharias", REQUIRED_ENG],
+  ["Direito", REQUIRED_DIR],
+  ["Comunicação/Marketing", REQUIRED_COM],
+  ["Saúde/Psicologia", REQUIRED_SAUDE],
+  ["Tech (extra)", REQUIRED_TECH_EXTRA],
+];
+
+const EXPECTED_GROUP_LABELS = [
+  "Engenharias (Civil, Elétrica, Mecânica)",
+  "Direito",
+  "Comunicação / Marketing",
+  "Saúde / Psicologia",
+];
+
+const CANONICAL_SKILLS: Array<[string, string | null]> = [
+  ["  react  ", "React"],
+  ["typescript", "TypeScript"],
+  ["gestao de projetos", "Gestão de Projetos"],
+  ["C#", "C#"],
+  // Fora da lista = sem correspondência (nada de personalização).
+  ["coxinha", null],
+  ["   ", null],
+];
+
+const CANONICAL_LANGUAGES: Array<[string, string | null]> = [
+  [" inglês ", "Inglês"],
+  ["PORTUGUÊS", "Português"],
+  ["klingon", null],
+];
+
+const FORM_FILE = "src/components/student/meucurriculo/ResumeForm.tsx";
+const TALENT_FILE = "src/components/recruiter/talent/TalentSearchPage.tsx";
+
 describe("dicionário fechado de competências", () => {
-  it("inclui obrigatoriamente Tech, Game Dev, Design e Gestão/Engenharias", () => {
-    for (const term of [
-      ...REQUIRED_TECH,
-      ...REQUIRED_GAME,
-      ...REQUIRED_DESIGN,
-      ...REQUIRED_GESTAO,
-    ]) {
-      expect(SKILLS_DICTIONARY, `falta "${term}"`).toContain(term);
-    }
+  it.each(REQUIRED_SKILL_GROUPS)(
+    "inclui os termos obrigatórios de %s",
+    (_grupo, terms) => {
+      expect(missingFrom(SKILLS_DICTIONARY, terms)).toEqual([]);
+    },
+  );
+
+  it("expansão TAREFA 1: centenas de termos", () => {
+    // "Centenas de competências" — Engenharias, Direito, Comunicação,
+    // Saúde/Psicologia além de Tech/Design.
+    expect(SKILLS_DICTIONARY.length).toBeGreaterThanOrEqual(MIN_SKILLS);
   });
 
-  it("expansão TAREFA 1: centenas de termos cobrindo todos os cursos", () => {
-    // "Centenas de competências" — cobre Engenharias, Direito,
-    // Comunicação/Marketing, Saúde/Psicologia além de Tech/Design.
-    expect(SKILLS_DICTIONARY.length).toBeGreaterThanOrEqual(200);
-    for (const term of [
-      ...REQUIRED_ENG,
-      ...REQUIRED_DIR,
-      ...REQUIRED_COM,
-      ...REQUIRED_SAUDE,
-      ...REQUIRED_TECH_EXTRA,
-    ]) {
-      expect(SKILLS_DICTIONARY, `falta "${term}"`).toContain(term);
-    }
-    // Cada área vira um grupo (a UI agrupa por curso).
+  it.each(EXPANSION_SKILL_GROUPS)(
+    "expansão TAREFA 1: cobre a área %s",
+    (_area, terms) => {
+      expect(missingFrom(SKILLS_DICTIONARY, terms)).toEqual([]);
+    },
+  );
+
+  it("expansão TAREFA 1: cada área vira um grupo (a UI agrupa por curso)", () => {
     const labels = SKILLS_GROUPS.map((group) => group.label);
-    for (const label of [
-      "Engenharias (Civil, Elétrica, Mecânica)",
-      "Direito",
-      "Comunicação / Marketing",
-      "Saúde / Psicologia",
-    ]) {
-      expect(labels, `falta o grupo "${label}"`).toContain(label);
-    }
+    expect(missingFrom(labels, EXPECTED_GROUP_LABELS)).toEqual([]);
   });
 
-  it("é congelado, sem duplicatas e agrupado por área", () => {
+  it("é congelado (dicionário e grupos)", () => {
     expect(Object.isFrozen(SKILLS_DICTIONARY)).toBe(true);
     expect(Object.isFrozen(SKILLS_GROUPS)).toBe(true);
+  });
+
+  it("não tem duplicatas", () => {
     expect(new Set(SKILLS_DICTIONARY).size).toBe(SKILLS_DICTIONARY.length);
-    // Grupos cobrem todas as entradas — é o que a UI renderiza nos <optgroup>.
+  });
+
+  it("os grupos cobrem todas as entradas (o que a UI renderiza nos <optgroup>)", () => {
     const fromGroups = SKILLS_GROUPS.flatMap((group) => [...group.items]);
     expect(fromGroups).toEqual([...SKILLS_DICTIONARY]);
+  });
+
+  it("comporta o limite máximo de competências por perfil", () => {
     expect(SKILLS_DICTIONARY.length).toBeGreaterThanOrEqual(MAX_SKILLS);
   });
 
-  it("canonicalSkill devolve a forma oficial ou null para termo livre", () => {
-    expect(canonicalSkill("  react  ")).toBe("React");
-    expect(canonicalSkill("typescript")).toBe("TypeScript");
-    expect(canonicalSkill("gestao de projetos")).toBe("Gestão de Projetos");
-    expect(canonicalSkill("C#")).toBe("C#");
-    // Fora da lista = sem correspondência (nada de personalização).
-    expect(canonicalSkill("coxinha")).toBeNull();
-    expect(canonicalSkill("   ")).toBeNull();
+  it.each(CANONICAL_SKILLS)(
+    "canonicalSkill(%j) devolve %j",
+    (input, expected) => {
+      expect(canonicalSkill(input)).toBe(expected);
+    },
+  );
+
+  it("addSkill ignora termo fora do dicionário (sem customização)", () => {
+    expect(addSkill([], "coxinha")).toEqual([]);
   });
 
-  it("addSkill só aceita termos do dicionário (sem customização)", () => {
-    expect(addSkill([], "coxinha")).toEqual([]);
+  it("addSkill grava a forma oficial do termo", () => {
     expect(addSkill([], "  react  ")).toEqual(["React"]);
     expect(addSkill([], "typescript")).toEqual(["TypeScript"]);
-    // Duplicata (mesma forma oficial) segue idempotente.
+  });
+
+  it("addSkill é idempotente para duplicata (mesma forma oficial)", () => {
     expect(addSkill(["React"], "REACT")).toEqual(["React"]);
   });
 
+  it("validateSkills aceita termos do dicionário", () => {
+    expect(validateSkills(["React", "Figma"])).toEqual({ ok: true });
+  });
+
   it("validateSkills rejeita termo fora do dicionário com erro claro", () => {
-    const ok = validateSkills(["React", "Figma"]);
-    expect(ok).toEqual({ ok: true });
+    expectInvalid(
+      validateSkills(["React", "coxinha"]),
+      /coxinha/,
+      /dicionário oficial/i,
+    );
+  });
 
-    const livre = validateSkills(["React", "coxinha"]);
-    expect(livre.ok).toBe(false);
-    if (!livre.ok) {
-      expect(livre.errors.join(" ")).toMatch(/coxinha/);
-      expect(livre.errors.join(" ")).toMatch(/dicionário oficial/i);
-    }
+  it("validateSkills rejeita termo vazio", () => {
+    expect(validateSkills([""]).ok).toBe(false);
+  });
 
-    const vazio = validateSkills([""]);
-    expect(vazio.ok).toBe(false);
-
-    // Variações da mesma forma oficial ("REACT") são deduplicadas na
-    // gravação pelo addSkill (regra da main) — não são erro.
+  it("validateSkills não trata variação da forma oficial como erro", () => {
+    // "REACT" é deduplicado na gravação pelo addSkill (regra da main).
     expect(validateSkills(["React", "react"])).toEqual({ ok: true });
+  });
 
+  it("validateSkills rejeita excesso de competências", () => {
     const excesso = validateSkills(SKILLS_DICTIONARY.slice(0, MAX_SKILLS + 1));
     expect(excesso.ok).toBe(false);
   });
 });
 
 describe("whitelist de idiomas", () => {
-  it("inclui os idiomas principais pedidos (mais Libras)", () => {
-    for (const language of REQUIRED_LANGUAGES) {
-      expect(KNOWN_LANGUAGES, `falta "${language}"`).toContain(language);
-    }
+  it("inclui os idiomas principais pedidos", () => {
+    expect(missingFrom(KNOWN_LANGUAGES, REQUIRED_LANGUAGES)).toEqual([]);
+  });
+
+  it("inclui Libras", () => {
     expect(KNOWN_LANGUAGES).toContain("Libras");
+  });
+
+  it("é congelada e sem duplicatas", () => {
     expect(Object.isFrozen(KNOWN_LANGUAGES)).toBe(true);
     expect(new Set(KNOWN_LANGUAGES).size).toBe(KNOWN_LANGUAGES.length);
   });
 
-  it("expansão TAREFA 2: 40+ idiomas relevantes (Árabe, Sueco…)", () => {
-    expect(KNOWN_LANGUAGES.length).toBeGreaterThanOrEqual(40);
-    for (const language of REQUIRED_LANGUAGES_EXTRA) {
-      expect(KNOWN_LANGUAGES, `falta "${language}"`).toContain(language);
-    }
+  it("expansão TAREFA 2: 40+ idiomas relevantes", () => {
+    expect(KNOWN_LANGUAGES.length).toBeGreaterThanOrEqual(MIN_LANGUAGES);
   });
 
-  it("canonicalLanguage devolve a forma oficial ou null", () => {
-    expect(canonicalLanguage(" inglês ")).toBe("Inglês");
-    expect(canonicalLanguage("PORTUGUÊS")).toBe("Português");
-    expect(canonicalLanguage("klingon")).toBeNull();
+  it("expansão TAREFA 2: inclui Árabe, Sueco…", () => {
+    expect(missingFrom(KNOWN_LANGUAGES, REQUIRED_LANGUAGES_EXTRA)).toEqual([]);
   });
 
-  it("addLanguage só aceita idiomas da whitelist", () => {
+  it.each(CANONICAL_LANGUAGES)(
+    "canonicalLanguage(%j) devolve %j",
+    (input, expected) => {
+      expect(canonicalLanguage(input)).toBe(expected);
+    },
+  );
+
+  it("addLanguage ignora idioma fora da whitelist", () => {
     expect(addLanguage([], { name: "Klingon", level: "fluente" })).toEqual([]);
+  });
+
+  it("addLanguage grava a forma oficial do idioma", () => {
     expect(addLanguage([], { name: " português ", level: "fluente" })).toEqual([
       { name: "Português", level: "fluente" },
     ]);
   });
 
   it("validateLanguages rejeita idioma fora da whitelist", () => {
-    const fora = validateLanguages([{ name: "Klingon", level: "fluente" }]);
-    expect(fora.ok).toBe(false);
-    if (!fora.ok) {
-      expect(fora.errors.join(" ")).toMatch(/dicionário oficial/i);
-    }
+    expectInvalid(
+      validateLanguages([{ name: "Klingon", level: "fluente" }]),
+      /dicionário oficial/i,
+    );
+  });
 
+  it("validateLanguages aceita idiomas da whitelist", () => {
     const ok = validateLanguages([
       { name: "Inglês", level: "fluente" },
       { name: "Mandarim", level: "basico" },
@@ -273,62 +349,76 @@ describe("pontos de entrada sem texto livre", () => {
   const root = process.cwd();
   const read = (path: string) => readFileSync(join(root, path), "utf8");
 
-  it("formulários de edição leem o dicionário (Combobox, sem input livre)", () => {
-    for (const file of [
-      "src/components/student/ResumeForm.tsx",
-    ]) {
-      const src = read(file);
-      // Os campos de dicionário são montados a partir da whitelist
-      // (lista plana ou agrupada por área), via Combobox pesquisável.
-      expect(src, `${file} sem o dicionário de competências`).toMatch(
+  describe("formulário de edição do currículo", () => {
+    const src = read(FORM_FILE);
+
+    it("monta os campos a partir do dicionário e da whitelist", () => {
+      expect(src, "sem o dicionário de competências").toMatch(
         /SKILLS_(DICTIONARY|GROUPS)/,
       );
-      expect(src, `${file} sem KNOWN_LANGUAGES`).toContain("KNOWN_LANGUAGES");
-      // O campo de competência é o Combobox do dicionário…
-      expect(src, `${file} sem Combobox de competência`).toMatch(
+      expect(src, "sem KNOWN_LANGUAGES").toContain("KNOWN_LANGUAGES");
+    });
+
+    it("usa Combobox pesquisável para competência e idioma", () => {
+      expect(src, "sem Combobox de competência").toMatch(
         /<Combobox[\s\S]{0,300}?ariaLabel="Nova competência"/,
       );
-      // …e o de idioma, o Combobox da whitelist.
-      expect(src, `${file} sem Combobox de idioma`).toMatch(
+      expect(src, "sem Combobox de idioma").toMatch(
         /<Combobox[\s\S]{0,300}?ariaLabel="(Novo idioma|Idioma)"/,
       );
-      // Nada de campo de texto (nem o <Input> do Design System) para
-      // competência: o caminho é sempre o Combobox do dicionário.
-      expect(src, `${file} com input livre de competência`).not.toMatch(
+    });
+
+    it("não tem campo de texto livre para competência nem idioma", () => {
+      // Nem o <Input> do Design System: o caminho é sempre o Combobox.
+      expect(src, "input livre de competência").not.toMatch(
         /<(input|Input)\b[^>]*(aria-label="Nova competência"|label="Nova competência"|placeholder="Ex\.)/,
       );
-      // Nem para idioma fora da whitelist.
-      expect(src, `${file} com input livre de idioma`).not.toMatch(
+      expect(src, "input livre de idioma").not.toMatch(
         /<(input|Input)\b[^>]*(aria-label="Novo idioma"|label="Idioma")/,
       );
-      // Os <select> remanescentes (níveis etc.) mantêm o sítio.
-      expect(src, `${file} sem <select>`).toMatch(/<select\b/);
-    }
+    });
+
+    it("mantém os <select> remanescentes (níveis etc.)", () => {
+      expect(src).toMatch(/<select\b/);
+    });
   });
 
   it("servidor valida as duas listas antes de gravar", () => {
     const server = read("convex/students.ts");
     expect(server).toContain("validateSkills");
-    // As duas mutations que gravam skills/idiomas passam pela validação.
-    expect(server.match(/validateSkills\(/g)?.length).toBeGreaterThanOrEqual(2);
     expect(server).toContain("validateLanguages(");
   });
 
-  it("filtro de competências do Banco de Talentos é Combobox do dicionário", () => {
-    const src = read("src/components/recruiter/talent/TalentSearchPage.tsx");
-    expect(src).toContain("SKILLS_GROUPS");
-    // O filtro é o Combobox pesquisável (ariaLabel primeiro) — nunca
-    // campo de texto livre nem <select> nativo.
-    expect(src).toMatch(/<Combobox[\s\S]{0,300}?ariaLabel="Nova competência"/);
-    expect(src).not.toMatch(
-      /<(input|Input)\b[^>]*aria-label="Nova competência"/,
+  it("as duas mutations que gravam skills/idiomas passam pela validação", () => {
+    const server = read("convex/students.ts");
+    expect(server.match(/validateSkills\(/g)?.length).toBeGreaterThanOrEqual(
+      MIN_MUTATIONS_COM_VALIDACAO,
     );
-    expect(src).not.toMatch(
-      /<select[\s\S]{0,300}?aria-label="Nova competência"/,
-    );
-    expect(src).not.toContain('placeholder="Ex.: SQL"');
-    // Idioma também é Combobox da whitelist (datalist removido).
-    expect(src).toMatch(/<Combobox[\s\S]{0,300}?ariaLabel="Idioma"/);
-    expect(src).not.toContain('list="talent-language-options"');
+  });
+
+  describe("filtro do Banco de Talentos", () => {
+    const src = read(TALENT_FILE);
+
+    it("competências: Combobox do dicionário agrupado", () => {
+      expect(src).toContain("SKILLS_GROUPS");
+      expect(src).toMatch(
+        /<Combobox[\s\S]{0,300}?ariaLabel="Nova competência"/,
+      );
+    });
+
+    it("competências: nunca campo de texto livre nem <select> nativo", () => {
+      expect(src).not.toMatch(
+        /<(input|Input)\b[^>]*aria-label="Nova competência"/,
+      );
+      expect(src).not.toMatch(
+        /<select[\s\S]{0,300}?aria-label="Nova competência"/,
+      );
+      expect(src).not.toContain('placeholder="Ex.: SQL"');
+    });
+
+    it("idioma: Combobox da whitelist (datalist removido)", () => {
+      expect(src).toMatch(/<Combobox[\s\S]{0,300}?ariaLabel="Idioma"/);
+      expect(src).not.toContain('list="talent-language-options"');
+    });
   });
 });

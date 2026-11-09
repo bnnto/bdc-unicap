@@ -152,7 +152,7 @@ describe("Etapa 2.2 — saveResumeData com novos blocos do CV", () => {
     expect(stored?.projectsText).toBe(
       "Monitoria de Banco de Dados I (2024.2).",
     );
-    expect(stored?.certifications).toEqual(["Cisco CCNA", "Excel Avançado"]);
+    expect(stored?.certifications).toEqual([{ name: 'Cisco CCNA' }, { name: 'Excel Avançado' }]);
   });
 
   it("campos novos são opcionais — CV antigo continua salvando", async () => {

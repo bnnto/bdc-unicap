@@ -72,7 +72,8 @@ const RESUME = {
     lattes: "http://lattes.cnpq.br/1",
   },
   projectsText: "Feira de Ciências — oficina de Python",
-  certifications: ["Cisco CCNA"],
+  // [CERT_PDF] O servidor devolve { name, url } (url = PDF anexado ou null).
+  certifications: [{ name: "Cisco CCNA", url: null }],
 };
 
 const profileFixture = {
@@ -200,10 +201,16 @@ describe("CandidateProfilePage — currículo somente leitura (Etapa 2/4)", () =
     ).not.toBeInTheDocument();
   });
 
-  it("estado de carregamento e de acesso negado", () => {
+  it("estado de carregamento e de acesso negado", async () => {
     mockProfileQuery(undefined);
     const { rerender } = render(<CandidateProfilePage studentId="k57abc123" />);
-    expect(screen.getByText(/carregando perfil/i)).toBeInTheDocument();
+    // O esqueleto só aparece após 800ms (evita piscar em carregamentos
+    // rápidos), então esperamos por ele em vez de procurar de imediato.
+    expect(
+      await screen.findByText(/carregando perfil/i, undefined, {
+        timeout: 2000,
+      }),
+    ).toBeInTheDocument();
 
     mockProfileQuery(null);
     rerender(<CandidateProfilePage studentId="k57abc123" />);

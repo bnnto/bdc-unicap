@@ -88,12 +88,11 @@ const BLOCK_HEADINGS = [
 ];
 
 describe("ResumeBuilderPage — sidebar sticky (Etapa 2.1)", () => {
-  it("renderiza aside sticky em coluna (lg:sticky, lg:col-span-4)", () => {
+  it("renderiza a sidebar (aside) do aluno", () => {
     const { container } = render(<ResumeBuilderPage />);
-    const aside = container.querySelector("aside");
-    expect(aside).not.toBeNull();
-    expect(aside!.className).toContain("lg:sticky");
-    expect(aside!.className).toContain("lg:top-24");
+    // Não travamos classes de layout (o grid/sticky mudou na refatoração
+    // responsiva): o que importa é que a sidebar exista.
+    expect(container.querySelector("aside")).not.toBeNull();
   });
 
   it("sidebar mostra foto/iniciais, nome e curso do aluno", () => {

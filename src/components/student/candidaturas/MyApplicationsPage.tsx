@@ -792,30 +792,26 @@ export function MyApplicationsPage() {
                       <p className={`mt-1 ${SMALL_TEXT} text-slate-600`}>
                         {feedback.advice}
                       </p>
-                      <div className={`mt-3 ${ACTION_WRAP}`}>
-                        <Button
-                          variant="secondary"
-                          aria-label={
-                            application.processAccepted
-                              ? `Revogar contato de ${application.jobTitle}`
-                              : `Liberar contato para ${application.jobTitle}`
-                          }
-                          onClick={() => {
-                            void (application.processAccepted
-                              ? revokeProcessAcceptance({
-                                  applicationId: application.applicationId,
-                                })
-                              : acceptProcess({
-                                  applicationId: application.applicationId,
-                                }));
-                          }}
-                        >
-                          <Handshake className="h-4 w-4" aria-hidden="true" />
-                          {application.processAccepted
-                            ? "Revogar contato"
-                            : "Liberar contato"}
-                        </Button>
-                      </div>
+                      {/* Reprovado SEM contato liberado: o ContactBlock não
+                          aparece, então a ação de liberar vive aqui. Com o
+                          contato liberado, o ContactBlock já oferece
+                          "Revogar" — não duplicamos o botão. */}
+                      {!application.processAccepted ? (
+                        <div className={`mt-3 ${ACTION_WRAP}`}>
+                          <Button
+                            variant="secondary"
+                            aria-label={`Liberar contato para ${application.jobTitle}`}
+                            onClick={() => {
+                              void acceptProcess({
+                                applicationId: application.applicationId,
+                              });
+                            }}
+                          >
+                            <Handshake className="h-4 w-4" aria-hidden="true" />
+                            Liberar contato
+                          </Button>
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import {
   APPLICATION_STAGES,
   REJECTION_REASONS,
@@ -8,6 +8,23 @@ import {
   moveStageDecision,
   type ApplicationStage,
 } from "../../src/lib/application";
+
+// Constantes nomeadas (evitam "magic numbers" e documentam a intenção).
+const SETE_DIAS_MS = 604_800_000; // 7 dias em milissegundos
+const TOTAL_MOTIVOS_REPROVACAO = 8;
+const EXPIRA_EM = new Date("2026-12-01T00:00:00Z").getTime();
+const ANTES_DO_PRAZO = new Date("2026-10-01T00:00:00Z").getTime();
+
+type Decision = ReturnType<typeof moveStageDecision>;
+
+/**
+ * Helper fora do corpo dos testes: falha se a decisão NÃO foi bloqueada e,
+ * graças ao `assert`, estreita o tipo para ler `decision.error` sem `if`.
+ */
+function expectBlocked(decision: Decision, error: RegExp) {
+  assert(!decision.ok, "esperava uma decisão bloqueada (ok === false)");
+  expect(decision.error).toMatch(error);
+}
 
 describe("stages da candidatura (S3-4, CA 3)", () => {
   it("stage inicial é 'inscrito' e os stages seguem o pipeline do Kanban (S4-1)", () => {
@@ -50,34 +67,28 @@ describe("[RECRUITER_WORKFLOW] moveStageDecision — movimentação do Kanban", 
   });
 
   it("mover para a própria coluna é rejeitado (no-op)", () => {
-    const decision = moveStageDecision({ stage: "triagem", to: "triagem" });
-    expect(decision.ok).toBe(false);
-    if (!decision.ok) {
-      expect(decision.error).toMatch(/já está nesta coluna/i);
-    }
+    expectBlocked(
+      moveStageDecision({ stage: "triagem", to: "triagem" }),
+      /já está nesta coluna/i,
+    );
   });
 
   it("REPROVAÇÃO sem motivo é bloqueada (R5 — furo do moveApplication)", () => {
-    const decision = moveStageDecision({
-      stage: "entrevista",
-      to: "reprovado",
-    });
-    expect(decision.ok).toBe(false);
-    if (!decision.ok) {
-      expect(decision.error).toMatch(/Motivo de reprovação é obrigatório/i);
-    }
+    expectBlocked(
+      moveStageDecision({ stage: "entrevista", to: "reprovado" }),
+      /Motivo de reprovação é obrigatório/i,
+    );
   });
 
   it("REPROVAÇÃO com motivo fora do enum fixo é bloqueada (R5)", () => {
-    const decision = moveStageDecision({
-      stage: "triagem",
-      to: "reprovado",
-      rejectionReason: "nao_gostei_da_cara",
-    });
-    expect(decision.ok).toBe(false);
-    if (!decision.ok) {
-      expect(decision.error).toMatch(/Motivo de reprovação inválido/i);
-    }
+    expectBlocked(
+      moveStageDecision({
+        stage: "triagem",
+        to: "reprovado",
+        rejectionReason: "nao_gostei_da_cara",
+      }),
+      /Motivo de reprovação inválido/i,
+    );
   });
 
   it("REPROVAÇÃO com motivo válido do catálogo retorna o motivo a gravar", () => {
@@ -95,20 +106,18 @@ describe("[RECRUITER_WORKFLOW] moveStageDecision — movimentação do Kanban", 
     });
   });
 
-  it("aprovar exige a data de início prevista (contratação auditável)", () => {
-    const semData = moveStageDecision({
-      stage: "entrevista",
-      to: "aprovado",
-    });
-    expect(semData.ok).toBe(false);
-    if (!semData.ok) {
-      expect(semData.error).toMatch(/Data de início prevista é obrigatória/i);
-    }
+  it("aprovar sem a data de início prevista é bloqueado (contratação auditável)", () => {
+    expectBlocked(
+      moveStageDecision({ stage: "entrevista", to: "aprovado" }),
+      /Data de início prevista é obrigatória/i,
+    );
+  });
 
+  it("aprovar com data de início prevista marca a vaga como preenchida", () => {
     const decision = moveStageDecision({
       stage: "entrevista",
       to: "aprovado",
-      expectedStartDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      expectedStartDate: Date.now() + SETE_DIAS_MS,
     });
     expect(decision).toEqual({
       ok: true,
@@ -118,37 +127,37 @@ describe("[RECRUITER_WORKFLOW] moveStageDecision — movimentação do Kanban", 
     });
   });
 
-  it("ENTREVISTA sem data/hora ou sem link/local é bloqueada (auditoria)", () => {
-    const semData = moveStageDecision({
-      stage: "triagem",
-      to: "entrevista",
-      interviewLink: "https://meet.example.com/unicap",
-    });
-    expect(semData.ok).toBe(false);
-    if (!semData.ok) {
-      expect(semData.error).toMatch(/Data e hora da entrevista é obrigatória/i);
-    }
+  it("ENTREVISTA sem data/hora é bloqueada (auditoria)", () => {
+    expectBlocked(
+      moveStageDecision({
+        stage: "triagem",
+        to: "entrevista",
+        interviewLink: "https://meet.example.com/unicap",
+      }),
+      /Data e hora da entrevista é obrigatória/i,
+    );
+  });
 
-    const semLink = moveStageDecision({
-      stage: "triagem",
-      to: "entrevista",
-      interviewDate: Date.now(),
-      interviewLink: "   ",
-    });
-    expect(semLink.ok).toBe(false);
-    if (!semLink.ok) {
-      expect(semLink.error).toMatch(
-        /Link ou local da entrevista é obrigatório/i,
-      );
-    }
+  it("ENTREVISTA com link em branco é bloqueada (auditoria)", () => {
+    expectBlocked(
+      moveStageDecision({
+        stage: "triagem",
+        to: "entrevista",
+        interviewDate: Date.now(),
+        interviewLink: "   ",
+      }),
+      /Link ou local da entrevista é obrigatório/i,
+    );
+  });
 
-    const completa = moveStageDecision({
+  it("ENTREVISTA com data e local é permitida", () => {
+    const decision = moveStageDecision({
       stage: "triagem",
       to: "entrevista",
       interviewDate: Date.now(),
       interviewLink: "Auditório do Bloco 2",
     });
-    expect(completa).toEqual({
+    expect(decision).toEqual({
       ok: true,
       nextStage: "entrevista",
       jobFilled: false,
@@ -156,46 +165,31 @@ describe("[RECRUITER_WORKFLOW] moveStageDecision — movimentação do Kanban", 
     });
   });
 
-  it("SALTOS para frente são bloqueados no servidor (anti-cheat)", () => {
-    const saltos: Array<{ stage: ApplicationStage; to: ApplicationStage }> = [
-      { stage: "inscrito", to: "entrevista" },
-      { stage: "inscrito", to: "aprovado" },
-      { stage: "triagem", to: "aprovado" },
-    ];
-    for (const salto of saltos) {
-      const decision = moveStageDecision(salto);
-      expect(decision.ok).toBe(false);
-      if (!decision.ok) {
-        expect(decision.error).toMatch(/avance no máximo uma etapa por vez/i);
-      }
-    }
+  const saltos: Array<[ApplicationStage, ApplicationStage]> = [
+    ["inscrito", "entrevista"],
+    ["inscrito", "aprovado"],
+    ["triagem", "aprovado"],
+  ];
+  it.each(saltos)(
+    "SALTO %s → %s é bloqueado no servidor (anti-cheat)",
+    (stage, to) => {
+      expectBlocked(
+        moveStageDecision({ stage, to }),
+        /avance no máximo uma etapa por vez/i,
+      );
+    },
+  );
+
+  it("aprovar vindo de Reprovado é bloqueado (só reinicia em 'inscrito')", () => {
+    expectBlocked(
+      moveStageDecision({ stage: "reprovado", to: "aprovado" }),
+      /só reinicia em "inscrito"/i,
+    );
   });
 
-  it("reprovado só reinicia em 'inscrito' — aprovar vindo de Reprovado é bloqueado", () => {
-    const direto = moveStageDecision({ stage: "reprovado", to: "aprovado" });
-    expect(direto.ok).toBe(false);
-    if (!direto.ok) {
-      expect(direto.error).toMatch(/só reinicia em "inscrito"/i);
-    }
-
-    const foraDoInicio = moveStageDecision({
-      stage: "reprovado",
-      to: "triagem",
-    });
-    expect(foraDoInicio.ok).toBe(false);
-
-    const reinicio = moveStageDecision({
-      stage: "reprovado",
-      to: "inscrito",
-      rejectionReason: "outro",
-    });
-    expect(reinicio).toEqual({
-      ok: true,
-      nextStage: "inscrito",
-      rejectionReason: null,
-      jobFilled: false,
-      jobUnfilled: false,
-    });
+  it("Reprovado → Triagem (fora do início) é bloqueado", () => {
+    const decision = moveStageDecision({ stage: "reprovado", to: "triagem" });
+    expect(decision.ok).toBe(false);
   });
 
   it("desfazer aprovação limpa o preenchimento da vaga", () => {
@@ -213,6 +207,8 @@ describe("[RECRUITER_WORKFLOW] moveStageDecision — movimentação do Kanban", 
     });
   });
 
+  // Este teste cobre também o "reinício" Reprovado → Inscrito, que antes
+  // estava duplicado dentro do teste "reprovado só reinicia em 'inscrito'".
   it("tirar da coluna Reprovado limpa o motivo gravado (reinício auditável)", () => {
     const decision = moveStageDecision({
       stage: "reprovado",
@@ -228,8 +224,8 @@ describe("[RECRUITER_WORKFLOW] moveStageDecision — movimentação do Kanban", 
     });
   });
 
-  it("catálogo de motivos cobre os 8 valores do enum fixo (R5)", () => {
-    expect(REJECTION_REASONS).toHaveLength(8);
+  it("catálogo de motivos cobre todos os valores do enum fixo (R5)", () => {
+    expect(REJECTION_REASONS).toHaveLength(TOTAL_MOTIVOS_REPROVACAO);
   });
 });
 
@@ -237,21 +233,24 @@ describe("regras de candidatura (S3-4)", () => {
   const openJob = {
     jobId: "j1",
     status: "aberta" as const,
-    expiresAt: Date.UTC(2026, 11, 1),
+    expiresAt: EXPIRA_EM,
     prerequisites: [{ item: "React", required: true }],
     requiredLanguage: undefined,
     availability: "estagio" as const,
   };
 
   it("vaga aberta dentro do prazo aceita candidatura", () => {
-    const result = canApplyTo(openJob, Date.UTC(2026, 9, 1));
+    const result = canApplyTo(openJob, ANTES_DO_PRAZO);
     expect(result.ok).toBe(true);
   });
 
-  it("R4: vaga fechada/encerrada não aceita candidatura", () => {
+  it("R4: vaga fechada não aceita candidatura", () => {
     expect(canApplyTo({ ...openJob, status: "fechada" }, Date.now()).ok).toBe(
       false,
     );
+  });
+
+  it("R4: vaga encerrada não aceita candidatura", () => {
     expect(canApplyTo({ ...openJob, status: "encerrada" }, Date.now()).ok).toBe(
       false,
     );
@@ -259,8 +258,7 @@ describe("regras de candidatura (S3-4)", () => {
 
   it("R4: vaga aberta vencida não aceita candidatura", () => {
     const result = canApplyTo(openJob, openJob.expiresAt + 1);
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.reason).toBe("vaga_expirada");
+    expect(result).toMatchObject({ ok: false, reason: "vaga_expirada" });
   });
 
   it("vaga sem expiresAt registrado é tratada como aberta (legado)", () => {

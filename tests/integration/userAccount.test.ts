@@ -14,9 +14,9 @@
  * Executa contra o mock oficial do backend Convex (convex-test).
  */
 import { convexTest } from "convex-test";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
 import schema from "../../convex/schema";
 import { CURRENT_TERM_VERSION } from "../../convex/consentTerms";
 
@@ -24,7 +24,22 @@ const modules = import.meta.glob("../../convex/**/*.*s");
 
 type World = ReturnType<typeof convexTest>;
 
-const DAY = 24 * 60 * 60 * 1000;
+// Constantes nomeadas (evitam "magic numbers" e documentam a intenção).
+const DAY = 86_400_000; // 24 * 60 * 60 * 1000
+const SETE_DIAS = 604_800_000;
+const TRINTA_DIAS = 2_592_000_000;
+const ANO_FORMATURA = 2026;
+const ANO_LEGADO = 2020;
+const SCORE_ALTO = 80;
+const SCORE_MEDIO = 70;
+const SCORE_BAIXO = 50;
+
+// Tamanho do mundo criado por `seedWorld`.
+const SEED_USERS = 4;
+const SEED_CONSENTS = 4;
+const SEED_JOBS = 2;
+const CANDIDATURAS_DA_ALUNA = 2;
+const CANDIDATURAS_NA_VAGA = 2; // a da aluna e a do colega
 
 type Seed = {
   recruiterId: Id<"users">;
@@ -87,7 +102,7 @@ async function seedWorld(t: World): Promise<Seed> {
       enrollment: "1234567",
       status: "ativo",
       course: "Ciência da Computação",
-      graduationYear: 2026,
+      graduationYear: ANO_FORMATURA,
       availability: ["estagio"],
       visibility: "publico",
       skills: ["React"],
@@ -99,7 +114,7 @@ async function seedWorld(t: World): Promise<Seed> {
       enrollment: "7654321",
       status: "ativo",
       course: "Engenharia de Software",
-      graduationYear: 2026,
+      graduationYear: ANO_FORMATURA,
       availability: ["estagio"],
       visibility: "publico",
       skills: ["React"],
@@ -113,7 +128,7 @@ async function seedWorld(t: World): Promise<Seed> {
       contractType: "estagio",
       status: "aberta",
       publishedAt: Date.now(),
-      expiresAt: Date.now() + 30 * DAY,
+      expiresAt: Date.now() + TRINTA_DIAS,
     });
     const otherJobId = await ctx.db.insert("jobs", {
       recruiterId: otherRecruiterId,
@@ -123,7 +138,7 @@ async function seedWorld(t: World): Promise<Seed> {
       contractType: "clt",
       status: "aberta",
       publishedAt: Date.now(),
-      expiresAt: Date.now() + 30 * DAY,
+      expiresAt: Date.now() + TRINTA_DIAS,
     });
     // Maria candidata-se às DUAS vagas; João candidata-se à vaga do dono.
     for (const jobIdToApply of [jobId, otherJobId]) {
@@ -131,7 +146,7 @@ async function seedWorld(t: World): Promise<Seed> {
         jobId: jobIdToApply,
         studentId,
         stage: "triagem",
-        matchScore: 80,
+        matchScore: SCORE_ALTO,
         appliedAt: Date.now(),
       });
     }
@@ -139,7 +154,7 @@ async function seedWorld(t: World): Promise<Seed> {
       jobId,
       studentId: otherStudentId,
       stage: "inscrito",
-      matchScore: 70,
+      matchScore: SCORE_MEDIO,
       appliedAt: Date.now(),
     });
     return {
@@ -182,11 +197,11 @@ async function seedAuthRecords(
     });
     const sessionId = await ctx.db.insert("authSessions", {
       userId,
-      expirationTime: Date.now() + 30 * DAY,
+      expirationTime: Date.now() + TRINTA_DIAS,
     });
     const refreshTokenId = await ctx.db.insert("authRefreshTokens", {
       sessionId,
-      expirationTime: Date.now() + 7 * DAY,
+      expirationTime: Date.now() + SETE_DIAS,
     });
     const codeId = await ctx.db.insert("authVerificationCodes", {
       accountId,
@@ -202,220 +217,293 @@ async function seedAuthRecords(
   });
 }
 
-async function collectIds(t: World, table: "users" | "students" | "jobs") {
-  return t.run(async (ctx) => {
-    const rows = (await ctx.db.query(table).collect()) as Array<{
-      _id: string;
-    }>;
-    return rows.map((row) => row._id);
-  });
+/** Foto de todas as tabelas relevantes (leitura única, para asserções). */
+async function snapshot(t: World) {
+  return t.run(async (ctx) => ({
+    users: (await ctx.db.query("users").collect()) as Doc<"users">[],
+    students: (await ctx.db.query("students").collect()) as Doc<"students">[],
+    consents: (await ctx.db.query("consents").collect()) as Doc<"consents">[],
+    applications: (await ctx.db
+      .query("applications")
+      .collect()) as Doc<"applications">[],
+    jobs: (await ctx.db.query("jobs").collect()) as Doc<"jobs">[],
+    accounts: (await ctx.db
+      .query("authAccounts")
+      .collect()) as Doc<"authAccounts">[],
+    sessions: (await ctx.db
+      .query("authSessions")
+      .collect()) as Doc<"authSessions">[],
+    refreshTokens: (await ctx.db
+      .query("authRefreshTokens")
+      .collect()) as Doc<"authRefreshTokens">[],
+    codes: (await ctx.db
+      .query("authVerificationCodes")
+      .collect()) as Doc<"authVerificationCodes">[],
+    verifiers: (await ctx.db
+      .query("authVerifiers")
+      .collect()) as Doc<"authVerifiers">[],
+  }));
+}
+type Snapshot = Awaited<ReturnType<typeof snapshot>>;
+
+function allIds(state: Snapshot): Set<string> {
+  const tables = Object.values(state) as Array<Array<{ _id: string }>>;
+  return new Set(tables.flatMap((rows) => rows.map((row) => row._id)));
 }
 
+/** Dos `ids` informados, os que AINDA existem (vazio = tudo apagado). */
+function presentIds(state: Snapshot, ids: string[]) {
+  const existing = allIds(state);
+  return ids.filter((id) => existing.has(id));
+}
+
+/** Dos `ids` informados, os que NÃO existem mais (vazio = tudo preservado). */
+function missingIds(state: Snapshot, ids: string[]) {
+  const existing = allIds(state);
+  return ids.filter((id) => !existing.has(id));
+}
+
+const STUDENT_EMAIL = "aluna@unicap.br";
+const PEER_EMAIL = "colega@unicap.br";
+
+/** Cenário: a aluna exclui a própria conta; o colega é o "sobrevivente". */
+async function deleteStudentAccount() {
+  const t = convexTest({ schema, modules });
+  const seed = await seedWorld(t);
+  const auth = await seedAuthRecords(
+    t,
+    seed.studentUserId,
+    STUDENT_EMAIL,
+    "aluna",
+  );
+  const survivorAuth = await seedAuthRecords(
+    t,
+    seed.otherStudentUserId,
+    PEER_EMAIL,
+    "colega",
+  );
+  const result = await as(t, seed.studentUserId, STUDENT_EMAIL).mutation(
+    api.users.deleteMyAccount,
+    {},
+  );
+  return { seed, auth, survivorAuth, result, state: await snapshot(t) };
+}
+
+/** Cenário: o recrutador dono da vaga exclui a própria conta. */
+async function deleteRecruiterAccount() {
+  const t = convexTest({ schema, modules });
+  const seed = await seedWorld(t);
+  const auth = await seedAuthRecords(
+    t,
+    seed.recruiterId,
+    seed.recruiterEmail,
+    "rec",
+  );
+  const result = await as(t, seed.recruiterId, seed.recruiterEmail).mutation(
+    api.users.deleteMyAccount,
+    {},
+  );
+  return { seed, auth, result, state: await snapshot(t) };
+}
+
+/** Cenário degenerado: o recrutador também tem perfil de aluno e se candidatou. */
+async function deleteRecruiterWithLegacyProfile() {
+  const t = convexTest({ schema, modules });
+  const seed = await seedWorld(t);
+  // O app seria alcançado por by_job E by_student.
+  const legacyStudentId = await t.run(async (ctx) =>
+    ctx.db.insert("students", {
+      userId: seed.recruiterId,
+      fullName: "Recrutador Candidato",
+      enrollment: "0000001",
+      status: "ativo",
+      course: "Administração",
+      graduationYear: ANO_LEGADO,
+      availability: ["freelancer"],
+      visibility: "somente_candidaturas",
+    }),
+  );
+  const selfApplicationId = await t.run(async (ctx) =>
+    ctx.db.insert("applications", {
+      jobId: seed.jobId,
+      studentId: legacyStudentId,
+      stage: "inscrito",
+      matchScore: SCORE_BAIXO,
+      appliedAt: Date.now(),
+    }),
+  );
+  const result = await as(t, seed.recruiterId, seed.recruiterEmail).mutation(
+    api.users.deleteMyAccount,
+    {},
+  );
+  return {
+    legacyStudentId,
+    selfApplicationId,
+    result,
+    state: await snapshot(t),
+  };
+}
+
+/** Mundo + um gestor (com consentimento) tentando se autoexcluir. */
+async function seedWorldWithManager() {
+  const t = convexTest({ schema, modules });
+  await seedWorld(t);
+  const managerId = await t.run(async (ctx) =>
+    ctx.db.insert("users", {
+      email: "coordenacao@unicap.br",
+      name: "Coordenação",
+      role: "gestor",
+      active: true,
+    }),
+  );
+  await t.run(async (ctx) =>
+    ctx.db.insert("consents", {
+      userId: managerId,
+      termVersion: CURRENT_TERM_VERSION,
+      acceptedAt: Date.now(),
+    }),
+  );
+  return { t, managerId };
+}
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("[PERFIL_E_LGPD] deleteMyAccount — apagão em cascata (Etapa 4)", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("aluno: apaga users, students, candidaturas e consents sem tocar em terceiros", async () => {
-    const t = convexTest({ schema, modules });
-    const seed = await seedWorld(t);
-    const auth = await seedAuthRecords(
-      t,
-      seed.studentUserId,
-      "aluna@unicap.br",
-      "aluna",
-    );
-    const survivorAuth = await seedAuthRecords(
-      t,
-      seed.otherStudentUserId,
-      "colega@unicap.br",
-      "colega",
-    );
-
-    const result = await as(t, seed.studentUserId, "aluna@unicap.br").mutation(
-      api.users.deleteMyAccount,
-      {},
-    );
-    expect(result).toMatchObject({
-      ok: true,
-      deleted: { users: 1, students: 1, consents: 1, applications: 2 },
+  describe("aluno", () => {
+    it("devolve a contagem do que foi apagado", async () => {
+      const { result } = await deleteStudentAccount();
+      expect(result).toMatchObject({
+        ok: true,
+        deleted: {
+          users: 1,
+          students: 1,
+          consents: 1,
+          applications: CANDIDATURAS_DA_ALUNA,
+        },
+      });
     });
 
-    const state = await t.run(async (ctx) => ({
-      users: await ctx.db.query("users").collect(),
-      students: await ctx.db.query("students").collect(),
-      consents: await ctx.db.query("consents").collect(),
-      applications: await ctx.db.query("applications").collect(),
-      jobs: await ctx.db.query("jobs").collect(),
-      accounts: await ctx.db.query("authAccounts").collect(),
-      sessions: await ctx.db.query("authSessions").collect(),
-      refreshTokens: await ctx.db.query("authRefreshTokens").collect(),
-      codes: await ctx.db.query("authVerificationCodes").collect(),
-      verifiers: await ctx.db.query("authVerifiers").collect(),
-    }));
-
-    // Nada da aluna sobra (inclusive registros de auth).
-    expect(state.users.some((u) => u._id === seed.studentUserId)).toBe(false);
-    expect(state.students).toHaveLength(1); // só a do colega
-    expect(state.applications).toHaveLength(1); // só a do colega
-    expect(state.consents).toHaveLength(3); // 4 − 1 da aluna
-    expect(state.jobs).toHaveLength(2); // vagas intactas
-    expect(state.accounts.some((a) => a._id === auth.accountId)).toBe(false);
-    expect(state.sessions.some((s) => s._id === auth.sessionId)).toBe(false);
-    expect(state.refreshTokens.some((r) => r._id === auth.refreshTokenId)).toBe(
-      false,
-    );
-    expect(state.codes.some((c) => c._id === auth.codeId)).toBe(false);
-    expect(state.verifiers.some((v) => v._id === auth.verifierId)).toBe(false);
-
-    // Registros do sobrevivente intactos.
-    expect(state.users.some((u) => u._id === seed.otherStudentUserId)).toBe(
-      true,
-    );
-    expect(state.accounts.some((a) => a._id === survivorAuth.accountId)).toBe(
-      true,
-    );
-    expect(state.sessions.some((s) => s._id === survivorAuth.sessionId)).toBe(
-      true,
-    );
-    expect(
-      state.applications.some((a) => a.studentId === seed.otherStudentId),
-    ).toBe(true);
-  });
-
-  it("recrutador: apaga vagas, TODAS as applications dessas vagas e o user", async () => {
-    const t = convexTest({ schema, modules });
-    const seed = await seedWorld(t);
-    const auth = await seedAuthRecords(
-      t,
-      seed.recruiterId,
-      seed.recruiterEmail,
-      "rec",
-    );
-
-    const result = await as(t, seed.recruiterId, seed.recruiterEmail).mutation(
-      api.users.deleteMyAccount,
-      {},
-    );
-    expect(result).toMatchObject({
-      ok: true,
-      deleted: { users: 1, jobs: 1, applications: 2 },
+    it("nada da aluna sobra (usuário e registros de auth)", async () => {
+      const { seed, auth, state } = await deleteStudentAccount();
+      const deleted = [
+        seed.studentUserId,
+        auth.accountId,
+        auth.sessionId,
+        auth.refreshTokenId,
+        auth.codeId,
+        auth.verifierId,
+      ];
+      expect(presentIds(state, deleted)).toEqual([]);
     });
 
-    const state = await t.run(async (ctx) => ({
-      users: await ctx.db.query("users").collect(),
-      jobs: await ctx.db.query("jobs").collect(),
-      applications: await ctx.db.query("applications").collect(),
-      accounts: await ctx.db.query("authAccounts").collect(),
-      sessions: await ctx.db.query("authSessions").collect(),
-      refreshTokens: await ctx.db.query("authRefreshTokens").collect(),
-    }));
+    it("perfil e candidatura do colega ficam intactos", async () => {
+      const { seed, state } = await deleteStudentAccount();
+      expect(state.students.map((s) => s._id)).toEqual([seed.otherStudentId]);
+      expect(state.applications.map((a) => a.studentId)).toEqual([
+        seed.otherStudentId,
+      ]);
+    });
 
-    // O dono e sua vaga sumiram; as DUAS candidaturas da vaga também
-    // (a da aluna E a do colega — nenhuma ficou órfã).
-    expect(state.users.some((u) => u._id === seed.recruiterId)).toBe(false);
-    expect(state.jobs.some((j) => j._id === seed.jobId)).toBe(false);
-    expect(state.applications.some((a) => a.jobId === seed.jobId)).toBe(false);
-    expect(state.applications).toHaveLength(1); // só a da outra empresa
-    expect(state.accounts).toHaveLength(0); // auth do dono apagado
-    expect(state.sessions).toHaveLength(0);
-    expect(state.refreshTokens).toHaveLength(0);
+    it("vagas e consentimentos de terceiros ficam intactos", async () => {
+      const { state } = await deleteStudentAccount();
+      expect(state.jobs).toHaveLength(SEED_JOBS);
+      expect(state.consents).toHaveLength(SEED_CONSENTS - 1);
+    });
 
-    // Terceiros intactos: outra vaga + candidatura da outra empresa.
-    expect(state.jobs.some((j) => j._id === seed.otherJobId)).toBe(true);
-    expect(state.applications.some((a) => a.jobId === seed.otherJobId)).toBe(
-      true,
-    );
-    expect(state.users.some((u) => u._id === seed.otherStudentUserId)).toBe(
-      true,
-    );
-    expect(state.accounts.some((a) => a._id === auth.accountId)).toBe(false);
+    it("usuário e auth do sobrevivente ficam intactos", async () => {
+      const { seed, survivorAuth, state } = await deleteStudentAccount();
+      const survivors = [
+        seed.otherStudentUserId,
+        survivorAuth.accountId,
+        survivorAuth.sessionId,
+      ];
+      expect(missingIds(state, survivors)).toEqual([]);
+    });
   });
 
-  it("recrutador com perfil legado de aluno não duplica exclusão nem deixa lixo", async () => {
-    const t = convexTest({ schema, modules });
-    const seed = await seedWorld(t);
-    // O dono TAMBÉM tem perfil de aluno e candidatou-se à própria vaga
-    // (caso degenerado): o app seria alcançado por by_job E by_student.
-    const legacyStudentId = await t.run(async (ctx) =>
-      ctx.db.insert("students", {
-        userId: seed.recruiterId,
-        fullName: "Recrutador Candidato",
-        enrollment: "0000001",
-        status: "ativo",
-        course: "Administração",
-        graduationYear: 2020,
-        availability: ["freelancer"],
-        visibility: "somente_candidaturas",
-      }),
-    );
-    const selfApplicationId = await t.run(async (ctx) =>
-      ctx.db.insert("applications", {
-        jobId: seed.jobId,
-        studentId: legacyStudentId,
-        stage: "inscrito",
-        matchScore: 50,
-        appliedAt: Date.now(),
-      }),
-    );
+  describe("recrutador", () => {
+    it("devolve a contagem do que foi apagado", async () => {
+      const { result } = await deleteRecruiterAccount();
+      expect(result).toMatchObject({
+        ok: true,
+        deleted: { users: 1, jobs: 1, applications: CANDIDATURAS_NA_VAGA },
+      });
+    });
 
-    const result = await as(t, seed.recruiterId, seed.recruiterEmail).mutation(
-      api.users.deleteMyAccount,
-      {},
-    );
-    expect(result.ok).toBe(true);
+    it("o dono, sua vaga e o auth dele sumiram", async () => {
+      const { seed, auth, state } = await deleteRecruiterAccount();
+      const deleted = [
+        seed.recruiterId,
+        seed.jobId,
+        auth.accountId,
+        auth.sessionId,
+        auth.refreshTokenId,
+      ];
+      expect(presentIds(state, deleted)).toEqual([]);
+    });
 
-    const state = await t.run(async (ctx) => ({
-      students: await ctx.db.query("students").collect(),
-      applications: await ctx.db.query("applications").collect(),
-      jobs: await ctx.db.query("jobs").collect(),
-      users: await ctx.db.query("users").collect(),
-    }));
-    expect(state.students.some((s) => s._id === legacyStudentId)).toBe(false);
-    expect(state.applications.some((a) => a._id === selfApplicationId)).toBe(
-      false,
-    );
-    // Só restam dados de terceiros.
-    expect(state.applications).toHaveLength(1);
-    expect(state.jobs).toHaveLength(1);
-    expect(state.users).toHaveLength(3);
+    it("TODAS as candidaturas da vaga sumiram (nenhuma ficou órfã)", async () => {
+      // Só sobra a candidatura da outra empresa.
+      const { seed, state } = await deleteRecruiterAccount();
+      expect(state.applications.map((a) => a.jobId)).toEqual([seed.otherJobId]);
+    });
+
+    it("terceiros ficam intactos: outra vaga e alunos", async () => {
+      const { seed, state } = await deleteRecruiterAccount();
+      const survivors = [seed.otherJobId, seed.otherStudentUserId];
+      expect(missingIds(state, survivors)).toEqual([]);
+    });
   });
 
-  it("gestor não pode se autoexcluir — e NADA é apagado (atomicidade)", async () => {
-    const t = convexTest({ schema, modules });
-    const seed = await seedWorld(t);
-    const managerId = await t.run(async (ctx) =>
-      ctx.db.insert("users", {
-        email: "coordenacao@unicap.br",
-        name: "Coordenação",
-        role: "gestor",
-        active: true,
-      }),
-    );
-    await t.run(async (ctx) =>
-      ctx.db.insert("consents", {
-        userId: managerId,
-        termVersion: CURRENT_TERM_VERSION,
-        acceptedAt: Date.now(),
-      }),
-    );
+  describe("recrutador com perfil legado de aluno", () => {
+    it("exclui o perfil de aluno e a auto-candidatura sem duplicar exclusão", async () => {
+      const { legacyStudentId, selfApplicationId, result, state } =
+        await deleteRecruiterWithLegacyProfile();
+      expect(result.ok).toBe(true);
+      expect(presentIds(state, [legacyStudentId, selfApplicationId])).toEqual(
+        [],
+      );
+    });
 
-    await expect(
-      as(t, managerId, "coordenacao@unicap.br").mutation(
-        api.users.deleteMyAccount,
-        {},
-      ),
-    ).rejects.toThrow(/gestor/i);
+    it("só restam dados de terceiros", async () => {
+      const { state } = await deleteRecruiterWithLegacyProfile();
+      expect({
+        applications: state.applications.length,
+        jobs: state.jobs.length,
+        users: state.users.length,
+      }).toEqual({ applications: 1, jobs: 1, users: SEED_USERS - 1 });
+    });
+  });
 
-    // Atomicidade: nenhuma escrita parcial.
-    const users = await collectIds(t, "users");
-    expect(users).toHaveLength(5); // 4 do seed + gestor
-    const consents = await t.run(async (ctx) =>
-      ctx.db.query("consents").collect(),
-    );
-    expect(consents).toHaveLength(5);
-    expect(await collectIds(t, "jobs")).toHaveLength(2);
-    expect(seed.studentUserId).toBeDefined();
+  describe("gestor", () => {
+    it("não pode se autoexcluir", async () => {
+      const { t, managerId } = await seedWorldWithManager();
+      await expect(
+        as(t, managerId, "coordenacao@unicap.br").mutation(
+          api.users.deleteMyAccount,
+          {},
+        ),
+      ).rejects.toThrow(/gestor/i);
+    });
+
+    it("e NADA é apagado (atomicidade)", async () => {
+      const { t, managerId } = await seedWorldWithManager();
+      await as(t, managerId, "coordenacao@unicap.br")
+        .mutation(api.users.deleteMyAccount, {})
+        .catch(() => undefined); // a rejeição é verificada no teste anterior
+      const state = await snapshot(t);
+      expect({
+        users: state.users.length,
+        consents: state.consents.length,
+        jobs: state.jobs.length,
+      }).toEqual({
+        users: SEED_USERS + 1, // seed + gestor
+        consents: SEED_CONSENTS + 1,
+        jobs: SEED_JOBS,
+      });
+    });
   });
 
   it("sem autenticação a exclusão é rejeitada", async () => {
@@ -426,152 +514,181 @@ describe("[PERFIL_E_LGPD] deleteMyAccount — apagão em cascata (Etapa 4)", () 
     );
   });
 
-  it("exclusão falha sem apagar nada quando o usuário não existe mais", async () => {
-    const t = convexTest({ schema, modules });
-    await seedWorld(t);
-    // Identidade que não casa com nenhum usuário.
-    await expect(
-      t
-        .withIdentity({
-          email: "fantasma@unicap.br",
-          subject: "fantasma",
-          tokenIdentifier: "tid-fantasma",
-        })
-        .mutation(api.users.deleteMyAccount, {}),
-    ).rejects.toThrow(/não autenticado/i);
-    expect(await collectIds(t, "users")).toHaveLength(4);
-    expect(await collectIds(t, "jobs")).toHaveLength(2);
+  describe("usuário que não existe mais", () => {
+    async function seedGhostScenario() {
+      const t = convexTest({ schema, modules });
+      await seedWorld(t);
+      // Identidade que não casa com nenhum usuário.
+      const tryDelete = () =>
+        t
+          .withIdentity({
+            email: "fantasma@unicap.br",
+            subject: "fantasma",
+            tokenIdentifier: "tid-fantasma",
+          })
+          .mutation(api.users.deleteMyAccount, {});
+      return { t, tryDelete };
+    }
+
+    it("a exclusão é rejeitada", async () => {
+      const { tryDelete } = await seedGhostScenario();
+      await expect(tryDelete()).rejects.toThrow(/não autenticado/i);
+    });
+
+    it("e nada é apagado", async () => {
+      const { t, tryDelete } = await seedGhostScenario();
+      await tryDelete().catch(() => undefined); // rejeição verificada acima
+      const state = await snapshot(t);
+      expect({ users: state.users.length, jobs: state.jobs.length }).toEqual({
+        users: SEED_USERS,
+        jobs: SEED_JOBS,
+      });
+    });
   });
 });
 
 describe("[PERFIL_E_LGPD] sessões — listagem e kill switch (Etapa 2)", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("listMySessions devolve só as sessões do próprio usuário, com a atual marcada", async () => {
+  async function listSessionsScenario() {
     const t = convexTest({ schema, modules });
     const seed = await seedWorld(t);
     const own = await seedAuthRecords(
       t,
       seed.studentUserId,
-      "aluna@unicap.br",
+      STUDENT_EMAIL,
       "propria",
     );
     const ownOther = await seedAuthRecords(
       t,
       seed.studentUserId,
-      "aluna@unicap.br",
+      STUDENT_EMAIL,
       "celular",
     );
     const stranger = await seedAuthRecords(
       t,
       seed.otherStudentUserId,
-      "colega@unicap.br",
+      PEER_EMAIL,
       "colega",
     );
-
     const sessions = await as(
       t,
       seed.studentUserId,
-      "aluna@unicap.br",
+      STUDENT_EMAIL,
       own.sessionId,
     ).query(api.users.listMySessions, {});
+    return { sessions, own, ownOther, stranger };
+  }
 
-    expect(sessions).toHaveLength(2);
-    expect(sessions.some((s) => s.sessionId === stranger.sessionId)).toBe(
-      false,
+  it("listMySessions devolve só as sessões do próprio usuário", async () => {
+    const { sessions, own, ownOther } = await listSessionsScenario();
+    expect(sessions.map((s) => s.sessionId).sort()).toEqual(
+      [own.sessionId, ownOther.sessionId].sort(),
     );
-    const current = sessions.filter((s) => s.isCurrent);
-    expect(current).toHaveLength(1);
-    expect(current[0]?.sessionId).toBe(own.sessionId);
-    const plain = sessions.find((s) => s.sessionId === ownOther.sessionId);
-    expect(plain?.isCurrent).toBe(false);
-    expect(plain?.createdAt).toBeGreaterThan(0);
-    expect(plain?.expiresAt).toBeGreaterThan(Date.now());
   });
 
-  it("revokeOtherSessions encerra as outras sessões e os refresh tokens delas", async () => {
-    const t = convexTest({ schema, modules });
-    const seed = await seedWorld(t);
-    const current = await seedAuthRecords(
-      t,
-      seed.studentUserId,
-      "aluna@unicap.br",
-      "atual",
+  it("listMySessions marca somente a sessão atual", async () => {
+    const { sessions, own } = await listSessionsScenario();
+    expect(sessions.filter((s) => s.isCurrent).map((s) => s.sessionId)).toEqual(
+      [own.sessionId],
     );
-    const other = await seedAuthRecords(
-      t,
-      seed.studentUserId,
-      "aluna@unicap.br",
-      "antiga",
-    );
+  });
 
-    const result = await as(
-      t,
-      seed.studentUserId,
-      "aluna@unicap.br",
-      current.sessionId,
-    ).mutation(api.users.revokeOtherSessions, {});
-    expect(result).toEqual({ revoked: 1, keptCurrent: true });
+  it("listMySessions traz criação e expiração das sessões não atuais", async () => {
+    const { sessions, ownOther } = await listSessionsScenario();
+    const plain = sessions.find((s) => s.sessionId === ownOther.sessionId);
+    assert(plain, "a outra sessão do usuário deveria estar na listagem");
+    expect(plain.isCurrent).toBe(false);
+    expect(plain.createdAt).toBeGreaterThan(0);
+    expect(plain.expiresAt).toBeGreaterThan(Date.now());
+  });
 
-    const state = await t.run(async (ctx) => ({
-      sessions: await ctx.db.query("authSessions").collect(),
-      refreshTokens: await ctx.db.query("authRefreshTokens").collect(),
-    }));
-    expect(state.sessions.map((s) => s._id)).toEqual([current.sessionId]);
-    // Só sobra o refresh token da sessão atual.
-    expect(state.refreshTokens.map((r) => r.sessionId)).toEqual([
-      current.sessionId,
-    ]);
-    expect(state.sessions.some((s) => s._id === other.sessionId)).toBe(false);
+  describe("revokeOtherSessions", () => {
+    async function revokeScenario() {
+      const t = convexTest({ schema, modules });
+      const seed = await seedWorld(t);
+      const current = await seedAuthRecords(
+        t,
+        seed.studentUserId,
+        STUDENT_EMAIL,
+        "atual",
+      );
+      await seedAuthRecords(t, seed.studentUserId, STUDENT_EMAIL, "antiga");
+      const result = await as(
+        t,
+        seed.studentUserId,
+        STUDENT_EMAIL,
+        current.sessionId,
+      ).mutation(api.users.revokeOtherSessions, {});
+      return { current, result, state: await snapshot(t) };
+    }
+
+    it("informa quantas sessões foram revogadas", async () => {
+      const { result } = await revokeScenario();
+      expect(result).toEqual({ revoked: 1, keptCurrent: true });
+    });
+
+    it("mantém só a sessão atual e o refresh token dela", async () => {
+      const { current, state } = await revokeScenario();
+      expect(state.sessions.map((s) => s._id)).toEqual([current.sessionId]);
+      expect(state.refreshTokens.map((r) => r.sessionId)).toEqual([
+        current.sessionId,
+      ]);
+    });
   });
 
   it("sem sessão atual identificável o kill switch falha (evita autologout)", async () => {
     const t = convexTest({ schema, modules });
     const seed = await seedWorld(t);
-    await seedAuthRecords(t, seed.studentUserId, "aluna@unicap.br", "x");
+    await seedAuthRecords(t, seed.studentUserId, STUDENT_EMAIL, "x");
 
     // subject SEM o sufixo "|sessionId" (token legado).
     await expect(
-      as(t, seed.studentUserId, "aluna@unicap.br").mutation(
+      as(t, seed.studentUserId, STUDENT_EMAIL).mutation(
         api.users.revokeOtherSessions,
         {},
       ),
     ).rejects.toThrow(/sessão atual/i);
-    const sessions = await t.run(async (ctx) =>
-      ctx.db.query("authSessions").collect(),
-    );
-    expect(sessions).toHaveLength(1); // nada mudou
+    expect((await snapshot(t)).sessions).toHaveLength(1); // nada mudou
   });
 });
 
 describe("[PERFIL_E_LGPD] portabilidade de dados (Etapa 3)", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("exportação do aluno reúne usuário, perfil, candidaturas e consentimentos", async () => {
+  async function exportAsStudent() {
     const t = convexTest({ schema, modules });
     const seed = await seedWorld(t);
-
-    const data = await as(t, seed.studentUserId, "aluna@unicap.br").query(
+    const data = await as(t, seed.studentUserId, STUDENT_EMAIL).query(
       api.users.getMyDataExport,
       {},
     );
-    expect(data).not.toBeNull();
-    expect(data?.usuario.email).toBe("aluna@unicap.br");
-    expect(data?.perfilAluno?.fullName).toBe("Maria da Silva");
-    expect(data?.perfilAluno?.resumeData).toBeUndefined();
-    expect(data?.candidaturas).toHaveLength(2);
-    expect(data?.candidaturas.map((c) => c.jobTitle).sort()).toEqual([
+    assert(data, "a exportação do aluno autenticado não deveria ser null");
+    return data;
+  }
+
+  it("exportação do aluno reúne usuário e perfil", async () => {
+    const data = await exportAsStudent();
+    expect(data.usuario.email).toBe(STUDENT_EMAIL);
+    expect(data.perfilAluno?.fullName).toBe("Maria da Silva");
+    expect(data.perfilAluno?.resumeData).toBeUndefined();
+  });
+
+  it("exportação do aluno reúne as candidaturas", async () => {
+    const data = await exportAsStudent();
+    expect(data.candidaturas.map((c) => c.jobTitle).sort()).toEqual([
       "Estágio em Desenvolvimento Web",
       "Vaga de Outra Empresa",
     ]);
-    expect(data?.consentimentos).toHaveLength(1);
-    expect(data?.consentimentos[0]?.termVersion).toBe(CURRENT_TERM_VERSION);
-    expect(data?.vagasPublicadas).toHaveLength(0);
-    expect(data?.exportedAt).toBeGreaterThan(0);
+  });
+
+  it("exportação do aluno reúne os consentimentos", async () => {
+    const data = await exportAsStudent();
+    expect(data.consentimentos.map((c) => c.termVersion)).toEqual([
+      CURRENT_TERM_VERSION,
+    ]);
+  });
+
+  it("exportação do aluno não lista vagas e traz o carimbo de data", async () => {
+    const data = await exportAsStudent();
+    expect(data.vagasPublicadas).toHaveLength(0);
+    expect(data.exportedAt).toBeGreaterThan(0);
   });
 
   it("exportação do recrutador inclui suas vagas e não vaza dados alheios", async () => {
@@ -595,16 +712,15 @@ describe("[PERFIL_E_LGPD] portabilidade de dados (Etapa 3)", () => {
 });
 
 describe("[PERFIL_E_LGPD] preferências: foto e notificações (Etapa 2)", () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
+  const TAMANHO_IMAGEM_VALIDA = 64;
+  const TAMANHO_IMAGEM_ACIMA_DO_LIMITE = 600_000; // limite real: 400KB
 
   it("updateMyProfile grava a imagem de avatar no users", async () => {
     const t = convexTest({ schema, modules });
     const seed = await seedWorld(t);
-    const image = `data:image/png;base64,${"A".repeat(64)}`;
+    const image = `data:image/png;base64,${"A".repeat(TAMANHO_IMAGEM_VALIDA)}`;
 
-    await as(t, seed.studentUserId, "aluna@unicap.br").mutation(
+    await as(t, seed.studentUserId, STUDENT_EMAIL).mutation(
       api.users.updateMyProfile,
       { image },
     );
@@ -616,7 +732,7 @@ describe("[PERFIL_E_LGPD] preferências: foto e notificações (Etapa 2)", () =>
     const t = convexTest({ schema, modules });
     const seed = await seedWorld(t);
     await expect(
-      as(t, seed.studentUserId, "aluna@unicap.br").mutation(
+      as(t, seed.studentUserId, STUDENT_EMAIL).mutation(
         api.users.updateMyProfile,
         { image: "javascript:alert(1)" },
       ),
@@ -626,26 +742,38 @@ describe("[PERFIL_E_LGPD] preferências: foto e notificações (Etapa 2)", () =>
   it("updateMyProfile rejeita imagem acima do limite (400KB)", async () => {
     const t = convexTest({ schema, modules });
     const seed = await seedWorld(t);
-    const huge = `data:image/png;base64,${"A".repeat(600_000)}`;
+    const huge = `data:image/png;base64,${"A".repeat(TAMANHO_IMAGEM_ACIMA_DO_LIMITE)}`;
     await expect(
-      as(t, seed.studentUserId, "aluna@unicap.br").mutation(
+      as(t, seed.studentUserId, STUDENT_EMAIL).mutation(
         api.users.updateMyProfile,
         { image: huge },
       ),
     ).rejects.toThrow(/muito grande/i);
   });
 
-  it("updateMyNotificationPrefs persiste os switches no usuário", async () => {
-    const t = convexTest({ schema, modules });
-    const seed = await seedWorld(t);
+  describe("updateMyNotificationPrefs", () => {
+    async function updatePrefs() {
+      const t = convexTest({ schema, modules });
+      const seed = await seedWorld(t);
+      const after = await as(t, seed.studentUserId, STUDENT_EMAIL).mutation(
+        api.users.updateMyNotificationPrefs,
+        { jobAlerts: false, applicationUpdates: true },
+      );
+      const user = await t.run(async (ctx) => ctx.db.get(seed.studentUserId));
+      return { after, user };
+    }
 
-    const after = await as(t, seed.studentUserId, "aluna@unicap.br").mutation(
-      api.users.updateMyNotificationPrefs,
-      { jobAlerts: false, applicationUpdates: true },
-    );
-    expect(after).toEqual({ jobAlerts: false, applicationUpdates: true });
-    const user = await t.run(async (ctx) => ctx.db.get(seed.studentUserId));
-    expect(user?.notifyJobAlerts).toBe(false);
-    expect(user?.notifyApplicationUpdates).toBe(true);
+    it("devolve as preferências gravadas", async () => {
+      const { after } = await updatePrefs();
+      expect(after).toEqual({ jobAlerts: false, applicationUpdates: true });
+    });
+
+    it("persiste os switches no usuário", async () => {
+      const { user } = await updatePrefs();
+      expect(user).toMatchObject({
+        notifyJobAlerts: false,
+        notifyApplicationUpdates: true,
+      });
+    });
   });
 });

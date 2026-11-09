@@ -24,6 +24,38 @@ import { buildOperationalReport } from "../../src/lib/operationalPanel";
 
 const encoder = new TextEncoder();
 
+// --- Constantes nomeadas (evitam "magic numbers") --------------------------
+
+/** 27/set/2026 12:00 no fuso local (sem "Z" = horário local). */
+const MEIO_DIA = new Date("2026-09-27T12:00:00").getTime();
+
+// Dados do relatório de exemplo.
+const VAGAS_ABERTAS = 3;
+const INSCRITOS = 10;
+const APROVADOS = 4;
+
+// Formato ZIP (assinaturas e deslocamentos do PKWARE APPNOTE).
+const ZIP_LOCAL_SIGNATURE = 0x04034b50;
+const ZIP_CENTRAL_SIGNATURE = 0x02014b50;
+const ZIP_EOCD_SIGNATURE = 0x06054b50;
+const ZIP_EOCD_SIZE = 22;
+const EOCD_ENTRY_COUNT_OFFSET = 10;
+const EOCD_CENTRAL_SIZE_OFFSET = 12;
+const EOCD_CENTRAL_OFFSET_OFFSET = 16;
+const LOCAL_HEADER_SIZE = 30;
+const LOCAL_COMPRESSED_SIZE_OFFSET = 18;
+const LOCAL_NAME_LENGTH_OFFSET = 26;
+const LOCAL_EXTRA_LENGTH_OFFSET = 28;
+
+/** CRC-32 do texto "123456789" (vetor de teste padrão da especificação). */
+const CRC32_CHECK_VALUE = 0xcbf43926;
+
+const ENTRADAS_NO_ZIP_DE_EXEMPLO = 2;
+const LIMITE_NOME_PLANILHA = 31;
+const REPETICOES_TITULO_LONGO = 3;
+const TAMANHO_ASPAS_DOBRADAS = 2;
+const BOM_UTF8 = [...encoder.encode("\uFEFF")];
+
 const sampleReport: ExportReport = {
   reportName: "Relatório Operacional UNICAP",
   sections: [
@@ -31,7 +63,7 @@ const sampleReport: ExportReport = {
       title: "Resumo de Vagas",
       columns: ["Métrica", "Valor"],
       rows: [
-        ["Vagas abertas", 3],
+        ["Vagas abertas", VAGAS_ABERTAS],
         ["Vagas com 'aspas' e ; ponto-e-vírgula", "quebra\r\nde linha"],
         ["Sem valor", null],
       ],
@@ -40,12 +72,19 @@ const sampleReport: ExportReport = {
       title: "Funil de Conversão",
       columns: ["Etapa", "Candidaturas"],
       rows: [
-        ["Inscrito", 10],
-        ["Aprovado", 4],
+        ["Inscrito", INSCRITOS],
+        ["Aprovado", APROVADOS],
       ],
     },
   ],
 };
+
+// --- Helpers ---------------------------------------------------------------
+
+/** Partes de `parts` que NÃO aparecem em `text` (vazio = todas presentes). */
+function missingParts(text: string, parts: string[]) {
+  return parts.filter((part) => !text.includes(part));
+}
 
 /** Parser CSV mínimo (RFC 4180 com separador ;) para validar a saída. */
 function parseCsv(text: string): string[][] {
@@ -61,7 +100,7 @@ function parseCsv(text: string): string[][] {
       if (ch === '"') {
         if ((clean[index + 1] ?? "") === '"') {
           field += '"';
-          index += 2;
+          index += TAMANHO_ASPAS_DOBRADAS;
         } else {
           quoted = false;
           index += 1;
@@ -104,11 +143,17 @@ function extractZipEntries(bytes: Uint8Array): Map<string, string> {
   const entries = new Map<string, string>();
   let offset = 0;
   while (offset < bytes.length) {
-    if (view.getUint32(offset, true) !== 0x04034b50) break;
-    const compressedSize = view.getUint32(offset + 18, true);
-    const nameLength = view.getUint16(offset + 26, true);
-    const extraLength = view.getUint16(offset + 28, true);
-    const nameStart = offset + 30;
+    if (view.getUint32(offset, true) !== ZIP_LOCAL_SIGNATURE) break;
+    const compressedSize = view.getUint32(
+      offset + LOCAL_COMPRESSED_SIZE_OFFSET,
+      true,
+    );
+    const nameLength = view.getUint16(offset + LOCAL_NAME_LENGTH_OFFSET, true);
+    const extraLength = view.getUint16(
+      offset + LOCAL_EXTRA_LENGTH_OFFSET,
+      true,
+    );
+    const nameStart = offset + LOCAL_HEADER_SIZE;
     const name = decoder.decode(
       bytes.subarray(nameStart, nameStart + nameLength),
     );
@@ -122,45 +167,66 @@ function extractZipEntries(bytes: Uint8Array): Map<string, string> {
   return entries;
 }
 
+/** Lê o "End Of Central Directory" (últimos 22 bytes) de um ZIP. */
+function readEocd(zip: Uint8Array) {
+  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  const eocdOffset = zip.length - ZIP_EOCD_SIZE;
+  return {
+    view,
+    eocdOffset,
+    signature: view.getUint32(eocdOffset, true),
+    entryCount: view.getUint16(eocdOffset + EOCD_ENTRY_COUNT_OFFSET, true),
+    centralSize: view.getUint32(eocdOffset + EOCD_CENTRAL_SIZE_OFFSET, true),
+    centralOffset: view.getUint32(
+      eocdOffset + EOCD_CENTRAL_OFFSET_OFFSET,
+      true,
+    ),
+  };
+}
+
+// --- Testes ----------------------------------------------------------------
+
 describe("[S6-1] nome do arquivo exportado", () => {
   it("data local no formato aaaa-mm-dd (ordenável, sem barras)", () => {
-    const noon = new Date(2026, 8, 27, 12).getTime();
-    expect(formatDateStamp(noon)).toBe("2026-09-27");
+    expect(formatDateStamp(MEIO_DIA)).toBe("2026-09-27");
   });
 
-  it("slug sem acentos/espacos + extensao por formato", () => {
-    const noon = new Date(2026, 8, 27, 12).getTime();
-    expect(reportFilename("Relatório Operacional UNICAP", "csv", noon)).toBe(
-      "relatorio-operacional-unicap-2026-09-27.csv",
-    );
-    expect(reportFilename("Relatório Operacional UNICAP", "xlsx", noon)).toBe(
-      "relatorio-operacional-unicap-2026-09-27.xlsx",
-    );
-  });
+  it.each(["csv", "xlsx"] as const)(
+    "slug sem acentos/espaços + extensão .%s",
+    (format) => {
+      expect(
+        reportFilename("Relatório Operacional UNICAP", format, MEIO_DIA),
+      ).toBe(`relatorio-operacional-unicap-2026-09-27.${format}`);
+    },
+  );
 
-  it("remove caracteres invalidos de nome de arquivo", () => {
-    const noon = new Date(2026, 8, 27, 12).getTime();
-    expect(reportFilename("A/B: C?D*E", "csv", noon)).toBe(
+  it("remove caracteres inválidos de nome de arquivo", () => {
+    expect(reportFilename("A/B: C?D*E", "csv", MEIO_DIA)).toBe(
       "a-b-c-d-e-2026-09-27.csv",
     );
   });
 });
 
 describe("[S6-1] CSV (CA 2 — encoding para Excel)", () => {
-  it("comeca com BOM UTF-8 e usa separador pt-BR (;)", () => {
+  it("começa com BOM UTF-8 e usa separador pt-BR (;)", () => {
     const csv = toCsv(sampleReport);
     expect(csv.startsWith("\uFEFF")).toBe(true);
     expect(CSV_SEPARATOR).toBe(";");
     expect(csv).toContain(`Métrica${CSV_SEPARATOR}Valor`);
   });
 
-  it("escapa campos com separador, aspas e quebras de linha (RFC 4180)", () => {
+  it("campo com separador é citado (RFC 4180)", () => {
     const csv = toCsv(sampleReport);
     expect(csv).toContain("'aspas'");
     expect(csv).toContain('; ponto-e-vírgula"');
+  });
+
+  it("campo com quebra de linha é citado e mantém CRLF", () => {
     // LF é normalizado para CRLF (Excel); campo citado mantém a quebra.
-    expect(csv).toContain('"quebra\r\nde linha"');
-    // Aspas internas são dobradas.
+    expect(toCsv(sampleReport)).toContain('"quebra\r\nde linha"');
+  });
+
+  it("aspas internas são dobradas", () => {
     const quoted = toCsv({
       reportName: "x",
       sections: [{ title: "s", columns: ["c"], rows: [['diz "oi"']] }],
@@ -168,12 +234,15 @@ describe("[S6-1] CSV (CA 2 — encoding para Excel)", () => {
     expect(quoted).toContain('"diz ""oi"""');
   });
 
-  it("usa CRLF como fim de linha (Excel) e valor nulo vira célula vazia", () => {
+  it("usa CRLF como fim de linha (Excel)", () => {
     const csv = toCsv(sampleReport);
     expect(csv).toContain("\r\n");
     expect(csv.match(/(?<!\r)\n/)).toBeNull();
-    expect(csv).toContain("Sem valor;");
     expect(csv.endsWith("\r\n")).toBe(true);
+  });
+
+  it("valor nulo vira célula vazia", () => {
+    expect(toCsv(sampleReport)).toContain("Sem valor;");
   });
 
   it("empilha as seções com título e linha em branco entre elas", () => {
@@ -184,48 +253,62 @@ describe("[S6-1] CSV (CA 2 — encoding para Excel)", () => {
       [sampleReport.reportName],
       ["# Resumo de Vagas"],
       ["Métrica", "Valor"],
-      ["Vagas abertas", "3"],
+      ["Vagas abertas", String(VAGAS_ABERTAS)],
       ["Vagas com 'aspas' e ; ponto-e-vírgula", "quebra\r\nde linha"],
       ["Sem valor", ""],
       ["# Funil de Conversão"],
       ["Etapa", "Candidaturas"],
-      ["Inscrito", "10"],
-      ["Aprovado", "4"],
+      ["Inscrito", String(INSCRITOS)],
+      ["Aprovado", String(APROVADOS)],
     ]);
   });
 
   it("csvBytes codifica UTF-8 com BOM (EF BB BF) — Excel abre sem mojibake", () => {
     const bytes = csvBytes(sampleReport);
-    expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect([...bytes.slice(0, BOM_UTF8.length)]).toEqual(BOM_UTF8);
     const bomDecoder = new TextDecoder("utf-8", { ignoreBOM: true });
     expect(bomDecoder.decode(bytes)).toBe(toCsv(sampleReport));
   });
 });
 
 describe("[S6-1] ZIP (base do XLSX)", () => {
-  it("crc32 bate com o vetor de teste conhecido", () => {
-    expect(crc32(encoder.encode("123456789"))).toBe(0xcbf43926);
-    expect(crc32(new Uint8Array(0))).toBe(0);
-  });
-
-  it("empacota entradas stored, com central directory e EOCD consistentes", () => {
-    const zip = buildZip([
+  const buildSampleZip = () =>
+    buildZip([
       { name: "xl/a.txt", data: encoder.encode("hello") },
       { name: "xl/b.txt", data: encoder.encode("world!") },
     ]);
-    const entries = extractZipEntries(zip);
-    expect([...entries.keys()]).toEqual(["xl/a.txt", "xl/b.txt"]);
-    expect(entries.get("xl/a.txt")).toBe("hello");
-    expect(entries.get("xl/b.txt")).toBe("world!");
 
-    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
-    const eocdOffset = zip.length - 22;
-    expect(view.getUint32(eocdOffset, true)).toBe(0x06054b50);
-    expect(view.getUint16(eocdOffset + 10, true)).toBe(2);
-    const centralSize = view.getUint32(eocdOffset + 12, true);
-    const centralOffset = view.getUint32(eocdOffset + 16, true);
-    expect(centralOffset + centralSize).toBe(eocdOffset);
-    expect(view.getUint32(centralOffset, true)).toBe(0x02014b50);
+  it("crc32 bate com o vetor de teste conhecido", () => {
+    expect(crc32(encoder.encode("123456789"))).toBe(CRC32_CHECK_VALUE);
+    expect(crc32(new Uint8Array(0))).toBe(0);
+  });
+
+  it("empacota as entradas na ordem informada", () => {
+    const entries = extractZipEntries(buildSampleZip());
+    expect([...entries.keys()]).toEqual(["xl/a.txt", "xl/b.txt"]);
+  });
+
+  it("guarda o conteúdo de cada entrada sem compressão (stored)", () => {
+    const entries = extractZipEntries(buildSampleZip());
+    expect(Object.fromEntries(entries)).toEqual({
+      "xl/a.txt": "hello",
+      "xl/b.txt": "world!",
+    });
+  });
+
+  it("EOCD tem a assinatura e a contagem de entradas corretas", () => {
+    const eocd = readEocd(buildSampleZip());
+    expect(eocd.signature).toBe(ZIP_EOCD_SIGNATURE);
+    expect(eocd.entryCount).toBe(ENTRADAS_NO_ZIP_DE_EXEMPLO);
+  });
+
+  it("central directory termina onde começa o EOCD e tem assinatura própria", () => {
+    const zip = buildSampleZip();
+    const eocd = readEocd(zip);
+    expect(eocd.centralOffset + eocd.centralSize).toBe(eocd.eocdOffset);
+    expect(eocd.view.getUint32(eocd.centralOffset, true)).toBe(
+      ZIP_CENTRAL_SIGNATURE,
+    );
   });
 });
 
@@ -234,11 +317,15 @@ describe("[S6-1] nomes de planilha", () => {
     expect(sheetNameFor("Resumo de Vagas")).toBe("Resumo de Vagas");
   });
 
-  it("remove caracteres proibidos e limita a 31 caracteres", () => {
+  it("remove caracteres proibidos", () => {
     expect(sheetNameFor("A[B]:C*D?E/F\\G")).toBe("ABCDEFG");
-    expect(
-      sheetNameFor("Título Extenso ".repeat(3)).length,
-    ).toBeLessThanOrEqual(31);
+  });
+
+  it("limita a 31 caracteres", () => {
+    const longo = "Título Extenso ".repeat(REPETICOES_TITULO_LONGO);
+    expect(sheetNameFor(longo).length).toBeLessThanOrEqual(
+      LIMITE_NOME_PLANILHA,
+    );
   });
 
   it("desambigua nomes repetidos", () => {
@@ -247,29 +334,36 @@ describe("[S6-1] nomes de planilha", () => {
 });
 
 describe("[S6-1] XLSX (CA 3 — arquivo válido)", () => {
+  const SHEET_RESUMO =
+    '<sheet name="Resumo de Vagas" sheetId="1" r:id="rId1"/>';
+  const SHEET_FUNIL =
+    '<sheet name="Funil de Conversão" sheetId="2" r:id="rId2"/>';
+
+  function buildSampleXlsx() {
+    const bytes = xlsxBytes(sampleReport);
+    return { bytes, entries: extractZipEntries(bytes) };
+  }
+
   it("workbook lista as planilhas com r:id e namespaces OOXML", () => {
     const xml = buildWorkbookXml(["Resumo de Vagas", "Funil de Conversão"]);
-    expect(xml).toContain(
-      'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"',
-    );
-    expect(xml).toContain(
-      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
-    );
-    expect(xml).toContain(
-      '<sheet name="Resumo de Vagas" sheetId="1" r:id="rId1"/>',
-    );
-    expect(xml).toContain(
-      '<sheet name="Funil de Conversão" sheetId="2" r:id="rId2"/>',
-    );
+    expect(
+      missingParts(xml, [
+        'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"',
+        'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"',
+        SHEET_RESUMO,
+        SHEET_FUNIL,
+      ]),
+    ).toEqual([]);
   });
 
-  it("gera um pacote OOXML com partes obrigatórias e planilhas por seção", () => {
-    const bytes = xlsxBytes(sampleReport);
-    // Assinatura PKZip local.
+  it("pacote começa com a assinatura PKZip local", () => {
+    const { bytes } = buildSampleXlsx();
     const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-    expect(view.getUint32(0, true)).toBe(0x04034b50);
+    expect(view.getUint32(0, true)).toBe(ZIP_LOCAL_SIGNATURE);
+  });
 
-    const entries = extractZipEntries(bytes);
+  it("pacote tem as partes obrigatórias e uma planilha por seção", () => {
+    const { entries } = buildSampleXlsx();
     expect([...entries.keys()]).toEqual([
       "[Content_Types].xml",
       "_rels/.rels",
@@ -278,44 +372,63 @@ describe("[S6-1] XLSX (CA 3 — arquivo válido)", () => {
       "xl/worksheets/sheet1.xml",
       "xl/worksheets/sheet2.xml",
     ]);
-
-    const contentTypes = entries.get("[Content_Types].xml") ?? "";
-    expect(contentTypes).toContain(
-      'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"',
-    );
-    expect(contentTypes).toContain("/xl/worksheets/sheet1.xml");
-    expect(contentTypes).toContain("/xl/worksheets/sheet2.xml");
-
-    const rels = entries.get("xl/_rels/workbook.xml.rels") ?? "";
-    expect(rels).toContain('Target="worksheets/sheet1.xml"');
-    expect(rels).toContain('Target="worksheets/sheet2.xml"');
-
-    const workbook = entries.get("xl/workbook.xml") ?? "";
-    expect(workbook).toContain(
-      '<sheet name="Resumo de Vagas" sheetId="1" r:id="rId1"/>',
-    );
-    expect(workbook).toContain(
-      '<sheet name="Funil de Conversão" sheetId="2" r:id="rId2"/>',
-    );
-
-    // EOCD com contagem de entradas correta.
-    const eocdOffset = bytes.length - 22;
-    expect(view.getUint16(eocdOffset + 10, true)).toBe(entries.size);
   });
 
-  it("células: texto vira inlineStr, número vira <v> e nulo vira célula vazia", () => {
-    const entries = extractZipEntries(xlsxBytes(sampleReport));
-    const sheet1 = entries.get("xl/worksheets/sheet1.xml") ?? "";
-    expect(sheet1).toContain('<t xml:space="preserve">Métrica</t>');
-    expect(sheet1).toContain("<v>3</v>");
-    expect(sheet1).toContain(
-      `<c r="A3" t="inlineStr"><is><t xml:space="preserve">Vagas com 'aspas' e ; ponto-e-vírgula</t></is></c>`,
-    );
-    expect(sheet1).toContain('<c r="B4"/>');
+  it("[Content_Types].xml declara o workbook e as planilhas", () => {
+    const contentTypes =
+      buildSampleXlsx().entries.get("[Content_Types].xml") ?? "";
+    expect(
+      missingParts(contentTypes, [
+        'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"',
+        "/xl/worksheets/sheet1.xml",
+        "/xl/worksheets/sheet2.xml",
+      ]),
+    ).toEqual([]);
+  });
 
-    const sheet2 = entries.get("xl/worksheets/sheet2.xml") ?? "";
-    expect(sheet2).toContain('<t xml:space="preserve">Etapa</t>');
-    expect(sheet2).toContain("<v>10</v>");
+  it("relacionamentos apontam para as duas planilhas", () => {
+    const rels =
+      buildSampleXlsx().entries.get("xl/_rels/workbook.xml.rels") ?? "";
+    expect(
+      missingParts(rels, [
+        'Target="worksheets/sheet1.xml"',
+        'Target="worksheets/sheet2.xml"',
+      ]),
+    ).toEqual([]);
+  });
+
+  it("workbook.xml lista as planilhas pelo título da seção", () => {
+    const workbook = buildSampleXlsx().entries.get("xl/workbook.xml") ?? "";
+    expect(missingParts(workbook, [SHEET_RESUMO, SHEET_FUNIL])).toEqual([]);
+  });
+
+  it("EOCD com contagem de entradas correta", () => {
+    const { bytes, entries } = buildSampleXlsx();
+    expect(readEocd(bytes).entryCount).toBe(entries.size);
+  });
+
+  it("células da 1ª planilha: texto vira inlineStr, número vira <v>, nulo vira célula vazia", () => {
+    const sheet1 =
+      buildSampleXlsx().entries.get("xl/worksheets/sheet1.xml") ?? "";
+    expect(
+      missingParts(sheet1, [
+        '<t xml:space="preserve">Métrica</t>',
+        `<v>${VAGAS_ABERTAS}</v>`,
+        `<c r="A3" t="inlineStr"><is><t xml:space="preserve">Vagas com 'aspas' e ; ponto-e-vírgula</t></is></c>`,
+        '<c r="B4"/>',
+      ]),
+    ).toEqual([]);
+  });
+
+  it("células da 2ª planilha: título de coluna e número", () => {
+    const sheet2 =
+      buildSampleXlsx().entries.get("xl/worksheets/sheet2.xml") ?? "";
+    expect(
+      missingParts(sheet2, [
+        '<t xml:space="preserve">Etapa</t>',
+        `<v>${INSCRITOS}</v>`,
+      ]),
+    ).toEqual([]);
   });
 
   it("é determinístico (mesma entrada → mesmos bytes)", () => {
@@ -324,18 +437,7 @@ describe("[S6-1] XLSX (CA 3 — arquivo válido)", () => {
 });
 
 describe("[S6-1] download nativo do navegador", () => {
-  function makeDeps(): {
-    deps: ReportDownloadDeps;
-    created: Blob[];
-    revoked: string[];
-    clicks: string[];
-    anchor: {
-      href: string;
-      download: string;
-      click: () => void;
-      remove: () => void;
-    };
-  } {
+  function makeDeps() {
     const created: Blob[] = [];
     const revoked: string[] = [];
     const clicks: string[] = [];
@@ -365,24 +467,34 @@ describe("[S6-1] download nativo do navegador", () => {
     return { deps, created, revoked, clicks, anchor };
   }
 
-  it("CSV: Blob text/csv com bytes corretos, âncora com download e revoke", () => {
-    const { deps, created, revoked, clicks, anchor } = makeDeps();
-    downloadReport(sampleReport, "csv", deps);
+  function runDownload(format: "csv" | "xlsx") {
+    const fake = makeDeps();
+    downloadReport(sampleReport, format, fake.deps);
+    return fake;
+  }
 
+  it("CSV: gera um Blob text/csv com os bytes corretos", () => {
+    const { created } = runDownload("csv");
     expect(created).toHaveLength(1);
     expect(created[0]?.type).toBe("text/csv;charset=utf-8");
     expect(created[0]?.size).toBe(csvBytes(sampleReport).length);
+  });
+
+  it("CSV: a âncora recebe o nome do arquivo", () => {
+    const { anchor } = runDownload("csv");
     expect(anchor.download).toBe(
       reportFilename(sampleReport.reportName, "csv"),
     );
+  });
+
+  it("CSV: clica na âncora e revoga a URL do Blob", () => {
+    const { anchor, clicks, revoked } = runDownload("csv");
     expect(clicks).toEqual([anchor.download]);
     expect(revoked).toEqual(["blob:fake-1"]);
   });
 
   it("XLSX: Blob com MIME de planilha e tamanho do pacote gerado", () => {
-    const { deps, created, anchor } = makeDeps();
-    downloadReport(sampleReport, "xlsx", deps);
-
+    const { created, anchor } = runDownload("xlsx");
     expect(created[0]?.type).toBe(
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
@@ -394,6 +506,8 @@ describe("[S6-1] download nativo do navegador", () => {
 });
 
 describe("[S6-1] relatório do painel operacional (dados filtrados vigentes)", () => {
+  // Fixture: aqui o literal numérico É o caso de teste (entrada e saída
+  // esperada); por isso estes números não viram constantes nomeadas.
   const input = {
     summary: {
       jobs: { open: 3, closed: 1, filled: 2, total: 6 },
@@ -443,9 +557,9 @@ describe("[S6-1] relatório do painel operacional (dados filtrados vigentes)", (
       ],
     },
   };
+  const report = buildOperationalReport(input);
 
   it("monta as seis seções do painel na ordem de exibição", () => {
-    const report = buildOperationalReport(input);
     expect(report.reportName).toBe("Relatório Operacional UNICAP");
     expect(report.sections.map((section) => section.title)).toEqual([
       "Resumo de Vagas",
@@ -457,25 +571,36 @@ describe("[S6-1] relatório do painel operacional (dados filtrados vigentes)", (
     ]);
   });
 
-  it("resume vagas, candidaturas (com taxa), funil, rankings e TTH", () => {
-    const report = buildOperationalReport(input);
+  it("resume as vagas", () => {
     expect(report.sections[0]?.rows).toEqual([
       ["Vagas abertas", 3],
       ["Vagas fechadas", 1],
       ["Vagas preenchidas", 2],
       ["Total de vagas", 6],
     ]);
+  });
+
+  it("resume as candidaturas (com taxa de empregabilidade)", () => {
     expect(report.sections[1]?.rows).toContainEqual([
       "Taxa de empregabilidade (%)",
       63,
     ]);
     expect(report.sections[1]?.rows).toContainEqual(["Aprovados", 5]);
+  });
+
+  it("resume o funil", () => {
     expect(report.sections[2]?.rows).toEqual([
       ["Inscrito", 20, ""],
       ["Em Triagem", 10, 50],
     ]);
+  });
+
+  it("resume os rankings de empresas e vagas", () => {
     expect(report.sections[3]?.rows).toEqual([[1, "Alpha", 3, 12]]);
     expect(report.sections[4]?.rows).toEqual([[1, "Estágio Web", "Alpha", 12]]);
+  });
+
+  it("resume o time to hire", () => {
     expect(report.sections[5]?.rows).toEqual([
       ["TTH médio (dias)", 12],
       ["Contratações na amostra", 4],
@@ -483,7 +608,7 @@ describe("[S6-1] relatório do painel operacional (dados filtrados vigentes)", (
   });
 
   it("métricas sem valor (null) viram células vazias, nunca 'null'/'undefined'", () => {
-    const report = buildOperationalReport({
+    const semValores = buildOperationalReport({
       ...input,
       summary: {
         ...input.summary,
@@ -491,10 +616,10 @@ describe("[S6-1] relatório do painel operacional (dados filtrados vigentes)", (
       },
       timeToHire: { averageDays: null, samplesCount: 0 },
     });
-    const csv = toCsv(report);
-    expect(csv).toContain("Taxa de empregabilidade (%);");
-    expect(csv).toContain("TTH médio (dias);");
-    expect(csv).not.toContain("null");
-    expect(csv).not.toContain("undefined");
+    const csv = toCsv(semValores);
+    expect(
+      missingParts(csv, ["Taxa de empregabilidade (%);", "TTH médio (dias);"]),
+    ).toEqual([]);
+    expect(csv).not.toMatch(/null|undefined/);
   });
 });

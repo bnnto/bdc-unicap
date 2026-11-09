@@ -3,51 +3,53 @@ import {
   JOB_EXPIRY_DAYS,
   computeExpiresAt,
   isJobExpired,
+  renewJob,
   renewalWindow,
+  type ExpirableJob,
   type JobLifecycleStatus,
 } from "../../src/lib/jobExpiry";
-import { renewJob, type ExpirableJob } from "../../src/lib/jobExpiry";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+// Datas ISO sem horário são interpretadas em UTC (mesmo que Date.UTC).
+const at = (iso: string) => Date.parse(iso);
+
+const DAY_MS = 86_400_000; // 24 * 60 * 60 * 1000
+const PRAZO_ESPERADO_DIAS = 30;
+const PRAZO_MS = PRAZO_ESPERADO_DIAS * DAY_MS;
+const JANELA_AVISO_DIAS = 5;
+
+/** Vaga aberta publicada em 1/set/2026 com vencimento em 1/out/2026. */
+const baseJob: ExpirableJob = {
+  status: "aberta",
+  publishedAt: at("2026-09-01"),
+  expiresAt: at("2026-10-01"),
+};
 
 describe("R4 — prazo de expiração (S3-2)", () => {
   it("duração padrão é 30 dias", () => {
-    expect(JOB_EXPIRY_DAYS).toBe(30);
+    expect(JOB_EXPIRY_DAYS).toBe(PRAZO_ESPERADO_DIAS);
   });
 
   it("expiresAt = publishedAt + 30d (CA 1)", () => {
-    const publishedAt = Date.UTC(2026, 8, 1, 12, 0, 0); // 1/set/2026 12:00
-    expect(computeExpiresAt(publishedAt)).toBe(publishedAt + 30 * DAY_MS);
+    const publishedAt = at("2026-09-01T12:00:00Z");
+    expect(computeExpiresAt(publishedAt)).toBe(publishedAt + PRAZO_MS);
   });
 
   it("é estável em bordas de mês (set → out)", () => {
-    const publishedAt = Date.UTC(2026, 8, 20, 10, 30, 0);
-    const expected = Date.UTC(2026, 9, 20, 10, 30, 0);
+    const publishedAt = at("2026-09-20T10:30:00Z");
+    const expected = at("2026-10-20T10:30:00Z");
     expect(computeExpiresAt(publishedAt)).toBe(expected);
   });
 });
 
 describe("R4 — vencimento e status derivado (S3-2)", () => {
-  const base: ExpirableJob = {
-    status: "aberta",
-    publishedAt: Date.UTC(2026, 8, 1),
-    expiresAt: Date.UTC(2026, 9, 1),
-  };
-
   it("vaga aberta dentro do prazo não está vencida", () => {
-    const now = Date.UTC(2026, 8, 15);
-    expect(isJobExpired(base, now)).toBe(false);
-    expect(renewJob(base, now)).toEqual({
-      ok: true,
-      expired: false,
-      expiresAt: now + 30 * DAY_MS,
-    });
+    expect(isJobExpired(baseJob, at("2026-09-15"))).toBe(false);
   });
 
   it("vaga aberta vencida deve ser encerrada pelo cron (CA 2)", () => {
-    const now = Date.UTC(2026, 9, 2);
-    expect(isJobExpired(base, now)).toBe(true);
-    expect(renewJob(base, now)).toEqual({
+    const now = at("2026-10-02");
+    expect(isJobExpired(baseJob, now)).toBe(true);
+    expect(renewJob(baseJob, now)).toEqual({
       ok: false,
       reason: "expirada",
       nextStatus: "encerrada",
@@ -55,40 +57,40 @@ describe("R4 — vencimento e status derivado (S3-2)", () => {
   });
 
   it("vence exatamente no milissegundo do expiresAt (limite inclusivo)", () => {
-    expect(isJobExpired(base, Date.UTC(2026, 9, 1))).toBe(true);
-    expect(isJobExpired(base, Date.UTC(2026, 9, 1) - 1)).toBe(false);
+    expect(isJobExpired(baseJob, at("2026-10-01"))).toBe(true);
+    expect(isJobExpired(baseJob, at("2026-10-01") - 1)).toBe(false);
   });
 
-  it("vagas não abertas nunca são alvo do encerramento automático", () => {
-    for (const status of ["fechada", "encerrada"] as JobLifecycleStatus[]) {
-      expect(isJobExpired({ ...base, status }, Date.UTC(2026, 9, 2))).toBe(
+  it.each<JobLifecycleStatus>(["fechada", "encerrada"])(
+    "vaga %s nunca é alvo do encerramento automático",
+    (status) => {
+      expect(isJobExpired({ ...baseJob, status }, at("2026-10-02"))).toBe(
         false,
       );
-    }
-  });
+    },
+  );
 
   it("renovação reativa o prazo de 30 dias a partir de agora (CA 3)", () => {
-    const now = Date.UTC(2026, 8, 20);
-    const result = renewJob(base, now);
-    expect(result).toEqual({
+    const now = at("2026-09-20");
+    expect(renewJob(baseJob, now)).toEqual({
       ok: true,
       expired: false,
-      expiresAt: now + 30 * DAY_MS,
+      expiresAt: now + PRAZO_MS,
     });
   });
 
   it("renovação de vaga já encerrada é rejeitada (usa mudança de status)", () => {
-    const result = renewJob({ ...base, status: "encerrada" }, Date.now());
+    const result = renewJob({ ...baseJob, status: "encerrada" }, Date.now());
     expect(result).toEqual({ ok: false, reason: "status_invalido" });
   });
 
   it("renovação de vaga fechada é permitida e reabre o prazo", () => {
-    const now = Date.UTC(2026, 8, 25);
-    const result = renewJob({ ...base, status: "fechada" }, now);
+    const now = at("2026-09-25");
+    const result = renewJob({ ...baseJob, status: "fechada" }, now);
     expect(result).toEqual({
       ok: true,
       expired: false,
-      expiresAt: now + 30 * DAY_MS,
+      expiresAt: now + PRAZO_MS,
       reopen: true,
     });
   });
@@ -96,37 +98,24 @@ describe("R4 — vencimento e status derivado (S3-2)", () => {
 
 describe("R4 — janela de aviso de expiração (S3-2)", () => {
   it("avisa nos últimos 5 dias de vida da vaga aberta", () => {
-    const job: ExpirableJob = {
-      status: "aberta",
-      publishedAt: Date.UTC(2026, 8, 1),
-      expiresAt: Date.UTC(2026, 9, 1),
-    };
-    const now = Date.UTC(2026, 8, 26); // 5 dias antes de 1/out
-    const window = renewalWindow(job, now);
-    expect(window.daysLeft).toBe(5);
-    expect(window.expiring).toBe(true);
+    const window = renewalWindow(baseJob, at("2026-09-26")); // 5 dias antes de 1/out
+    expect(window).toMatchObject({
+      daysLeft: JANELA_AVISO_DIAS,
+      expiring: true,
+    });
   });
 
-  it("não avisa fora da janela e nem para vagas não abertas", () => {
-    const job: ExpirableJob = {
-      status: "aberta",
-      publishedAt: Date.UTC(2026, 8, 1),
-      expiresAt: Date.UTC(2026, 9, 1),
-    };
-    expect(renewalWindow(job, Date.UTC(2026, 8, 20)).expiring).toBe(false);
-    expect(
-      renewalWindow({ ...job, status: "encerrada" }, Date.UTC(2026, 8, 27))
-        .expiring,
-    ).toBe(false);
+  it("não avisa fora da janela", () => {
+    expect(renewalWindow(baseJob, at("2026-09-20")).expiring).toBe(false);
+  });
+
+  it("não avisa para vagas não abertas", () => {
+    const encerrada: ExpirableJob = { ...baseJob, status: "encerrada" };
+    expect(renewalWindow(encerrada, at("2026-09-27")).expiring).toBe(false);
   });
 
   it("vaga vencida reporta dias restantes negativos", () => {
-    const job: ExpirableJob = {
-      status: "aberta",
-      publishedAt: Date.UTC(2026, 8, 1),
-      expiresAt: Date.UTC(2026, 9, 1),
-    };
-    const window = renewalWindow(job, Date.UTC(2026, 9, 3));
+    const window = renewalWindow(baseJob, at("2026-10-03"));
     expect(window.expired).toBe(true);
     expect(window.daysLeft).toBeLessThan(0);
   });

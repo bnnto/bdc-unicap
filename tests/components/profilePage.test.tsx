@@ -138,8 +138,9 @@ beforeEach(() => {
     if (query === "query:students.myBannerUrl") return null;
     return undefined;
   }) as never);
-  mockedUseMutation.mockImplementation(((mutation: unknown) =>
-    MUTATIONS[String(mutation)] ?? vi.fn()) as never);
+  mockedUseMutation.mockImplementation(
+    ((mutation: unknown) => MUTATIONS[String(mutation)] ?? vi.fn()) as never,
+  );
 });
 
 afterEach(() => {
@@ -181,9 +182,10 @@ describe("ProfilePage: estrutura em abas", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: "Seu perfil" }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Perfil" }),
-    ).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "Perfil" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     // Controles de outras abas não aparecem na aba Perfil.
     expect(
       screen.queryByRole("switch", { name: /alto contraste/i }),
@@ -331,9 +333,7 @@ describe("ProfilePage: privacidade e dados (aba Privacidade)", () => {
       screen.getByRole("button", { name: /exportar \(json\)/i }),
     );
     expect(clickSpy).toHaveBeenCalledOnce();
-    expect(toast.success).toHaveBeenCalledWith(
-      "Dados exportados com sucesso.",
-    );
+    expect(toast.success).toHaveBeenCalledWith("Dados exportados com sucesso.");
     clickSpy.mockRestore();
   });
 
@@ -341,7 +341,9 @@ describe("ProfilePage: privacidade e dados (aba Privacidade)", () => {
     renderPerfil();
     await irPara("Privacidade");
 
-    await userEvent.click(screen.getByRole("button", { name: "Excluir conta" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Excluir conta" }),
+    );
     const dialog = screen.getByRole("dialog", {
       name: /excluir conta permanentemente/i,
     });
@@ -370,7 +372,9 @@ describe("ProfilePage: privacidade e dados (aba Privacidade)", () => {
     renderPerfil();
     await irPara("Privacidade");
 
-    await userEvent.click(screen.getByRole("button", { name: "Excluir conta" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Excluir conta" }),
+    );
     const dialog = screen.getByRole("dialog", {
       name: /excluir conta permanentemente/i,
     });
@@ -412,7 +416,7 @@ describe("ProfilePage: foto de perfil (aba Perfil)", () => {
   it("arquivo válido é enviado ao storage e salvo no perfil", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ storageId: "st_1" }),
+      json: () => Promise.resolve({ storageId: "st_1" }),
     });
     vi.stubGlobal("fetch", fetchMock);
 

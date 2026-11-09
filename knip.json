@@ -1,0 +1,5 @@
+{
+  "entry": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
+  "project": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
+  "ignore": ["convex/_generated/**"]
+}
