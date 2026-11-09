@@ -7,6 +7,10 @@
 /** Entrada de camada base do ZIP (store = sem compressão). */
 type ZipEntry = { name: string; data: Uint8Array };
 
+/** Data DOS mínima válida (1980-01-01) — mantém o ZIP determinístico. */
+const DOS_DATE = 0x0021;
+const DOS_TIME = 0;
+
 /** Passo do CRC32 IEEE (polinômio 0xEDB88320 refletido). */
 function crcStep(crc: number): number {
   return crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
@@ -40,7 +44,7 @@ function writeUint32(bytes: Uint8Array, offset: number, value: number): void {
 const ENCODER = new TextEncoder();
 
 /** Empacota as entradas (stored) em um ZIP válido e determinístico. */
-export function buildZip(entries: readonly ZipEntry[]): Uint8Array {
+export function buildZip(entries: readonly ZipEntry[]): Uint8Array<ArrayBuffer> {
   // Metadados por entrada (nome UTF-8, CRC, tamanho e offset local) em
   // uma única passagem — sem indexação cruzada entre arrays paralelos.
   const metas = entries.map((entry) => ({
@@ -70,6 +74,8 @@ export function buildZip(entries: readonly ZipEntry[]): Uint8Array {
     writeUint16(zip, offset + 4, 20); // versão necessária
     writeUint16(zip, offset + 6, 0x0800); // UTF-8 (flag bit 11)
     writeUint16(zip, offset + 8, 0); // método stored
+    writeUint16(zip, offset + 10, DOS_TIME); // hora DOS
+    writeUint16(zip, offset + 12, DOS_DATE); // data DOS (1980-01-01)
     writeUint32(zip, offset + 14, meta.crc);
     writeUint32(zip, offset + 18, meta.size);
     writeUint32(zip, offset + 22, meta.size);
@@ -89,6 +95,8 @@ export function buildZip(entries: readonly ZipEntry[]): Uint8Array {
     writeUint16(zip, offset + 6, 20);
     writeUint16(zip, offset + 8, 0x0800);
     writeUint16(zip, offset + 10, 0); // método stored
+    writeUint16(zip, offset + 12, DOS_TIME); // hora DOS
+    writeUint16(zip, offset + 14, DOS_DATE); // data DOS (1980-01-01)
     writeUint32(zip, offset + 16, meta.crc);
     writeUint32(zip, offset + 20, meta.size);
     writeUint32(zip, offset + 24, meta.size);

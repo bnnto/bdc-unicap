@@ -68,7 +68,7 @@ export function toCsv(report: ExportReport): string {
 }
 
 /** Codifica o CSV em UTF-8 COM BOM (bytes 0xEF 0xBB 0xBF) para o Excel. */
-export function csvBytes(report: ExportReport): Uint8Array {
+export function csvBytes(report: ExportReport): Uint8Array<ArrayBuffer> {
   return new TextEncoder().encode(toCsv(report));
 }
 
@@ -185,7 +185,7 @@ export function buildWorkbookXml(sheetNames: readonly string[]): string {
 
 const ENCODER = new TextEncoder();
 
-function xmlPart(text: string): Uint8Array {
+function xmlPart(text: string): Uint8Array<ArrayBuffer> {
   return ENCODER.encode(text);
 }
 
@@ -194,7 +194,7 @@ function xmlPart(text: string): Uint8Array {
  * _rels/.rels, workbook.xml, workbook rels e uma planilha por seção.
  * ZIP stored do src/lib/zip.ts — determinístico.
  */
-export function xlsxBytes(report: ExportReport): Uint8Array {
+export function xlsxBytes(report: ExportReport): Uint8Array<ArrayBuffer> {
   const sheetNames: string[] = [];
   const used = new Set<string>();
   for (const section of report.sections) {
