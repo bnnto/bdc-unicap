@@ -9,6 +9,7 @@ import { Combobox } from "../../ui/Combobox";
 import { CustomSelect } from "../../ui/CustomSelect";
 import { SuperSearch } from "../../ui/SuperSearch";
 import { AVAILABILITY, type Availability } from "../../../lib/studentProfile";
+import { safeImageUrl } from "../../../lib/secureImageUrl";
 import {
   KNOWN_LANGUAGES,
   LANGUAGE_LEVELS,
@@ -276,7 +277,7 @@ function Avatar({
     size === "lg"
       ? "h-12 w-12 text-base sm:h-14 sm:w-14 sm:text-lg"
       : "h-10 w-10 text-sm";
-  if (imageUrl && !failed) {
+  if (safeImageUrl(imageUrl) && !failed) {
     return (
       <img
         src={imageUrl}

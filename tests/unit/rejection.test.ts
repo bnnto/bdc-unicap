@@ -65,10 +65,9 @@ describe("regra R5 — reprovação exige motivo (S4-2, CA 1)", () => {
       reason: "nao_gostei_da_cara",
     });
 
-    expect(decision).toMatchObject({
-      ok: false,
-      error: expect.stringContaining("Motivo de reprovação inválido"),
-    });
+    expect(decision).toMatchObject({ ok: false });
+    const message = decision.ok ? "" : decision.error;
+    expect(message).toContain("Motivo de reprovação inválido");
   });
 
   it("motivo vazio: falha", () => {

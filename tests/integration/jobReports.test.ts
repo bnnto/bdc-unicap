@@ -1,7 +1,7 @@
 import { convexTest } from "convex-test";
 import { describe, expect, it } from "vitest";
 import { api, internal } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
+import type { Doc, Id } from "../../convex/_generated/dataModel";
 import schema from "../../convex/schema";
 import { CURRENT_TERM_VERSION } from "../../convex/consentTerms";
 
@@ -106,11 +106,19 @@ async function seedSuspendedJob(t: World) {
 }
 
 const getJob = (t: World, jobId: Id<"jobs">) =>
-  t.run(async (ctx) => ctx.db.get(jobId));
+  t.run(async (ctx) => (await ctx.db.get(jobId)) as Doc<"jobs"> | null);
 const listReports = (t: World) =>
-  t.run(async (ctx) => ctx.db.query("jobReports").collect());
+  t.run(
+    async (ctx) =>
+      (await ctx.db.query("jobReports").collect()) as Doc<"jobReports">[],
+  );
 const listLogs = (t: World) =>
-  t.run(async (ctx) => ctx.db.query("moderationLogs").collect());
+  t.run(
+    async (ctx) =>
+      (await ctx.db
+        .query("moderationLogs")
+        .collect()) as Doc<"moderationLogs">[],
+  );
 
 describe("Denúncias de vagas", () => {
   it("só a 10ª denúncia de alunos diferentes suspende a vaga", async () => {
@@ -186,7 +194,9 @@ describe("Denúncias de vagas", () => {
 
     expect(await getJob(t, jobId)).toBeNull();
     expect(await listReports(t)).toEqual([]);
-    const deleted = (await listLogs(t)).find((log) => log.action === "excluida");
+    const deleted = (await listLogs(t)).find(
+      (log) => log.action === "excluida",
+    );
     expect(deleted).toMatchObject({
       jobTitle: JOB.title,
       reportsCount: LIMITE_DENUNCIAS,
