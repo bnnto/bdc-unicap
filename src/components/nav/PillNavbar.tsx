@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -51,6 +52,34 @@ type Edges = { start: boolean; end: boolean };
 /** Largura do degradê que sinaliza "tem mais abas" nas bordas do scroller. */
 const FADE = "1.5rem";
 
+/**
+ * Memória da última navbar montada. Ao ir para /perfil (e voltar), o App
+ * troca a árvore inteira e a navbar é REMONTADA, perdendo o estado — sem
+ * estado anterior não existe transição CSS. Guardamos aqui o último estado
+ * visual para a nova instância nascer igual à anterior e só então animar.
+ * `unmountedAt === null` significa que ainda há uma instância montada.
+ */
+type NavMemory = {
+  tabKeys: string;
+  box: Box | null;
+  indicatorOn: boolean;
+  userOn: boolean;
+  unmountedAt: number | null;
+};
+let lastNav: NavMemory | null = null;
+const MEMORY_TTL_MS = 1500;
+
+function readMemory(tabKeys: string): NavMemory | null {
+  if (lastNav === null || lastNav.tabKeys !== tabKeys) return null;
+  if (
+    lastNav.unmountedAt !== null &&
+    performance.now() - lastNav.unmountedAt > MEMORY_TTL_MS
+  ) {
+    return null; // sessão/rota antiga demais (ex.: logout → login)
+  }
+  return lastNav;
+}
+
 function sameBox(a: Box | null, b: Box | null): boolean {
   if (a === b) return true;
   if (a === null || b === null) return false;
@@ -84,11 +113,58 @@ export function PillNavbar<K extends string>({
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const scrollerRef = useRef<HTMLDivElement>(null);
   const didInitialScroll = useRef(false);
-  const [indicator, setIndicator] = useState<Box | null>(null);
-  const [edges, setEdges] = useState<Edges>({ start: false, end: false });
-
   // Muda quando o conjunto de abas muda (não só a quantidade).
   const tabKeys = tabs.map((tab) => tab.key).join("|");
+
+  const [initial] = useState(() => readMemory(tabKeys));
+  // Última posição do destaque (nunca volta a null depois de medido: no
+  // /perfil ele some por fade, em vez de desmontar de uma vez).
+  const [indicator, setIndicator] = useState<Box | null>(
+    () => initial?.box ?? null,
+  );
+  // O que está VISÍVEL (opacity do destaque / realce do botão do usuário).
+  // Nasce com o estado da navbar anterior e é atualizado um frame depois
+  // do primeiro paint, para o CSS conseguir transicionar.
+  const [indicatorOn, setIndicatorOn] = useState(
+    () => initial?.indicatorOn ?? active !== null,
+  );
+  const [userOn, setUserOn] = useState(
+    () => initial?.userOn ?? Boolean(userActive),
+  );
+  const [edges, setEdges] = useState<Edges>({ start: false, end: false });
+  const synced = useRef(false);
+
+  useLayoutEffect(() => {
+    lastNav = { tabKeys, box: indicator, indicatorOn, userOn, unmountedAt: null };
+    return () => {
+      if (lastNav !== null) lastNav.unmountedAt = performance.now();
+    };
+  }, [tabKeys, indicator, indicatorOn, userOn]);
+
+  useEffect(() => {
+    const apply = () => {
+      setIndicatorOn(active !== null);
+      setUserOn(Boolean(userActive));
+    };
+    // Depois do primeiro paint: aplica no frame seguinte (2 rAF) para o
+    // navegador ter pintado o estado antigo e a transição rodar. Nas
+    // trocas seguintes aplica na hora, sem atraso.
+    if (synced.current) {
+      apply();
+      return;
+    }
+    let id2 = 0;
+    const id1 = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(() => {
+        synced.current = true;
+        apply();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(id1);
+      cancelAnimationFrame(id2);
+    };
+  }, [active, userActive]);
 
   // Descobre se há abas escondidas à esquerda/direita (para o fade).
   const updateEdges = useCallback(() => {
@@ -118,7 +194,11 @@ export function PillNavbar<K extends string>({
             height: el.offsetHeight,
           }
         : null;
-      setIndicator((prev) => (sameBox(prev, next) ? prev : next));
+      // Sem aba ativa (ex.: /perfil) mantém a última posição; o destaque
+      // some por opacity em vez de desmontar.
+      setIndicator((prev) =>
+        next === null || sameBox(prev, next) ? prev : next,
+      );
       updateEdges();
     };
     measure();
@@ -227,6 +307,7 @@ export function PillNavbar<K extends string>({
                   width: indicator.width,
                   height: indicator.height,
                   transform: `translate(${indicator.left}px, ${indicator.top}px)`,
+                  opacity: indicatorOn ? 1 : 0,
                 }}
               />
             ) : null}
@@ -264,7 +345,7 @@ export function PillNavbar<K extends string>({
         <button
           type="button"
           aria-label="Meu perfil e configurações"
-          aria-current={userActive ? "page" : undefined}
+          aria-current={userOn ? "page" : undefined}
           onClick={() => navigateTo("/perfil")}
           className="manager-nav-user col-start-2 row-start-1 flex shrink-0 items-center gap-2 justify-self-end rounded-xl py-1.5 ps-1.5 pe-3 [@container(min-width:36rem)]:col-start-3"
         >

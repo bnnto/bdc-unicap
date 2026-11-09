@@ -24,7 +24,7 @@ import { ROLE_LABELS } from "./lib/roles";
 import { RecruiterApprovalGate } from "./components/recruiter/RecruiterApprovalGate";
 import { PillNavbar } from "./components/nav/PillNavbar";
 import {
-  StudentShell,
+  StudentPanels,
   StudentPillNavbar,
   parseStudentTabPath,
   studentTabPath,
@@ -177,54 +177,62 @@ function AuthGate() {
     );
   }
 
-  if (publicPath === "/perfil") {
-    const name = user.name ?? user.email ?? "usuário";
-    const image = user.image ?? undefined;
-    const goTab = (tab: TabKey) => setActiveTab(tab);
-    const navbar =
-      role === "gestor" ? (
-        <ManagerNavbar
-          active={null}
-          userActive
-          onChange={goTab}
-          userName={name}
-          userImage={image}
-        />
-      ) : role === "aluno" ? (
-        <StudentPillNavbar
-          active={null}
-          userActive
-          onChange={setStudentTab}
-          userName={name}
-          userImage={image}
-        />
-      ) : (
-        <PillNavbar
-          navLabel="Seções do portal"
-          tabs={RECRUITER_TABS.map(({ key, label }) => ({ key, label }))}
-          active={null}
-          userActive
-          onChange={goTab}
-          userName={name}
-          userImage={image}
-        />
-      );
+  // Navbar ÚNICA do portal. Ela é montada no mesmo lugar da árvore (filho 1
+  // do <div> raiz) em /perfil e nas abas, então o React a PRESERVA ao
+  // navegar: o destaque da aba some por fade e o botão do usuário acende
+  // com transição, em vez de a navbar ser recriada do zero.
+  const isProfile = publicPath === "/perfil";
+  const userName = user.name ?? user.email ?? "usuário";
+  const userImage = user.image ?? undefined;
+  const navbar =
+    role === "gestor" ? (
+      <ManagerNavbar
+        active={isProfile ? null : activeTab}
+        userActive={isProfile}
+        onChange={setActiveTab}
+        userName={userName}
+        userImage={userImage}
+      />
+    ) : role === "aluno" ? (
+      <StudentPillNavbar
+        active={isProfile ? null : studentTab}
+        userActive={isProfile}
+        onChange={setStudentTab}
+        userName={userName}
+        userImage={userImage}
+      />
+    ) : (
+      <PillNavbar
+        navLabel="Seções do portal"
+        tabs={RECRUITER_TABS.map(({ key, label }) => ({ key, label }))}
+        active={isProfile ? null : activeTab}
+        userActive={isProfile}
+        onChange={setActiveTab}
+        userName={userName}
+        userImage={userImage}
+      />
+    );
+
+  if (isProfile) {
+    // ProfilePage é dona do próprio landmark main (#conteudo).
     return (
-      <>
+      <div className="min-h-screen bg-canvas">
         <SkipLink />
-        <ProfilePage navbar={navbar} />
-      </>
+        {navbar}
+        <ProfilePage />
+      </div>
     );
   }
 
   if (role === "aluno") {
-    // [REFACTOR_ALUNO Etapa 1] — shell com navbar de abas + avatar; o
-    // landmark main único (#conteudo) é do próprio shell, para o
-    // skip-link cair direto nos painéis das abas.
+    // [REFACTOR_ALUNO Etapa 1] — navbar de abas + avatar (acima) e os
+    // painéis das abas; o landmark main único (#conteudo) é do
+    // StudentPanels, para o skip-link cair direto neles.
     return (
       <div className="min-h-screen bg-canvas">
         <SkipLink />
-        <StudentShell tab={studentTab} onTabChange={setStudentTab} />
+        {navbar}
+        <StudentPanels tab={studentTab} />
       </div>
     );
   }
@@ -272,23 +280,7 @@ function AuthGate() {
   return (
     <div className="min-h-screen bg-canvas">
       <SkipLink />
-      {role === "gestor" ? (
-        <ManagerNavbar
-          active={activeTab}
-          onChange={setActiveTab}
-          userName={user.name ?? user.email ?? "usuário"}
-          userImage={user.image ?? undefined}
-        />
-      ) : (
-        <PillNavbar
-          navLabel="Seções do portal"
-          tabs={RECRUITER_TABS.map(({ key, label }) => ({ key, label }))}
-          active={activeTab}
-          onChange={setActiveTab}
-          userName={user.name ?? user.email ?? "usuário"}
-          userImage={user.image ?? undefined}
-        />
-      )}
+      {navbar}
       <MainLandmark>
         {/* [REFACTOR_UI] Renderização condicional por aba — uma tela por vez. */}
         <div

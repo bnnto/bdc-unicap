@@ -1362,6 +1362,20 @@ export function ResumeForm() {
       return;
     }
 
+    // Certificações: todo item precisa de nome. Item vazio não pode ser salvo
+    // (senão aparece como "1." sem texto e ainda poderia contar como feito).
+    if (editingBlock === 6) {
+      const unnamed = certifications.findIndex(
+        (item) => item.name.trim().length === 0,
+      );
+      if (unnamed >= 0) {
+        setErrors([
+          `Certificação ${unnamed + 1}: informe o nome ou remova o item vazio.`,
+        ]);
+        return;
+      }
+    }
+
     // [ONBOARDING_RECOVERY] Dados pessoais do Bloco 1 (regra pura unificada).
     let profileCheck: ReturnType<typeof validateStudentProfile> | null = null;
     if (editingBlock === 0) {
@@ -1749,7 +1763,10 @@ export function ResumeForm() {
     languages,
     experiences,
     projectsText,
-    certifications: certifications.map((c) => ({ name: c.name, url: c.url })),
+    // Itens sem nome (ex.: salvos antes desta validação) nunca são exibidos.
+    certifications: certifications
+      .filter((c) => c.name.trim().length > 0)
+      .map((c) => ({ name: c.name, url: c.url })),
   };
 
   // Preenchimento por bloco — alimenta hero, navegação e selos de status.
@@ -1757,7 +1774,11 @@ export function ResumeForm() {
     fullName.trim().length > 0 &&
       headline.trim().length > 0 &&
       summary.trim().length > 0,
-    academicHistory.some((entry) => entry.item.trim().length > 0),
+    // O curso informado nos dados pessoais (obrigatório no Bloco 1) já é a
+    // formação principal do aluno; o histórico acadêmico é só complemento
+    // (cursos anteriores, técnico, etc.) e não deve ser exigido.
+    course.trim().length > 0 ||
+      academicHistory.some((entry) => entry.item.trim().length > 0),
     [linkedinUrl, portfolioUrl, githubUrl, lattesUrl].some(
       (url) => url.trim().length > 0,
     ),

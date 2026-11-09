@@ -5,6 +5,14 @@
    dos remapeamentos globais de .dark / .high-contrast do index.css.
    ==================================================================== */
 
+/* Reserva sempre o espaço da barra de rolagem vertical. Sem isso, páginas que
+   passam a rolar (ou deixam de rolar) durante animações de entrada — como o
+   mural de Oportunidades — mudam a largura da viewport em ~15px e a pílula
+   centralizada "pula" de lado. (Pode ser movido para o index.css.) */
+html {
+  scrollbar-gutter: stable;
+}
+
 /* ---------- Tema claro (padrão) ---------- */
 .manager-nav {
   --mn-bg: #ffffff; /* mesma superfície dos cards */
@@ -111,6 +119,7 @@
     transform var(--mn-dur-slide) var(--mn-ease),
     width var(--mn-dur-slide) var(--mn-ease),
     height var(--mn-dur-slide) var(--mn-ease),
+    opacity var(--mn-dur) var(--mn-ease),
     background-color var(--mn-dur) var(--mn-ease);
 }
 
@@ -189,7 +198,9 @@
 @media (prefers-reduced-motion: reduce) {
   /* Sem deslizar; só a cor do destaque faz fade. Abas e hover mantêm o fade. */
   .manager-nav-indicator {
-    transition: background-color var(--mn-dur) var(--mn-ease);
+    transition:
+      opacity var(--mn-dur) var(--mn-ease),
+      background-color var(--mn-dur) var(--mn-ease);
   }
 }
 

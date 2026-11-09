@@ -138,18 +138,24 @@ export function ResumeBlockContent({
 
       {blockIndex === 1 && (
         <>
-          <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-            <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Curso
-            </span>
-            <span className="font-medium text-slate-800 [overflow-wrap:anywhere]">
-              {data.course}
-            </span>
-          </p>
-          {data.academicHistory.length === 0 ? (
-            <p className="text-sm text-slate-500">
-              Nenhum item no histórico acadêmico ainda.
+          {data.course.trim().length > 0 ? (
+            <p className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Curso
+              </span>
+              <span className="font-medium text-slate-800 [overflow-wrap:anywhere]">
+                {data.course}
+              </span>
             </p>
+          ) : null}
+          {data.academicHistory.length === 0 ? (
+            // O histórico é complemento: com o curso já informado, não há
+            // o que avisar. O aviso só aparece quando não há nada de formação.
+            data.course.trim().length === 0 ? (
+              <p className="text-sm text-slate-500">
+                Nenhuma formação cadastrada ainda.
+              </p>
+            ) : null
           ) : (
             <ul className="flex flex-col gap-2">
               {data.academicHistory.map((entry, index) => (

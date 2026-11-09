@@ -58,7 +58,8 @@ const BANNER_TYPES = ["image/png", "image/jpeg", "image/webp"];
  * um menu de categorias à esquerda e UM painel por vez à direita, ocupando
  * a tela toda. Lógica, mutations e fluxos iguais à versão anterior.
  *
- * `navbar`: a navbar do papel (montada pelo AuthGate).
+ * A navbar do papel é montada pelo AuthGate, acima desta página (assim ela
+ * continua montada ao navegar entre as abas do portal e /perfil).
  */
 
 const SURFACE =
@@ -389,7 +390,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
+export function ProfilePage() {
   const { user, role } = useAuthState();
   const userName = user?.name ?? user?.email ?? "—";
   const headingId = useId();
@@ -707,8 +708,7 @@ export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
   const avatarRing = "ring-4 ring-white dark:ring-[#171b22]";
 
   return (
-    <div className="min-h-screen bg-canvas">
-      {navbar}
+    <>
       <main
         id="conteudo"
         tabIndex={-1}
@@ -1259,6 +1259,6 @@ export function ProfilePage({ navbar }: { navbar?: ReactNode }) {
           </div>
         ) : null}
       </main>
-    </div>
+    </>
   );
 }

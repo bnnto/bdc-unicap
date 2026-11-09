@@ -1,4 +1,3 @@
-import { useAuthState } from "../../auth/authContext";
 import { PillNavbar } from "../../nav/PillNavbar";
 import { ResumeBuilderPage } from "./ResumeBuilderPage";
 import { JobOpportunities } from "../oportunidades/JobOpportunities";
@@ -85,26 +84,15 @@ export function StudentPillNavbar({
   );
 }
 
-export function StudentShell({
-  tab,
-  onTabChange,
-}: {
-  tab: StudentTab;
-  onTabChange: (tab: StudentTab) => void;
-}) {
-  const { user } = useAuthState();
-  const userName = user?.name ?? user?.email ?? "Aluno";
+/**
+ * Painéis do aluno. A navbar (StudentPillNavbar) é montada pelo AuthGate,
+ * fora daqui, para continuar montada ao ir e voltar de /perfil.
+ */
+export function StudentPanels({ tab }: { tab: StudentTab }) {
   const active = tab;
 
   return (
     <>
-      <StudentPillNavbar
-        active={active}
-        onChange={onTabChange}
-        userName={userName}
-        userImage={user?.image ?? undefined}
-      />
-
       {/* Painéis: uma tela visível por vez (renderização condicional).
           [S8-2] landmark main único do fluxo do aluno (#conteudo). */}
       <main
