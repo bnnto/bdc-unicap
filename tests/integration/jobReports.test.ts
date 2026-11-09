@@ -8,6 +8,12 @@ import { CURRENT_TERM_VERSION } from "../../convex/consentTerms";
 const modules = import.meta.glob("../../convex/**/*.*s");
 type World = ReturnType<typeof convexTest>;
 
+/** Número de denúncias de alunos diferentes que suspende a vaga. */
+const LIMITE_DENUNCIAS = 10;
+const ANO_FORMATURA = 2027;
+const MOTIVO = "empresa_falsa" as const;
+const RECRUITER_EMAIL = "rec@empresa.com";
+
 const JOB = {
   title: "Estágio em Desenvolvimento Web",
   description:
@@ -39,7 +45,7 @@ async function seed(t: World) {
     return id;
   });
   const recruiterId = await t.mutation(internal.authHelpers.createUser, {
-    email: "rec@empresa.com",
+    email: RECRUITER_EMAIL,
     name: "Recrutador",
     role: "recrutador",
     secret: "hash",
@@ -68,7 +74,7 @@ async function newStudent(t: World, n: number) {
       enrollment: `2099000${n}`,
       status: "ativo",
       course: "Ciência da Computação",
-      graduationYear: 2027,
+      graduationYear: ANO_FORMATURA,
       availability: ["estagio"],
     });
     return userId;
@@ -79,86 +85,113 @@ async function reportAs(t: World, n: number, jobId: Id<"jobs">) {
   const studentId = await newStudent(t, n);
   return as(t, studentId).mutation(api.reports.reportJob, {
     jobId,
-    reason: "empresa_falsa",
+    reason: MOTIVO,
   });
 }
 
+/** Denúncias em sequência de `count` alunos diferentes (numerados de 0). */
+async function reportMany(t: World, jobId: Id<"jobs">, count: number) {
+  const results: Array<Awaited<ReturnType<typeof reportAs>>> = [];
+  for (let n = 0; n < count; n++) {
+    results.push(await reportAs(t, n, jobId));
+  }
+  return results;
+}
+
+/** Vaga criada e já suspensa pelo limite de denúncias. */
+async function seedSuspendedJob(t: World) {
+  const seeded = await seed(t);
+  await reportMany(t, seeded.jobId, LIMITE_DENUNCIAS);
+  return seeded;
+}
+
+const getJob = (t: World, jobId: Id<"jobs">) =>
+  t.run(async (ctx) => ctx.db.get(jobId));
+const listReports = (t: World) =>
+  t.run(async (ctx) => ctx.db.query("jobReports").collect());
+const listLogs = (t: World) =>
+  t.run(async (ctx) => ctx.db.query("moderationLogs").collect());
+
 describe("Denúncias de vagas", () => {
-  it("10 alunos diferentes suspendem a vaga e o fato fica registrado", async () => {
+  it("só a 10ª denúncia de alunos diferentes suspende a vaga", async () => {
     const t = convexTest(schema, modules);
     const { jobId } = await seed(t);
 
-    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
-      expect((await reportAs(t, n, jobId)).suspended).toBe(false);
-    }
-    expect((await reportAs(t, 10, jobId)).suspended).toBe(true);
+    const results = await reportMany(t, jobId, LIMITE_DENUNCIAS);
 
-    const job = await t.run(async (ctx) => ctx.db.get(jobId));
-    expect(job?.status).toBe("suspensa");
-    expect(job?.moderationCause).toBe("denuncia");
+    expect(results.map((r) => r.suspended)).toEqual([
+      ...Array<boolean>(LIMITE_DENUNCIAS - 1).fill(false),
+      true,
+    ]);
+  });
 
-    const logs = await t.run(async (ctx) =>
-      ctx.db.query("moderationLogs").collect(),
-    );
-    expect(logs).toHaveLength(1);
-    expect(logs[0]?.action).toBe("suspensa");
-    expect(logs[0]?.reportsCount).toBe(10);
+  it("a suspensão por denúncias fica registrada na vaga e no log", async () => {
+    const t = convexTest(schema, modules);
+    const { jobId } = await seedSuspendedJob(t);
+
+    expect(await getJob(t, jobId)).toMatchObject({
+      status: "suspensa",
+      moderationCause: "denuncia",
+    });
+    expect(await listLogs(t)).toMatchObject([
+      { action: "suspensa", reportsCount: LIMITE_DENUNCIAS },
+    ]);
   });
 
   it("o mesmo aluno não denuncia a mesma vaga duas vezes", async () => {
     const t = convexTest(schema, modules);
     const { jobId } = await seed(t);
-    const studentId = await newStudent(t, 1);
-    const student = as(t, studentId);
-    await student.mutation(api.reports.reportJob, {
-      jobId,
-      reason: "empresa_falsa",
-    });
+    const student = as(t, await newStudent(t, 0));
+    await student.mutation(api.reports.reportJob, { jobId, reason: MOTIVO });
+
     await expect(
-      student.mutation(api.reports.reportJob, { jobId, reason: "empresa_falsa" }),
+      student.mutation(api.reports.reportJob, { jobId, reason: MOTIVO }),
     ).rejects.toThrow(/já denunciou/i);
   });
 
-  it("gestor reativa: denúncias são arquivadas e a contagem recomeça", async () => {
-    const t = convexTest(schema, modules);
-    const { gestorId, jobId } = await seed(t);
-    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) await reportAs(t, n, jobId);
+  describe("gestor reativa a vaga suspensa", () => {
+    async function approveAfterSuspension(t: World) {
+      const seeded = await seedSuspendedJob(t);
+      await as(t, seeded.gestorId).mutation(api.moderation.decideJob, {
+        jobId: seeded.jobId,
+        decision: "aprovar",
+      });
+      return seeded;
+    }
 
-    await as(t, gestorId).mutation(api.moderation.decideJob, {
-      jobId,
-      decision: "aprovar",
+    it("a vaga volta a ficar aberta e as denúncias são arquivadas", async () => {
+      const t = convexTest(schema, modules);
+      const { jobId } = await approveAfterSuspension(t);
+
+      expect(await getJob(t, jobId)).toMatchObject({ status: "aberta" });
+      const statuses = (await listReports(t)).map((r) => r.status);
+      expect([...new Set(statuses)]).toEqual(["arquivada"]);
     });
-    const job = await t.run(async (ctx) => ctx.db.get(jobId));
-    expect(job?.status).toBe("aberta");
-    const reports = await t.run(async (ctx) =>
-      ctx.db.query("jobReports").collect(),
-    );
-    expect(reports.every((r) => r.status === "arquivada")).toBe(true);
 
-    // Uma nova denúncia não suspende de novo.
-    expect((await reportAs(t, 11, jobId)).suspended).toBe(false);
+    it("a contagem recomeça: nova denúncia não suspende de novo", async () => {
+      const t = convexTest(schema, modules);
+      const { jobId } = await approveAfterSuspension(t);
+
+      const nova = await reportAs(t, LIMITE_DENUNCIAS, jobId);
+
+      expect(nova.suspended).toBe(false);
+    });
   });
 
   it("recrutador exclui a vaga suspensa e o registro permanece", async () => {
     const t = convexTest(schema, modules);
-    const { recruiterId, jobId } = await seed(t);
-    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) await reportAs(t, n, jobId);
+    const { recruiterId, jobId } = await seedSuspendedJob(t);
 
     await as(t, recruiterId).mutation(api.jobs.deleteJob, { jobId });
 
-    expect(await t.run(async (ctx) => ctx.db.get(jobId))).toBeNull();
-    const reports = await t.run(async (ctx) =>
-      ctx.db.query("jobReports").collect(),
-    );
-    expect(reports).toHaveLength(0);
-
-    const logs = await t.run(async (ctx) =>
-      ctx.db.query("moderationLogs").collect(),
-    );
-    const deleted = logs.find((log) => log.action === "excluida");
-    expect(deleted?.jobTitle).toBe(JOB.title);
-    expect(deleted?.reportsCount).toBe(10);
-    expect(deleted?.recruiterEmail).toBe("rec@empresa.com");
+    expect(await getJob(t, jobId)).toBeNull();
+    expect(await listReports(t)).toEqual([]);
+    const deleted = (await listLogs(t)).find((log) => log.action === "excluida");
+    expect(deleted).toMatchObject({
+      jobTitle: JOB.title,
+      reportsCount: LIMITE_DENUNCIAS,
+      recruiterEmail: RECRUITER_EMAIL,
+    });
   });
 
   it("gestor suspende vaga aberta e o histórico lista o evento", async () => {
@@ -170,8 +203,9 @@ describe("Denúncias de vagas", () => {
       decision: "suspender",
       reason: "Empresa não verificável",
     });
+
     const log = await gestor.query(api.moderation.listModerationLog, {});
-    expect(log[0]?.action).toBe("suspensa");
-    expect(log[0]?.byGestor).toBe(true);
+
+    expect(log[0]).toMatchObject({ action: "suspensa", byGestor: true });
   });
 });

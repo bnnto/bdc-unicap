@@ -5,6 +5,17 @@ import {
   validateResumeData,
   type ResumeDataInput,
 } from "../../src/lib/resume";
+import { expectInvalid, expectValid } from "../helpers/validation";
+
+const HEADLINE_MIN = 10;
+const HEADLINE_MAX = 120;
+const SUMMARY_MIN = 30;
+const ANO_INGRESSO = 2021;
+const ANO_MARATONA = 2023;
+const ANO_EVENTO = 2022;
+const ANO_IMPLAUSIVEL = 1990;
+/** Quantos erros o caso "tudo errado" deve acumular, no mínimo. */
+const MIN_AGGREGATED_ERRORS = 3;
 
 const valid: ResumeDataInput = {
   headline: "Estudante de Ciência da Computação focado em backend",
@@ -19,50 +30,50 @@ const valid: ResumeDataInput = {
     },
   ],
   academicHistory: [
-    { item: "Ingresso no curso de CC", year: 2021 },
-    { item: "Premiação na maratona de programação", year: 2023 },
+    { item: "Ingresso no curso de CC", year: ANO_INGRESSO },
+    { item: "Premiação na maratona de programação", year: ANO_MARATONA },
   ],
 };
 
 describe("validação de Currículo Vitae (S2-1)", () => {
   it("aceita currículo completo válido", () => {
-    const result = validateResumeData(valid);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.normalized).toEqual(valid);
-    }
+    expect(expectValid(validateResumeData(valid))).toEqual(valid);
   });
 
-  it("headline é obrigatória (mín. 10, máx. 120 caracteres)", () => {
-    expect(validateResumeData({ ...valid, headline: "curto" }).ok).toBe(false);
-    expect(validateResumeData({ ...valid, headline: "x".repeat(121) }).ok).toBe(
-      false,
-    );
-    expect(validateResumeData({ ...valid, headline: "x".repeat(10) }).ok).toBe(
-      true,
-    );
-  });
+  it.each([
+    ["curta demais", "curto", false],
+    ["longa demais", "x".repeat(HEADLINE_MAX + 1), false],
+    ["no limite mínimo", "x".repeat(HEADLINE_MIN), true],
+  ])(
+    "headline é obrigatória (mín. 10, máx. 120 caracteres): %s",
+    (_caso, headline, esperado) => {
+      expect(validateResumeData({ ...valid, headline }).ok).toBe(esperado);
+    },
+  );
 
-  it("resumo é obrigatório (mín. 30, máx. 1000 caracteres)", () => {
-    expect(validateResumeData({ ...valid, summary: "muito curto" }).ok).toBe(
-      false,
-    );
-    expect(validateResumeData({ ...valid, summary: "x".repeat(30) }).ok).toBe(
-      true,
-    );
-  });
+  it.each([
+    ["curto demais", "muito curto", false],
+    ["no limite mínimo", "x".repeat(SUMMARY_MIN), true],
+  ])(
+    "resumo é obrigatório (mín. 30 caracteres): %s",
+    (_caso, summary, esperado) => {
+      expect(validateResumeData({ ...valid, summary }).ok).toBe(esperado);
+    },
+  );
 
   it("experiências: campos obrigatórios por item", () => {
-    const result = validateResumeData({
-      ...valid,
-      experiences: [
-        { company: "", role: "Dev", period: "2024", description: "desc" },
-      ],
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.includes("Empresa"))).toBe(true);
-    }
+    const errors = expectInvalid(
+      validateResumeData({
+        ...valid,
+        experiences: [
+          { company: "", role: "Dev", period: "2024", description: "desc" },
+        ],
+      }),
+    );
+
+    expect(errors).toEqual(
+      expect.arrayContaining([expect.stringContaining("Empresa")]),
+    );
   });
 
   it("limite máximo de experiências", () => {
@@ -72,43 +83,41 @@ describe("validação de Currículo Vitae (S2-1)", () => {
       period: "2024",
       description: "desc",
     }));
+
     expect(validateResumeData({ ...valid, experiences: many }).ok).toBe(false);
   });
 
-  it("histórico acadêmico: item obrigatório e ano plausível", () => {
-    const badItem = validateResumeData({
-      ...valid,
-      academicHistory: [{ item: "  ", year: 2021 }],
-    });
-    expect(badItem.ok).toBe(false);
-
-    const badYear = validateResumeData({
-      ...valid,
-      academicHistory: [{ item: "Formatura", year: 1990 }],
-    });
-    expect(badYear.ok).toBe(false);
-  });
+  it.each([
+    ["item em branco", [{ item: "  ", year: ANO_INGRESSO }]],
+    ["ano implausível", [{ item: "Formatura", year: ANO_IMPLAUSIVEL }]],
+  ] satisfies Array<[string, ResumeDataInput["academicHistory"]]>)(
+    "histórico acadêmico: item obrigatório e ano plausível — rejeita %s",
+    (_caso, academicHistory) => {
+      expect(validateResumeData({ ...valid, academicHistory }).ok).toBe(false);
+    },
+  );
 
   it("limite máximo de itens no histórico", () => {
     const many = Array.from({ length: MAX_ACADEMIC + 1 }, (_, i) => ({
       item: `Evento ${i}`,
-      year: 2022,
+      year: ANO_EVENTO,
     }));
+
     expect(validateResumeData({ ...valid, academicHistory: many }).ok).toBe(
       false,
     );
   });
 
   it("agrega múltiplos erros", () => {
-    const result = validateResumeData({
-      ...valid,
-      headline: "",
-      summary: "curto",
-      experiences: [{ company: "x", role: "", period: "", description: "" }],
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.length).toBeGreaterThanOrEqual(3);
-    }
+    const errors = expectInvalid(
+      validateResumeData({
+        ...valid,
+        headline: "",
+        summary: "curto",
+        experiences: [{ company: "x", role: "", period: "", description: "" }],
+      }),
+    );
+
+    expect(errors.length).toBeGreaterThanOrEqual(MIN_AGGREGATED_ERRORS);
   });
 });

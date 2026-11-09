@@ -16,7 +16,15 @@
  *   há RESEND_API_KEY e usa a API do Resend quando há.
  */
 import { convexTest } from "convex-test";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  assert,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { api, internal } from "../../convex/_generated/api";
 import schema from "../../convex/schema";
 import { CURRENT_TERM_VERSION } from "../../convex/consentTerms";
@@ -30,7 +38,17 @@ const EMAIL = "aluna@unicap.br";
 const OLD_PASSWORD = "SenhaAntiga123";
 const NEW_PASSWORD = "SenhaNova456";
 const APP_URL = "https://carreiras.unicap.br";
-const DAY = 24 * 60 * 60 * 1000;
+const RESEND_KEY = "re_test_123";
+
+const MINUTE = 60_000;
+const DAY = 86_400_000;
+const TOKEN_VALIDITY = 30 * MINUTE;
+/** Intervalo suficiente para passar do cooldown de 2 min entre pedidos. */
+const PAST_COOLDOWN = 3 * MINUTE;
+const TOKEN_LENGTH = 64;
+const ONE_MS = 1;
+
+const resetLink = (token: string) => `${APP_URL}/recuperar-senha?token=${token}`;
 
 /** Conta criada exatamente como o signUp do provider Credentials. */
 async function signUp(t: World, email = EMAIL): Promise<string> {
@@ -67,7 +85,7 @@ async function firstReset(t: World): Promise<ResetRow> {
 
 /** Secret gravado na conta de credenciais do utilizador. */
 async function secretOf(t: World, userId: string): Promise<string> {
-  const secret = await t.run(async (ctx): Promise<string | undefined> => {
+  const account = await t.run(async (ctx) => {
     // Mesma conta do signIn: provider de credenciais do próprio usuário
     // (tabela de auth — varredura pequena, como nos demais testes).
     const accounts = (await ctx.db.query("authAccounts").collect()) as Array<{
@@ -75,14 +93,28 @@ async function secretOf(t: World, userId: string): Promise<string> {
       provider: string;
       secret?: string;
     }>;
-    const account = accounts.find(
+    return accounts.find(
       (row) => row.userId === userId && row.provider === "credentials-email",
     );
-    expect(account).toBeDefined();
-    return account?.secret;
   });
-  expect(secret).toBeDefined();
-  return secret!;
+  const secret = account?.secret;
+  assert(secret !== undefined, "conta de credenciais sem secret gravado");
+  return secret;
+}
+
+/** Pede a recuperação e devolve o token gerado. */
+async function requestToken(t: World): Promise<string> {
+  await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
+  return (await firstReset(t)).token;
+}
+
+/** Executa os e-mails agendados (ação de envio). */
+function flushScheduled(t: World) {
+  return t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(ONE_MS));
+}
+
+function spyOnLog() {
+  return vi.spyOn(console, "log").mockImplementation(() => undefined);
 }
 
 beforeEach(() => {
@@ -99,44 +131,54 @@ afterEach(() => {
 });
 
 describe("passwordResets.requestReset — geração do token", () => {
-  it("cria token único de 30 min e agenda o e-mail com o link exato", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  it("normaliza o e-mail (caixa/espaços) e responde ok", async () => {
     const t = convexTest({ schema, modules });
     const userId = await signUp(t);
 
-    // E-mail com caixa/espaços: normalizado no servidor.
     const result = await t.mutation(api.passwordResets.requestReset, {
       email: "  ALUNA@Unicap.br ",
     });
+
     expect(result).toEqual({ ok: true });
-
-    const row = await firstReset(t);
-    expect(row.userId).toBe(userId);
-    expect(row.email).toBe(EMAIL);
-    expect(row.token).toMatch(/^[a-f0-9]{64}$/);
-    const remaining = row.expiresAt - Date.now();
-    expect(remaining).toBeGreaterThan(29 * 60 * 1000);
-    expect(remaining).toBeLessThanOrEqual(30 * 60 * 1000);
-
-    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(1));
-    const output = log.mock.calls.flat().join("\n");
-    expect(output).toContain(`${APP_URL}/recuperar-senha?token=${row.token}`);
+    expect(await firstReset(t)).toMatchObject({ userId, email: EMAIL });
   });
 
-    it("segundo pedido (após o cooldown) invalida o token anterior", async () => {
+  it("gera token hexadecimal de 64 caracteres válido por 30 min", async () => {
     const t = convexTest({ schema, modules });
     await signUp(t);
-
     await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
-    const first = (await firstReset(t)).token;
 
-    vi.advanceTimersByTime(3 * 60 * 1000); // passa do cooldown de 2 min
+    const row = await firstReset(t);
+    const remaining = row.expiresAt - Date.now();
+
+    expect(row.token).toMatch(new RegExp(`^[a-f0-9]{${TOKEN_LENGTH}}$`));
+    expect(remaining).toBeGreaterThan(TOKEN_VALIDITY - MINUTE);
+    expect(remaining).toBeLessThanOrEqual(TOKEN_VALIDITY);
+  });
+
+  it("agenda o e-mail com o link exato de recuperação", async () => {
+    const log = spyOnLog();
+    const t = convexTest({ schema, modules });
+    await signUp(t);
+    await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
+    const row = await firstReset(t);
+
+    await flushScheduled(t);
+
+    expect(log.mock.calls.flat().join("\n")).toContain(resetLink(row.token));
+  });
+
+  it("segundo pedido (após o cooldown) invalida o token anterior", async () => {
+    const t = convexTest({ schema, modules });
+    await signUp(t);
+    const first = await requestToken(t);
+
+    vi.advanceTimersByTime(PAST_COOLDOWN); // passa do cooldown de 2 min
     await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
 
     const rows = await resets(t);
     expect(rows).toHaveLength(1);
     expect(rows[0]!.token).not.toBe(first);
-
     await expect(
       t.mutation(api.passwordResets.resetPassword, {
         token: first,
@@ -146,31 +188,28 @@ describe("passwordResets.requestReset — geração do token", () => {
   });
 
   it("pedido repetido em menos de 2 min mantém o link anterior e não reenvia", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const log = spyOnLog();
     const t = convexTest({ schema, modules });
     await signUp(t);
+    const first = await requestToken(t);
 
-    await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
-    const first = (await firstReset(t)).token;
     await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
 
     // O link original continua valendo e só um e-mail foi enviado.
     expect((await firstReset(t)).token).toBe(first);
-    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(1));
+    await flushScheduled(t);
     expect(log).toHaveBeenCalledTimes(1);
   });
 
   it("e-mail inexistente: mesma resposta e NENHUM e-mail (sem enumeração)", async () => {
-    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const log = spyOnLog();
     const t = convexTest({ schema, modules });
     await signUp(t);
-
     const known = await t.mutation(api.passwordResets.requestReset, {
       email: EMAIL,
     });
-    // Consome o e-mail do pedido conhecido antes de limpar o spy.
-    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(1));
-    expect(log).toHaveBeenCalledTimes(1);
+    // Consome o e-mail do pedido conhecido antes de zerar o spy.
+    await flushScheduled(t);
     log.mockClear();
 
     const unknown = await t.mutation(api.passwordResets.requestReset, {
@@ -179,16 +218,22 @@ describe("passwordResets.requestReset — geração do token", () => {
 
     // Resposta idêntica — impossível distinguir conta existente.
     expect(unknown).toEqual(known);
-    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(1));
+    await flushScheduled(t);
     expect(log).not.toHaveBeenCalled();
     expect(await resets(t)).toHaveLength(1);
   });
 });
 
 describe("passwordResets.resetPassword — segurança da troca (TDD)", () => {
-  async function requestToken(t: World): Promise<string> {
-    await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
-    return (await firstReset(t)).token;
+  /** Conta + token + troca de senha; devolve o secret resultante. */
+  async function resetAndReadSecret(t: World): Promise<string> {
+    const userId = await signUp(t);
+    const token = await requestToken(t);
+    await t.mutation(api.passwordResets.resetPassword, {
+      token,
+      password: NEW_PASSWORD,
+    });
+    return secretOf(t, userId);
   }
 
   it("senha fraca (sem maiúscula) não troca e NÃO consome o token", async () => {
@@ -206,19 +251,18 @@ describe("passwordResets.resetPassword — segurança da troca (TDD)", () => {
     expect(await resets(t)).toHaveLength(1);
   });
 
-  it("grava a senha HASHADA (PBKDF2) e derruba a senha antiga", async () => {
+  it("grava a senha HASHADA (PBKDF2), nunca em claro", async () => {
     const t = convexTest({ schema, modules });
-    const userId = await signUp(t);
-    const token = await requestToken(t);
+    const secret = await resetAndReadSecret(t);
 
-    await t.mutation(api.passwordResets.resetPassword, {
-      token,
-      password: NEW_PASSWORD,
-    });
-
-    const secret = await secretOf(t, userId);
     expect(secret).toMatch(/^pbkdf2\$/);
     expect(secret).not.toContain(NEW_PASSWORD);
+  });
+
+  it("a nova senha autentica e a antiga deixa de autenticar", async () => {
+    const t = convexTest({ schema, modules });
+    const secret = await resetAndReadSecret(t);
+
     await expect(verifyPassword(NEW_PASSWORD, secret)).resolves.toBe(true);
     await expect(verifyPassword(OLD_PASSWORD, secret)).resolves.toBe(false);
   });
@@ -227,11 +271,11 @@ describe("passwordResets.resetPassword — segurança da troca (TDD)", () => {
     const t = convexTest({ schema, modules });
     await signUp(t);
     const token = await requestToken(t);
-
     await t.mutation(api.passwordResets.resetPassword, {
       token,
       password: NEW_PASSWORD,
     });
+
     await expect(
       t.mutation(api.passwordResets.resetPassword, {
         token,
@@ -248,7 +292,7 @@ describe("passwordResets.resetPassword — segurança da troca (TDD)", () => {
     const token = await requestToken(t);
     await t.run(async (ctx) => {
       const rows = await ctx.db.query("passwordResets").collect();
-      await ctx.db.patch(rows[0]!._id, { expiresAt: Date.now() - 1 });
+      await ctx.db.patch(rows[0]!._id, { expiresAt: Date.now() - ONE_MS });
     });
 
     await expect(
@@ -266,40 +310,57 @@ describe("passwordResets.resetPassword — segurança da troca (TDD)", () => {
   it("token desconhecido é rejeitado", async () => {
     const t = convexTest({ schema, modules });
     await signUp(t);
+
     await expect(
       t.mutation(api.passwordResets.resetPassword, {
-        token: "f".repeat(64),
+        token: "f".repeat(TOKEN_LENGTH),
         password: NEW_PASSWORD,
       }),
     ).rejects.toThrow(/inválido ou expirado/i);
   });
 
-  it("senha curta não troca e NÃO consome o token", async () => {
-    const t = convexTest({ schema, modules });
-    const userId = await signUp(t);
-    const token = await requestToken(t);
+  describe("senha curta", () => {
+    it("não troca a senha e NÃO consome o token", async () => {
+      const t = convexTest({ schema, modules });
+      const userId = await signUp(t);
+      const token = await requestToken(t);
 
-    await expect(
-      t.mutation(api.passwordResets.resetPassword, {
-        token,
-        password: "1234567",
-      }),
-    ).rejects.toThrow(/pelo menos 8 caracteres/i);
+      await expect(
+        t.mutation(api.passwordResets.resetPassword, {
+          token,
+          password: "1234567",
+        }),
+      ).rejects.toThrow(/pelo menos 8 caracteres/i);
 
-    expect(await resets(t)).toHaveLength(1);
-    const secret = await secretOf(t, userId);
-    await expect(verifyPassword(OLD_PASSWORD, secret)).resolves.toBe(true);
-
-    // O mesmo token continua válido depois da tentativa inválida.
-    await t.mutation(api.passwordResets.resetPassword, {
-      token,
-      password: NEW_PASSWORD,
+      expect(await resets(t)).toHaveLength(1);
+      await expect(
+        verifyPassword(OLD_PASSWORD, await secretOf(t, userId)),
+      ).resolves.toBe(true);
     });
-    const updated = await secretOf(t, userId);
-    await expect(verifyPassword(NEW_PASSWORD, updated)).resolves.toBe(true);
+
+    it("o mesmo token continua válido depois da tentativa inválida", async () => {
+      const t = convexTest({ schema, modules });
+      const userId = await signUp(t);
+      const token = await requestToken(t);
+      await expect(
+        t.mutation(api.passwordResets.resetPassword, {
+          token,
+          password: "1234567",
+        }),
+      ).rejects.toThrow();
+
+      await t.mutation(api.passwordResets.resetPassword, {
+        token,
+        password: NEW_PASSWORD,
+      });
+
+      await expect(
+        verifyPassword(NEW_PASSWORD, await secretOf(t, userId)),
+      ).resolves.toBe(true);
+    });
   });
 
-  it("revoga as sessões abertas do utilizador na troca", async () => {
+  it("revoga só as sessões abertas do titular da troca", async () => {
     const t = convexTest({ schema, modules });
     const userId = await signUp(t);
     const otherUserId = await signUp(t, "outra@unicap.br");
@@ -323,46 +384,58 @@ describe("passwordResets.resetPassword — segurança da troca (TDD)", () => {
     const sessions = await t.run(async (ctx) => {
       return await ctx.db.query("authSessions").collect();
     });
-    // Só a sessão do titular da troca é derrubada.
-    expect(sessions).toHaveLength(1);
-    expect(sessions[0]!.userId).toBe(otherUserId);
+    expect(sessions.map((s) => s.userId)).toEqual([otherUserId]);
   });
 });
 
 describe("emails.sendPasswordResetEmail — transporte", () => {
-  it("com RESEND_API_KEY chama a API com o link no corpo", async () => {
-    vi.stubEnv("RESEND_API_KEY", "re_test_123");
+  /** Pede a recuperação com RESEND_API_KEY definida e captura a chamada ao Resend. */
+  async function sendViaResend() {
+    vi.stubEnv("RESEND_API_KEY", RESEND_KEY);
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue({ ok: true } as Response);
     const t = convexTest({ schema, modules });
     await signUp(t);
-
     await t.mutation(api.passwordResets.requestReset, { email: EMAIL });
     const row = await firstReset(t);
-    await t.finishAllScheduledFunctions(() => vi.advanceTimersByTime(1));
+    await flushScheduled(t);
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    return {
+      fetchSpy,
+      url,
+      headers: init.headers as Record<string, string>,
+      token: row.token,
+      body: JSON.parse(init.body as string) as {
+        to: string[];
+        text: string;
+        html: string;
+        from: string;
+      },
+    };
+  }
+
+  it("chama a API do Resend uma vez, autenticada com a chave", async () => {
+    const { fetchSpy, url, headers } = await sendViaResend();
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.resend.com/emails");
-    const headers = init.headers as Record<string, string>;
-    expect(headers.Authorization).toBe("Bearer re_test_123");
-    const body = JSON.parse(init.body as string) as {
-      to: string[];
-      text: string;
-      html: string;
-      from: string;
-    };
+    expect(headers.Authorization).toBe(`Bearer ${RESEND_KEY}`);
+  });
+
+  it("envia ao destinatário com o link no corpo em texto", async () => {
+    const { body, token } = await sendViaResend();
+
     expect(body.to).toEqual([EMAIL]);
-    expect(body.text).toContain(
-      `${APP_URL}/recuperar-senha?token=${row.token}`,
-    );
-    // [UI_OVERHAUL] O payload leva o template HTML com identidade UNICAP
-    // e um remetente configurado (não-genérico).
+    expect(body.text).toContain(resetLink(token));
+  });
+
+  it("[UI_OVERHAUL] leva o template HTML UNICAP e um remetente não-genérico", async () => {
+    const { body, token } = await sendViaResend();
+
     expect(body.html).toContain("#6B1426");
-    expect(body.html).toContain(
-      `${APP_URL}/recuperar-senha?token=${row.token}`,
-    );
+    expect(body.html).toContain(resetLink(token));
     expect(body.from).toMatch(/UNICAP/i);
   });
 });

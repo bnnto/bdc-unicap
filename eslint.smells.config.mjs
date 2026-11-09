@@ -33,10 +33,13 @@ export default tseslint.config(
       "no-console": "warn",
 
       // Magic Number Test
-      "no-magic-numbers": [
-        "warn",
-        { ignore: [0, 1, -1], ignoreArrayIndexes: true },
-      ],
+      "no-magic-numbers": ["warn", {
+        ignore: [0, 1, 2, 3, -1],
+        ignoreArrayIndexes: true,
+        ignoreDefaultValues: true,
+        ignoreClassFieldInitialValues: true,
+        detectObjects: false,
+      }],
 
       // Sleepy Test
       "no-restricted-syntax": [

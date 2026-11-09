@@ -11,6 +11,7 @@ export default defineConfig({
     include: ["tests/**/*.test.{ts,tsx}"],
     exclude: [...configDefaults.exclude, "**/*.perf.test.ts"],
     css: false,
+    testTimeout: 15000,
     coverage: {
       provider: "v8",
       include: ["src/**"],

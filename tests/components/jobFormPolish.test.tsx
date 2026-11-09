@@ -39,15 +39,16 @@ beforeEach(() => {
 });
 
 async function fillValidForm() {
-  await userEvent.type(
+  const user = userEvent.setup({ delay: null });
+  await user.type(
     screen.getByLabelText(/Título da vaga/i),
     "Estágio em Desenvolvimento Web",
   );
-  await userEvent.type(
+  await user.type(
     screen.getByLabelText(/Descrição/i),
     "Apoio no desenvolvimento de aplicações web da universidade com mentoria.",
   );
-  await userEvent.type(
+  await user.type(
     screen.getByLabelText("Competência do pré-requisito 1"),
     "React",
   );
@@ -82,7 +83,7 @@ describe("JobForm — polimento (UX-P3)", () => {
     });
     await userEvent.type(languageInput, "Ingl");
     expect(
-      screen.getByRole("option", { name: "Inglês" }),
+      await screen.findByRole("option", { name: "Inglês" }),
     ).toBeInTheDocument();
   });
 

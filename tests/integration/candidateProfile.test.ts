@@ -11,16 +11,32 @@
  *  - contato (R6: e-mail/LinkedIn/portfólio) omitido sem autorização.
  */
 import { convexTest } from "convex-test";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import schema from "../../convex/schema";
 import { CURRENT_TERM_VERSION } from "../../convex/consentTerms";
 
 const modules = import.meta.glob("../../convex/**/*.*s");
 
 type World = ReturnType<typeof convexTest>;
+type SeedOptions = NonNullable<Parameters<typeof seedWorld>[1]>;
 
-const DAY = 24 * 60 * 60 * 1000;
+const DAY = 86_400_000;
+const JOB_VALIDITY = 30 * DAY;
+const ANO_FORMATURA = 2026;
+const ANO_FANTASMA = 2030;
+const SEMESTRE = 6;
+const MATCH_TRIAGEM = 85;
+const MATCH_OUTRO = 70;
+
+/** Telefone do cadastro de usuário (users.phone) e telefone privado do aluno. */
+const PHONE_USUARIO = "81988887777";
+const PHONE_ALUNO_PRIVADO = "81999990000";
+
+const RECRUITER = { email: "recruiter@unicap.br", subject: "r-1" };
+const STUDENT_USER = { email: "aluno@unicap.br", subject: "s-1" };
+const GESTOR = { email: "gestor@unicap.br", subject: "g-1" };
 
 const RESUME = {
   headline: "Estudante de Sistemas focado em back-end",
@@ -33,7 +49,7 @@ const RESUME = {
       description: "Monitoria de Banco de Dados I.",
     },
   ],
-  academicHistory: [{ item: "Bacharelado em Sistemas", year: 2026 }],
+  academicHistory: [{ item: "Bacharelado em Sistemas", year: ANO_FORMATURA }],
   links: {
     github: "https://github.com/maria",
     lattes: "http://lattes.cnpq.br/1",
@@ -62,7 +78,7 @@ async function seedWorld(
 
   return t.run(async (ctx) => {
     const recruiterId = await ctx.db.insert("users", {
-      email: "recruiter@unicap.br",
+      email: RECRUITER.email,
       name: "Recrutador Responsável",
       role: "recrutador",
       active: true,
@@ -74,11 +90,11 @@ async function seedWorld(
       active: true,
     });
     const studentUserId = await ctx.db.insert("users", {
-      email: "aluno@unicap.br",
+      email: STUDENT_USER.email,
       name: "Maria da Silva",
       role: "aluno",
       active: true,
-      phone: "81988887777",
+      phone: PHONE_USUARIO,
     });
     const studentId = await ctx.db.insert("students", {
       userId: studentUserId,
@@ -86,8 +102,8 @@ async function seedWorld(
       enrollment: "1234567",
       status,
       course: "Ciência da Computação",
-      graduationYear: 2026,
-      semester: 6,
+      graduationYear: ANO_FORMATURA,
+      semester: SEMESTRE,
       location: "Recife, PE",
       availability: ["estagio"],
       visibility,
@@ -115,7 +131,7 @@ async function seedWorld(
       contractType: "estagio",
       status: "aberta",
       publishedAt: Date.now(),
-      expiresAt: Date.now() + 30 * DAY,
+      expiresAt: Date.now() + JOB_VALIDITY,
     });
 
     if (withApplication) {
@@ -123,7 +139,7 @@ async function seedWorld(
         jobId,
         studentId,
         stage: "triagem",
-        matchScore: 85,
+        matchScore: MATCH_TRIAGEM,
         appliedAt: Date.now(),
         ...(options.processAccepted === true ? { processAccepted: true } : {}),
       });
@@ -138,13 +154,13 @@ async function seedWorld(
         contractType: "clt",
         status: "aberta",
         publishedAt: Date.now(),
-        expiresAt: Date.now() + 30 * DAY,
+        expiresAt: Date.now() + JOB_VALIDITY,
       });
       await ctx.db.insert("applications", {
         jobId: otherJobId,
         studentId,
         stage: "inscrito",
-        matchScore: 70,
+        matchScore: MATCH_OUTRO,
         appliedAt: Date.now(),
       });
     }
@@ -152,7 +168,7 @@ async function seedWorld(
     let gestorId: string | null = null;
     if (options.withGestor === true) {
       gestorId = await ctx.db.insert("users", {
-        email: "gestor@unicap.br",
+        email: GESTOR.email,
         name: "Coordenação",
         role: "gestor",
         active: true,
@@ -184,34 +200,70 @@ function identity(email: string, subject: string, userId: string) {
   };
 }
 
-describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
-  it("recrutador dono da candidatura vê o currículo completo", async () => {
-    const t = convexTest({ schema, modules });
-    const { recruiterId, studentId } = await seedWorld(t, {
-      withApplication: true,
-    });
-    const profile = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId });
+/** Consulta o perfil como o recrutador indicado (pode devolver null). */
+function profileAsRecruiter(
+  t: World,
+  recruiterId: string,
+  studentId: Id<"students">,
+) {
+  return t
+    .withIdentity(identity(RECRUITER.email, RECRUITER.subject, recruiterId))
+    .query(api.students.getCandidateProfile, { studentId });
+}
 
-    expect(profile).not.toBeNull();
-    expect(profile?.fullName).toBe("Maria da Silva");
-    expect(profile?.course).toBe("Ciência da Computação");
-    expect(profile?.headline).toBe("Estudante de Sistemas focado em back-end");
-    expect(profile?.resume?.experiences[0]?.company).toBe("UNICAP");
-    expect(profile?.resume?.academicHistory[0]?.item).toBe(
-      "Bacharelado em Sistemas",
-    );
-    expect(profile?.resume?.links?.github).toBe("https://github.com/maria");
-    expect(profile?.skills).toEqual(["React", "Node"]);
-    expect(profile?.languages).toEqual([
-      { name: "Inglês", level: "intermediario" },
-    ]);
-    // [QUICK_WIN_RECRUITER] matrícula usada pelo template de impressão
-    // ("Matrícula …") do PDF — presente mesmo sem liberação de contato.
-    expect(profile?.enrollment).toBe("1234567");
-    expect(profile?.semester).toBe(6);
-    expect(profile?.location).toBe("Recife, PE");
+/** Como `profileAsRecruiter`, mas falha o teste se o perfil não for visível. */
+async function visibleProfileAsRecruiter(
+  t: World,
+  recruiterId: string,
+  studentId: Id<"students">,
+) {
+  const profile = await profileAsRecruiter(t, recruiterId, studentId);
+  assert(profile, "o perfil deveria estar visível para o recrutador");
+  return profile;
+}
+
+describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
+  describe("recrutador dono da candidatura vê o currículo completo", () => {
+    async function ownerProfile() {
+      const t = convexTest({ schema, modules });
+      const { recruiterId, studentId } = await seedWorld(t, {
+        withApplication: true,
+      });
+      return visibleProfileAsRecruiter(t, recruiterId, studentId);
+    }
+
+    it("dados pessoais, competências e idiomas", async () => {
+      const profile = await ownerProfile();
+
+      expect(profile).toMatchObject({
+        fullName: "Maria da Silva",
+        course: "Ciência da Computação",
+        headline: RESUME.headline,
+        skills: ["React", "Node"],
+        languages: [{ name: "Inglês", level: "intermediario" }],
+      });
+    });
+
+    it("experiência, formação e links do currículo", async () => {
+      const profile = await ownerProfile();
+
+      expect(profile.resume).toMatchObject({
+        experiences: [{ company: "UNICAP" }],
+        academicHistory: [{ item: "Bacharelado em Sistemas" }],
+        links: { github: "https://github.com/maria" },
+      });
+    });
+
+    it("[QUICK_WIN_RECRUITER] matrícula, semestre e local presentes mesmo sem liberação de contato", async () => {
+      // A matrícula é usada pelo template de impressão ("Matrícula …") do PDF.
+      const profile = await ownerProfile();
+
+      expect(profile).toMatchObject({
+        enrollment: "1234567",
+        semester: SEMESTRE,
+        location: "Recife, PE",
+      });
+    });
   });
 
   it("aluno público (Banco de Talentos) é visível mesmo sem candidatura", async () => {
@@ -220,64 +272,53 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
       visibility: "publico",
       withApplication: false,
     });
-    const profile = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId });
-    expect(profile?.fullName).toBe("Maria da Silva");
+
+    const profile = await profileAsRecruiter(t, recruiterId, studentId);
+
+    expect(profile).toMatchObject({ fullName: "Maria da Silva" });
   });
 
-  it("aluno privado SEM candidatura com o recrutador → null (R2)", async () => {
-    const t = convexTest({ schema, modules });
-    const { recruiterId, studentId } = await seedWorld(t, {
-      visibility: "somente_candidaturas",
-      withApplication: false,
-    });
-    const profile = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId });
-    expect(profile).toBeNull();
-  });
+  it.each([
+    [
+      "aluno privado SEM candidatura com o recrutador (R2)",
+      { visibility: "somente_candidaturas", withApplication: false },
+    ],
+    [
+      "candidatura em vaga de OUTRO recrutador não libera o acesso",
+      {
+        visibility: "somente_candidaturas",
+        withOtherRecruiterApplication: true,
+      },
+    ],
+    [
+      "aluno inativo não aparece mesmo sendo público, sem candidatura (R1)",
+      { visibility: "publico", status: "inativo", withApplication: false },
+    ],
+  ] satisfies Array<[string, SeedOptions]>)(
+    "perfil não visível → null: %s",
+    async (_caso, options) => {
+      const t = convexTest({ schema, modules });
+      const { recruiterId, studentId } = await seedWorld(t, options);
 
-  it("candidatura em vaga de OUTRO recrutador não libera o acesso", async () => {
-    const t = convexTest({ schema, modules });
-    const { recruiterId, studentId } = await seedWorld(t, {
-      visibility: "somente_candidaturas",
-      withOtherRecruiterApplication: true,
-    });
-    const profile = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId });
-    expect(profile).toBeNull();
-  });
+      const profile = await profileAsRecruiter(t, recruiterId, studentId);
 
-  it("aluno inativo não aparece mesmo sendo público, sem candidatura (R1)", async () => {
-    const t = convexTest({ schema, modules });
-    const { recruiterId, studentId } = await seedWorld(t, {
-      visibility: "publico",
-      status: "inativo",
-      withApplication: false,
-    });
-    const profile = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId });
-    expect(profile).toBeNull();
-  });
+      expect(profile).toBeNull();
+    },
+  );
 
   it("aluno logado (papel aluno) é barrado", async () => {
     const t = convexTest({ schema, modules });
-    const { studentUserId, studentId, recruiterId } = await seedWorld(t, {
+    const { studentUserId, studentId } = await seedWorld(t, {
       withApplication: true,
     });
+
     await expect(
       t
-        .withIdentity(identity("aluno@unicap.br", "s-1", studentUserId))
+        .withIdentity(
+          identity(STUDENT_USER.email, STUDENT_USER.subject, studentUserId),
+        )
         .query(api.students.getCandidateProfile, { studentId }),
     ).rejects.toThrow(/recrutadores e gestores/i);
-    // Sanity: o dono do processo continua vendo.
-    const profile = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId });
-    expect(profile).not.toBeNull();
   });
 
   it("recrutador sem consentimento LGPD é barrado (R7)", async () => {
@@ -292,65 +333,93 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
         .collect();
       for (const row of rows) await ctx.db.delete(row._id);
     });
+
     await expect(
-      t
-        .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-        .query(api.students.getCandidateProfile, { studentId }),
+      profileAsRecruiter(t, recruiterId, studentId),
     ).rejects.toThrow(/consentimento/i);
   });
 
   it("sem identidade autenticada é barrado", async () => {
     const t = convexTest({ schema, modules });
     const { studentId } = await seedWorld(t, { visibility: "publico" });
+
     await expect(
       t.query(api.students.getCandidateProfile, { studentId }),
     ).rejects.toThrow(/autenticado/i);
   });
 
-  it("contato omitido sem autorização (R6) e presente com autorização geral", async () => {
-    const t = convexTest({ schema, modules });
-    const { recruiterId, studentId } = await seedWorld(t, {
-      visibility: "publico",
-      showContact: false,
-    });
-    const semContato = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId });
-    expect(semContato?.contactReleased).toBe(false);
-    expect(semContato?.email).toBeUndefined();
-    expect(semContato).not.toHaveProperty("phone");
-    expect(semContato?.linkedinUrl).toBeUndefined();
-    expect(semContato?.portfolioUrl).toBeUndefined();
+  describe("contato do aluno (R6)", () => {
+    it("omitido sem autorização", async () => {
+      const t = convexTest({ schema, modules });
+      const { recruiterId, studentId } = await seedWorld(t, {
+        visibility: "publico",
+        showContact: false,
+      });
 
-    await t.run(async (ctx) => {
-      await ctx.db.patch(studentId, {
-        showContactToRecruiters: true,
+      const profile = await visibleProfileAsRecruiter(t, recruiterId, studentId);
+
+      expect(profile.contactReleased).toBe(false);
+      expect({
+        email: profile.email,
+        linkedinUrl: profile.linkedinUrl,
+        portfolioUrl: profile.portfolioUrl,
+      }).toEqual({});
+      expect(profile).not.toHaveProperty("phone");
+    });
+
+    it("e-mail, LinkedIn e portfólio presentes com autorização geral", async () => {
+      const t = convexTest({ schema, modules });
+      const { recruiterId, studentId } = await seedWorld(t, {
+        visibility: "publico",
+        showContact: true,
+      });
+
+      const profile = await visibleProfileAsRecruiter(t, recruiterId, studentId);
+
+      expect(profile).toMatchObject({
+        contactReleased: true,
+        email: STUDENT_USER.email,
+        linkedinUrl: "https://www.linkedin.com/in/maria",
+        portfolioUrl: "https://maria.dev",
+      });
+      // [QUICK_WIN_RECRUITER] o telefone não é projetado junto do e-mail.
+      expect(profile).not.toHaveProperty("phone");
+    });
+
+    it("aceite no processo (processAccepted) libera o contato mesmo sem autorização geral", async () => {
+      const t = convexTest({ schema, modules });
+      const { recruiterId, studentId } = await seedWorld(t, {
+        visibility: "somente_candidaturas",
+        showContact: false,
+        withApplication: true,
+        processAccepted: true,
+      });
+
+      const profile = await profileAsRecruiter(t, recruiterId, studentId);
+
+      expect(profile).toMatchObject({
+        contactReleased: true,
+        email: STUDENT_USER.email,
       });
     });
-    const comContato = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId });
-    expect(comContato?.contactReleased).toBe(true);
-    expect(comContato?.email).toBe("aluno@unicap.br");
-    // [QUICK_WIN_RECRUITER] telefone projetado junto do e-mail (R6).
-    expect(comContato).not.toHaveProperty("phone");
-    expect(comContato?.linkedinUrl).toBe("https://www.linkedin.com/in/maria");
-    expect(comContato?.portfolioUrl).toBe("https://maria.dev");
-  });
 
-  it("aceite no processo (processAccepted) libera o contato mesmo sem autorização geral", async () => {
-    const t = convexTest({ schema, modules });
-    const { recruiterId, studentId } = await seedWorld(t, {
-      visibility: "somente_candidaturas",
-      showContact: false,
-      withApplication: true,
-      processAccepted: true,
+    it("o telefone privado do aluno (students.phone) nunca chega ao recrutador", async () => {
+      const t = convexTest({ schema, modules });
+      const { recruiterId, studentId } = await seedWorld(t, {
+        visibility: "publico",
+        showContact: true,
+      });
+      await t.run(async (ctx) => {
+        await ctx.db.patch(studentId, { phone: PHONE_ALUNO_PRIVADO });
+      });
+
+      const profile = await visibleProfileAsRecruiter(t, recruiterId, studentId);
+      const serialized = JSON.stringify(profile);
+
+      expect(profile.contactReleased).toBe(true);
+      expect(serialized).not.toContain(PHONE_ALUNO_PRIVADO);
+      expect(serialized).not.toContain(PHONE_USUARIO);
     });
-    const profile = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId });
-    expect(profile?.contactReleased).toBe(true);
-    expect(profile?.email).toBe("aluno@unicap.br");
   });
 
   it("gestor autenticado com consentimento também visualiza perfis públicos", async () => {
@@ -359,10 +428,13 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
       visibility: "publico",
       withGestor: true,
     });
+    assert(gestorId !== null, "o gestor deveria ter sido criado");
+
     const profile = await t
-      .withIdentity(identity("gestor@unicap.br", "g-1", gestorId as string))
+      .withIdentity(identity(GESTOR.email, GESTOR.subject, gestorId))
       .query(api.students.getCandidateProfile, { studentId });
-    expect(profile?.fullName).toBe("Maria da Silva");
+
+    expect(profile).toMatchObject({ fullName: "Maria da Silva" });
   });
 
   it("studentId inexistente → null", async () => {
@@ -377,31 +449,15 @@ describe("RECRUITER_VIEW_PROFILE — students.getCandidateProfile", () => {
         enrollment: "0000000",
         status: "inativo",
         course: "Nada",
-        graduationYear: 2030,
+        graduationYear: ANO_FANTASMA,
         availability: ["estagio"],
         visibility: "somente_candidaturas",
       }),
     );
     await t.run(async (ctx) => ctx.db.delete(missing));
-    const profile = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId: missing });
+
+    const profile = await profileAsRecruiter(t, recruiterId, missing);
+
     expect(profile).toBeNull();
-  });
-  it("o telefone privado do aluno (students.phone) nunca chega ao recrutador", async () => {
-    const t = convexTest({ schema, modules });
-    const { recruiterId, studentId } = await seedWorld(t, {
-      visibility: "publico",
-      showContact: true,
-    });
-    await t.run(async (ctx) => {
-      await ctx.db.patch(studentId, { phone: "81999990000" });
-    });
-    const profile = await t
-      .withIdentity(identity("recruiter@unicap.br", "r-1", recruiterId))
-      .query(api.students.getCandidateProfile, { studentId });
-    expect(profile?.contactReleased).toBe(true);
-    expect(JSON.stringify(profile)).not.toContain("81999990000");
-    expect(JSON.stringify(profile)).not.toContain("81988887777");
   });
 });

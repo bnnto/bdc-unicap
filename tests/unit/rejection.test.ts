@@ -6,6 +6,11 @@ import {
   rejectionDecision,
 } from "../../src/lib/application";
 
+const SEM_MOTIVO = {
+  ok: false,
+  error: "Motivo de reprovação é obrigatório (R5).",
+};
+
 describe("catálogo padronizado de motivos (S4-2, CA 2)", () => {
   it("enum fixo com os motivos de auditoria", () => {
     expect(REJECTION_REASONS).toEqual([
@@ -20,25 +25,29 @@ describe("catálogo padronizado de motivos (S4-2, CA 2)", () => {
     ]);
   });
 
-  it("todo motivo tem rótulo pt-BR não vazio (exibição/auditoria)", () => {
-    for (const reason of REJECTION_REASONS) {
+  it.each(REJECTION_REASONS)(
+    "motivo %s tem rótulo pt-BR não vazio (exibição/auditoria)",
+    (reason) => {
       expect(REJECTION_REASON_LABELS[reason].length).toBeGreaterThan(0);
-    }
+    },
+  );
+
+  it("rótulo de requisitos_obrigatorios é o texto de auditoria", () => {
     expect(REJECTION_REASON_LABELS.requisitos_obrigatorios).toBe(
       "Não atende aos requisitos obrigatórios da vaga",
     );
   });
 
-  it("guarda do enum: aceita apenas motivos do catálogo", () => {
-    for (const reason of REJECTION_REASONS) {
-      expect(isRejectionReason(reason)).toBe(true);
-    }
-    expect(isRejectionReason("nao_gostei_da_cara")).toBe(false);
-    expect(isRejectionReason("")).toBe(false);
-    expect(isRejectionReason(42)).toBe(false);
-    expect(isRejectionReason(null)).toBe(false);
-    expect(isRejectionReason(undefined)).toBe(false);
+  it.each(REJECTION_REASONS)("guarda do enum aceita %s", (reason) => {
+    expect(isRejectionReason(reason)).toBe(true);
   });
+
+  it.each(["nao_gostei_da_cara", "", 42, null, undefined])(
+    "guarda do enum rejeita %j",
+    (value) => {
+      expect(isRejectionReason(value)).toBe(false);
+    },
+  );
 });
 
 describe("regra R5 — reprovação exige motivo (S4-2, CA 1)", () => {
@@ -46,10 +55,8 @@ describe("regra R5 — reprovação exige motivo (S4-2, CA 1)", () => {
 
   it("sem motivo: falha (mutation não pode gravar)", () => {
     const decision = rejectionDecision({ stage: from, reason: undefined });
-    expect(decision).toEqual({
-      ok: false,
-      error: "Motivo de reprovação é obrigatório (R5).",
-    });
+
+    expect(decision).toEqual(SEM_MOTIVO);
   });
 
   it("motivo fora do enum: falha (sem texto livre)", () => {
@@ -57,17 +64,15 @@ describe("regra R5 — reprovação exige motivo (S4-2, CA 1)", () => {
       stage: from,
       reason: "nao_gostei_da_cara",
     });
-    expect(decision.ok).toBe(false);
-    if (!decision.ok) {
-      expect(decision.error).toContain("Motivo de reprovação inválido");
-    }
+
+    expect(decision).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("Motivo de reprovação inválido"),
+    });
   });
 
   it("motivo vazio: falha", () => {
-    expect(rejectionDecision({ stage: from, reason: "" })).toEqual({
-      ok: false,
-      error: "Motivo de reprovação é obrigatório (R5).",
-    });
+    expect(rejectionDecision({ stage: from, reason: "" })).toEqual(SEM_MOTIVO);
   });
 
   it("motivo válido e stage ≠ reprovado: reprovação autorizada", () => {
@@ -81,6 +86,7 @@ describe("regra R5 — reprovação exige motivo (S4-2, CA 1)", () => {
       stage: "reprovado",
       reason: "outro",
     });
+
     expect(decision).toEqual({
       ok: false,
       error: "Candidatura já está reprovada.",

@@ -18,20 +18,46 @@ import {
 } from "../../src/lib/reportExport";
 import { buildZip, crc32 } from "../../src/lib/zip";
 
-const NOON = new Date(2026, 8, 27, 12).getTime();
+const NOON = new Date("2026-09-27T12:00:00").getTime();
 const encoder = new TextEncoder();
+
+/** Assinaturas dos registros do formato ZIP (little-endian). */
+const LOCAL_HEADER_SIGNATURE = 0x04034b50;
+const CENTRAL_HEADER_SIGNATURE = 0x02014b50;
+const EOCD_SIGNATURE = 0x06054b50;
+
+/** Tamanhos fixos dos registros ZIP (sem nome/dados/comentário). */
+const LOCAL_HEADER_SIZE = 30;
+const EOCD_SIZE = 22;
+
+/** Deslocamentos dos campos em cada registro, a partir do início dele. */
+const LOCAL = { crc32: 14, compressedSize: 18, nameLength: 26 } as const;
+const CENTRAL = { compressedSize: 20, localOffset: 42 } as const;
+const EOCD = {
+  entriesOnDisk: 8,
+  totalEntries: 10,
+  centralSize: 12,
+  centralOffset: 16,
+} as const;
+
+/** Limite do Excel para o nome de uma aba. */
+const SHEET_NAME_LIMIT = 31;
+
+function viewOf(bytes: Uint8Array): DataView {
+  return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+}
 
 /** Extrai entradas de um ZIP "stored" para inspeção estrutural. */
 function extractZipEntries(bytes: Uint8Array): Map<string, Uint8Array> {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const view = viewOf(bytes);
   const nameDecoder = new TextDecoder();
   const entries = new Map<string, Uint8Array>();
   let offset = 0;
-  while (offset < bytes.length - 22) {
-    if (view.getUint32(offset, true) !== 0x04034b50) break;
-    const compressedSize = view.getUint32(offset + 18, true);
-    const nameLength = view.getUint16(offset + 26, true);
-    const nameStart = offset + 30;
+  while (offset < bytes.length - EOCD_SIZE) {
+    if (view.getUint32(offset, true) !== LOCAL_HEADER_SIGNATURE) break;
+    const compressedSize = view.getUint32(offset + LOCAL.compressedSize, true);
+    const nameLength = view.getUint16(offset + LOCAL.nameLength, true);
+    const nameStart = offset + LOCAL_HEADER_SIZE;
     const name = nameDecoder.decode(
       bytes.subarray(nameStart, nameStart + nameLength),
     );
@@ -42,69 +68,112 @@ function extractZipEntries(bytes: Uint8Array): Map<string, Uint8Array> {
   return entries;
 }
 
-describe("[S6-3] ZIP — estrutura e metadados (CA 1)", () => {
-  it("entrada única: offset local 0 no central directory e campos coerentes", () => {
-    const data = encoder.encode("dados");
-    const zip = buildZip([{ name: "a.txt", data }]);
-    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+/** Texto de uma entrada do ZIP ("" se a entrada não existir). */
+function zipText(bytes: Uint8Array, name: string): string {
+  return new TextDecoder().decode(extractZipEntries(bytes).get(name));
+}
 
-    // Central directory logo após a única entrada (30 + 5 + nome).
-    const centralOffset = 30 + "a.txt".length + data.length;
-    expect(view.getUint32(centralOffset, true)).toBe(0x02014b50);
-    // Offset local da entrada, gravado no central directory (+42).
-    expect(view.getUint32(centralOffset + 42, true)).toBe(0);
-    // Tamanho compactado = tamanho original (stored) nos dois headers.
-    expect(view.getUint32(18, true)).toBe(data.length);
-    expect(view.getUint32(centralOffset + 20, true)).toBe(data.length);
+describe("[S6-3] ZIP — estrutura e metadados (CA 1)", () => {
+  describe("entrada única", () => {
+    const name = "a.txt";
+    const data = encoder.encode("dados");
+    const zip = buildZip([{ name, data }]);
+    const view = viewOf(zip);
+    // Central directory logo após a única entrada (cabeçalho + nome + dados).
+    const centralOffset = LOCAL_HEADER_SIZE + name.length + data.length;
+
+    it("central directory começa logo após a entrada", () => {
+      expect(view.getUint32(centralOffset, true)).toBe(
+        CENTRAL_HEADER_SIGNATURE,
+      );
+    });
+
+    it("offset local gravado no central directory é 0", () => {
+      expect(view.getUint32(centralOffset + CENTRAL.localOffset, true)).toBe(0);
+    });
+
+    it("tamanho compactado = original (stored) no header local", () => {
+      expect(view.getUint32(LOCAL.compressedSize, true)).toBe(data.length);
+    });
+
+    it("tamanho compactado = original (stored) no central directory", () => {
+      expect(
+        view.getUint32(centralOffset + CENTRAL.compressedSize, true),
+      ).toBe(data.length);
+    });
   });
 
   it("nomes multibyte (UTF-8) são contados em BYTES e restaurados intactos", () => {
     const name = "relatório-açúcar.xlsx";
     const zip = buildZip([{ name, data: encoder.encode("x") }]);
-    const entries = extractZipEntries(zip);
-    expect([...entries.keys()]).toEqual([name]);
-    // Nome em bytes UTF-8 (ç/á = 2 bytes cada), não em caracteres.
-    const nameBytes = encoder.encode(name).length;
-    expect(zip[26]).toBe(nameBytes & 0xff);
-    expect(zip[27]).toBe(nameBytes >>> 8);
+
+    expect([...extractZipEntries(zip).keys()]).toEqual([name]);
+    // ç/á ocupam 2 bytes cada: o campo guarda bytes, não caracteres.
+    expect(viewOf(zip).getUint16(LOCAL.nameLength, true)).toBe(
+      encoder.encode(name).length,
+    );
   });
 
-  it("sem entradas: ZIP contendo apenas o EOCD com contagem zero", () => {
+  describe("sem entradas: apenas o EOCD, com contagem zero", () => {
     const zip = buildZip([]);
-    expect(zip.length).toBe(22);
-    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
-    expect(view.getUint32(0, true)).toBe(0x06054b50);
-    expect(view.getUint16(8, true)).toBe(0);
-    expect(view.getUint16(10, true)).toBe(0);
-    expect(view.getUint32(12, true)).toBe(0);
-    expect(view.getUint32(16, true)).toBe(0);
+    const view = viewOf(zip);
+
+    it("tem exatamente o tamanho do EOCD", () => {
+      expect(zip.length).toBe(EOCD_SIZE);
+    });
+
+    it("começa pela assinatura do EOCD", () => {
+      expect(view.getUint32(0, true)).toBe(EOCD_SIGNATURE);
+    });
+
+    it.each(["entriesOnDisk", "totalEntries"] as const)(
+      "EOCD: %s é zero",
+      (campo) => {
+        expect(view.getUint16(EOCD[campo], true)).toBe(0);
+      },
+    );
+
+    it.each(["centralSize", "centralOffset"] as const)(
+      "EOCD: %s é zero",
+      (campo) => {
+        expect(view.getUint32(EOCD[campo], true)).toBe(0);
+      },
+    );
   });
 
-  it("múltiplas entradas: dados íntegros e CRC consistente por entrada", () => {
+  describe("múltiplas entradas", () => {
     const first = encoder.encode("primeiro");
     const second = encoder.encode("segundo com acentuação");
     const zip = buildZip([
       { name: "xl/one.bin", data: first },
       { name: "xl/two.bin", data: second },
     ]);
-    const entries = extractZipEntries(zip);
-    expect([...entries.keys()]).toEqual(["xl/one.bin", "xl/two.bin"]);
-    expect(new TextDecoder().decode(entries.get("xl/one.bin"))).toBe(
-      "primeiro",
-    );
-    expect(new TextDecoder().decode(entries.get("xl/two.bin"))).toBe(
-      "segundo com acentuação",
-    );
-    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
-    expect(view.getUint32(14, true)).toBe(crc32(first));
+
+    it("dados íntegros, na ordem de inserção", () => {
+      const decoder = new TextDecoder();
+      const entries = [...extractZipEntries(zip)].map(([name, data]) => [
+        name,
+        decoder.decode(data),
+      ]);
+      expect(entries).toEqual([
+        ["xl/one.bin", "primeiro"],
+        ["xl/two.bin", "segundo com acentuação"],
+      ]);
+    });
+
+    it("CRC consistente na primeira entrada", () => {
+      expect(viewOf(zip).getUint32(LOCAL.crc32, true)).toBe(crc32(first));
+    });
   });
 });
 
 describe("[S6-3] nomes de planilha — sanitização (CA 1/CA 2)", () => {
-  it("título só com caracteres proibidos cai no fallback 'Planilha'", () => {
-    expect(sheetNameFor(":\\/?*[]")).toBe("Planilha");
-    expect(sheetNameFor("   ")).toBe("Planilha");
-  });
+  it.each([":\\/?*[]", "   "])(
+    "título %j cai no fallback 'Planilha'",
+    (titulo) => {
+      expect(sheetNameFor(titulo)).toBe("Planilha");
+    },
+  );
 
   it("sufixo avança até achar nome livre (Resumo, Resumo 2 → Resumo 3)", () => {
     expect(sheetNameFor("Resumo", new Set(["Resumo", "Resumo 2"]))).toBe(
@@ -113,10 +182,12 @@ describe("[S6-3] nomes de planilha — sanitização (CA 1/CA 2)", () => {
   });
 
   it("sufixo de desambiguação respeita o limite de 31 caracteres", () => {
-    const base31 = "A".repeat(31);
-    const result = sheetNameFor(base31, new Set([base31]));
-    expect(result.length).toBeLessThanOrEqual(31);
-    expect(result).toBe(`${"A".repeat(29)} 2`);
+    const base = "A".repeat(SHEET_NAME_LIMIT);
+    const result = sheetNameFor(base, new Set([base]));
+
+    expect(result.length).toBeLessThanOrEqual(SHEET_NAME_LIMIT);
+    // O sufixo " 2" ocupa 2 caracteres: o nome-base é truncado para caber.
+    expect(result).toBe(`${"A".repeat(SHEET_NAME_LIMIT - 2)} 2`);
   });
 
   it("remove proibidos e mantém espaços internos no nome da aba do XLSX", () => {
@@ -130,10 +201,9 @@ describe("[S6-3] nomes de planilha — sanitização (CA 1/CA 2)", () => {
         },
       ],
     };
-    const entries = extractZipEntries(xlsxBytes(report));
-    const workbook = new TextDecoder().decode(
-      entries.get("xl/workbook.xml") ?? new Uint8Array(0),
-    );
+
+    const workbook = zipText(xlsxBytes(report), "xl/workbook.xml");
+
     expect(workbook).toContain('<sheet name="Relatório Final"');
   });
 });
@@ -196,8 +266,6 @@ describe("[S6-3] CSV — dados e encoding (CA 2)", () => {
         { title: "Resumo", columns: ["M", "V"], rows: [["Acentuação", 1]] },
       ],
     };
-    const bytes = csvBytes(report);
-    expect(bytes.length).toBe(encoder.encode(toCsv(report)).length);
-    expect(bytes.length).toBeGreaterThan(toCsv(report).length - 4);
+    expect(csvBytes(report).length).toBe(encoder.encode(toCsv(report)).length);
   });
 });

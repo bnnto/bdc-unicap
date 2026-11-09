@@ -19,10 +19,33 @@ const modules = import.meta.glob("../../convex/**/*.*s");
 
 type World = ReturnType<typeof convexTest>;
 
-const DAY = 24 * 60 * 60 * 1000;
+const DAY = 86_400_000;
 
 const MANAGER = { email: "gestor@unicap.br", subject: "gestor-1" };
 const STUDENT_CC = { email: "maria@unicap.br", subject: "aluno-cc" };
+
+const MATCH_SCORE = 70;
+const VALIDADE_VAGA = 30 * DAY;
+const FORMATURA_CC = 2026;
+const FORMATURA_ADM = 2025;
+
+/** Deslocamentos (relativos a T0) dos eventos do mundo de teste. */
+const OFFSET = {
+  segundoDia: DAY,
+  a2Publicada: -40 * DAY,
+  a2Preenchida: -10 * DAY,
+  a2Candidaturas: -35 * DAY,
+  b1Publicada: 2 * DAY,
+  b1Candidatura: 3 * DAY,
+};
+
+/** Valores esperados derivados do mundo descrito em `seedWorld`. */
+const TOTAL_CANDIDATURAS = 6;
+/** 2 aprovados / 3 finalizados = 67%. */
+const EMPREGABILIDADE_GLOBAL = 67;
+/** jobA2: candidatura há 35 dias, preenchida há 10 → 25 dias. */
+const TTH_JOB_A2_DIAS = 25;
+const PERIODO_AMPLO = 60 * DAY;
 
 /**
  * Mundo com 2 empresas (Alpha/Beta), 2 alunos (CC/ADM) e:
@@ -65,7 +88,7 @@ async function seedWorld(t: World) {
       enrollment: "1234567",
       status: "ativo",
       course: "Ciência da Computação",
-      graduationYear: 2026,
+      graduationYear: FORMATURA_CC,
       availability: ["estagio"],
       visibility: "somente_candidaturas",
       skills: ["React"],
@@ -82,7 +105,7 @@ async function seedWorld(t: World) {
       enrollment: "7654321",
       status: "ativo",
       course: "Administração",
-      graduationYear: 2025,
+      graduationYear: FORMATURA_ADM,
       availability: ["integral"],
       visibility: "somente_candidaturas",
       skills: ["Excel"],
@@ -109,7 +132,7 @@ async function seedWorld(t: World) {
         contractType: "clt",
         status,
         publishedAt,
-        expiresAt: publishedAt + 30 * DAY,
+        expiresAt: publishedAt + VALIDADE_VAGA,
         ...(filledAt !== undefined ? { filledAt } : {}),
       });
     const mkApp = async (
@@ -122,7 +145,7 @@ async function seedWorld(t: World) {
         jobId,
         studentId,
         stage,
-        matchScore: 70,
+        matchScore: MATCH_SCORE,
         appliedAt,
         ...(stage === "reprovado"
           ? { rejectionReason: "requisitos_obrigatorios" as const }
@@ -134,22 +157,22 @@ async function seedWorld(t: World) {
       alphaId,
       "Analista (Alpha)",
       "encerrada",
-      T0 - 40 * DAY,
-      T0 - 10 * DAY,
+      T0 + OFFSET.a2Publicada,
+      T0 + OFFSET.a2Preenchida,
     );
     const jobB1 = await mkJob(
       betaId,
       "Dev Mobile (Beta)",
       "fechada",
-      T0 + 2 * DAY,
+      T0 + OFFSET.b1Publicada,
     );
 
     await mkApp(jobA1, ccStudentId, "inscrito", T0);
-    await mkApp(jobA1, ccStudentId, "aprovado", T0 + DAY);
-    await mkApp(jobA1, admStudentId, "triagem", T0 + DAY);
-    await mkApp(jobA2, ccStudentId, "aprovado", T0 - 35 * DAY);
-    await mkApp(jobA2, admStudentId, "reprovado", T0 - 35 * DAY);
-    await mkApp(jobB1, admStudentId, "inscrito", T0 + 3 * DAY);
+    await mkApp(jobA1, ccStudentId, "aprovado", T0 + OFFSET.segundoDia);
+    await mkApp(jobA1, admStudentId, "triagem", T0 + OFFSET.segundoDia);
+    await mkApp(jobA2, ccStudentId, "aprovado", T0 + OFFSET.a2Candidaturas);
+    await mkApp(jobA2, admStudentId, "reprovado", T0 + OFFSET.a2Candidaturas);
+    await mkApp(jobB1, admStudentId, "inscrito", T0 + OFFSET.b1Candidatura);
 
     return { managerId, T0, jobA1, betaId };
   });
@@ -163,147 +186,186 @@ function asManager(t: World, managerId: string) {
   });
 }
 
+/** Cria o mundo de teste e devolve o cliente já autenticado como gestor. */
+async function setup() {
+  const t = convexTest(schema, modules);
+  const world = await seedWorld(t);
+  return { ...world, asGestor: asManager(t, world.managerId) };
+}
+
+const funnelCounts = (funnel: { steps: Array<{ count: number }> }) =>
+  funnel.steps.map((step) => step.count);
+
 describe("S5-5 — filtros combináveis do dashboard (integração)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
-  it("sem filtros: métricas globais (baseline)", async () => {
-    const t = convexTest(schema, modules);
-    const { managerId } = await seedWorld(t);
-    const asGestor = asManager(t, managerId);
-
-    const summary = await asGestor.query(
-      api.operational.operationalSummary,
-      {},
-    );
-    expect(summary.jobs).toEqual({
-      open: 1,
-      closed: 1,
-      filled: 1,
-      total: 3,
+  describe("sem filtros: métricas globais (baseline)", () => {
+    it("summary: contagem de vagas por situação", async () => {
+      const { asGestor } = await setup();
+      const summary = await asGestor.query(
+        api.operational.operationalSummary,
+        {},
+      );
+      expect(summary.jobs).toEqual({
+        open: 1,
+        closed: 1,
+        filled: 1,
+        total: 3,
+      });
     });
-    // 2 aprovados / 3 finalizados = 67%.
-    expect(summary.applications.total).toBe(6);
-    expect(summary.employability.rate).toBe(67);
 
-    const funnel = await asGestor.query(api.operational.pipelineFunnel, {});
-    expect(funnel.steps.map((step) => step.count)).toEqual([2, 1, 0, 2]);
-    expect(funnel.totalApplications).toBe(6);
+    it("summary: candidaturas e empregabilidade globais", async () => {
+      const { asGestor } = await setup();
+      const summary = await asGestor.query(
+        api.operational.operationalSummary,
+        {},
+      );
+      expect(summary).toMatchObject({
+        applications: { total: TOTAL_CANDIDATURAS },
+        employability: { rate: EMPREGABILIDADE_GLOBAL },
+      });
+    });
+
+    it("funil: contagem por etapa e total de candidaturas", async () => {
+      const { asGestor } = await setup();
+      const funnel = await asGestor.query(api.operational.pipelineFunnel, {});
+      expect(funnelCounts(funnel)).toEqual([2, 1, 0, 2]);
+      expect(funnel.totalApplications).toBe(TOTAL_CANDIDATURAS);
+    });
   });
 
-  it("filtro status: summary, funil e rankings enxergam só vagas daquele status", async () => {
-    const t = convexTest(schema, modules);
-    const { managerId, jobA1 } = await seedWorld(t);
-    const asGestor = asManager(t, managerId);
+  describe("filtro status: só vagas daquele status", () => {
+    it("summary enxerga só a vaga aberta e as candidaturas dela", async () => {
+      const { asGestor } = await setup();
+      const summary = await asGestor.query(
+        api.operational.operationalSummary,
+        { status: "aberta" },
+      );
+      expect(summary.jobs).toEqual({
+        open: 1,
+        closed: 0,
+        filled: 0,
+        total: 1,
+      });
+      // Só as candidaturas de jobA1 (aberta).
+      expect(summary.applications.total).toBe(3);
+    });
 
-    const summary = await asGestor.query(api.operational.operationalSummary, {
-      status: "aberta",
+    it("funil conta só as candidaturas da vaga aberta", async () => {
+      const { asGestor } = await setup();
+      const funnel = await asGestor.query(api.operational.pipelineFunnel, {
+        status: "aberta",
+      });
+      expect(funnelCounts(funnel)).toEqual([1, 1, 0, 1]);
     });
-    expect(summary.jobs).toEqual({
-      open: 1,
-      closed: 0,
-      filled: 0,
-      total: 1,
-    });
-    // Só as candidaturas de jobA1 (aberta).
-    expect(summary.applications.total).toBe(3);
 
-    const funnel = await asGestor.query(api.operational.pipelineFunnel, {
-      status: "aberta",
+    it("ranking de vagas lista só a vaga aberta", async () => {
+      const { asGestor, jobA1 } = await setup();
+      const rankings = await asGestor.query(api.operational.activeRankings, {
+        limit: 5,
+        status: "aberta",
+      });
+      expect(rankings.topJobs).toEqual([
+        {
+          jobId: jobA1,
+          title: "Dev Web (Alpha)",
+          companyName: "Alpha Recruiter",
+          applicationsCount: 3,
+        },
+      ]);
     });
-    expect(funnel.steps.map((step) => step.count)).toEqual([1, 1, 0, 1]);
-
-    const rankings = await asGestor.query(api.operational.activeRankings, {
-      limit: 5,
-      status: "aberta",
-    });
-    expect(rankings.topJobs).toEqual([
-      {
-        jobId: jobA1,
-        title: "Dev Web (Alpha)",
-        companyName: "Alpha Recruiter",
-        applicationsCount: 3,
-      },
-    ]);
   });
 
-  it("filtro curso: funil e empregabilidade passam a refletir só o curso", async () => {
-    const t = convexTest(schema, modules);
-    const { managerId } = await seedWorld(t);
-    const asGestor = asManager(t, managerId);
-
-    const funnel = await asGestor.query(api.operational.pipelineFunnel, {
-      course: "Ciência da Computação",
+  describe("filtro curso: métricas refletem só o curso", () => {
+    it("funil: CC tem 1 inscrito (jobA1) e 2 aprovados (jobA1 e jobA2)", async () => {
+      const { asGestor } = await setup();
+      const funnel = await asGestor.query(api.operational.pipelineFunnel, {
+        course: "Ciência da Computação",
+      });
+      expect(funnelCounts(funnel)).toEqual([1, 0, 0, 2]);
     });
-    // CC: inscrito (jobA1) e 2 aprovados (jobA1 e jobA2).
-    expect(funnel.steps.map((step) => step.count)).toEqual([1, 0, 0, 2]);
 
-    const summary = await asGestor.query(api.operational.operationalSummary, {
-      course: "Ciência da Computação",
+    it("empregabilidade considera só resultados finais do curso (2 aprovados → 100%)", async () => {
+      const { asGestor } = await setup();
+      const summary = await asGestor.query(
+        api.operational.operationalSummary,
+        { course: "Ciência da Computação" },
+      );
+      expect(summary.employability.rate).toBe(100);
     });
-    // Só resultados finais do curso: 2 aprovados → 100%.
-    expect(summary.employability.rate).toBe(100);
   });
 
-  it("filtro empresa: métricas ficam restritas às vagas da empresa", async () => {
-    const t = convexTest(schema, modules);
-    const { managerId, betaId } = await seedWorld(t);
-    const asGestor = asManager(t, managerId);
-
-    const funnel = await asGestor.query(api.operational.pipelineFunnel, {
-      company: "Beta Recruiter",
+  describe("filtro empresa: métricas restritas às vagas da empresa", () => {
+    it("funil: Beta só tem jobB1 com uma candidatura inscrita", async () => {
+      const { asGestor } = await setup();
+      const funnel = await asGestor.query(api.operational.pipelineFunnel, {
+        company: "Beta Recruiter",
+      });
+      expect(funnelCounts(funnel)).toEqual([1, 0, 0, 0]);
+      expect(funnel.totalApplications).toBe(1);
     });
-    // Beta só tem jobB1 com uma candidatura "inscrito".
-    expect(funnel.steps.map((step) => step.count)).toEqual([1, 0, 0, 0]);
-    expect(funnel.totalApplications).toBe(1);
 
-    const rankings = await asGestor.query(api.operational.activeRankings, {
-      limit: 5,
-      company: "Beta Recruiter",
+    it("ranking de empresas lista só a Beta", async () => {
+      const { asGestor, betaId } = await setup();
+      const rankings = await asGestor.query(api.operational.activeRankings, {
+        limit: 5,
+        company: "Beta Recruiter",
+      });
+      expect(rankings.topCompanies).toEqual([
+        {
+          recruiterId: betaId,
+          companyName: "Beta Recruiter",
+          publishedJobs: 1,
+          applicationsCount: 1,
+        },
+      ]);
     });
-    expect(rankings.topCompanies).toEqual([
-      {
-        recruiterId: betaId,
-        companyName: "Beta Recruiter",
-        publishedJobs: 1,
-        applicationsCount: 1,
-      },
-    ]);
   });
 
-  it("filtros combináveis (status + curso + período) atualizam as métricas juntas", async () => {
-    const t = convexTest(schema, modules);
-    const { managerId, T0 } = await seedWorld(t);
-    const asGestor = asManager(t, managerId);
-
-    const summary = await asGestor.query(api.operational.operationalSummary, {
-      status: "aberta",
-      course: "Administração",
-      from: T0,
+  describe("filtros combináveis atualizam as métricas juntas", () => {
+    it("status + curso + período: só a candidatura em triagem de ADM", async () => {
+      const { asGestor, T0 } = await setup();
+      const summary = await asGestor.query(
+        api.operational.operationalSummary,
+        { status: "aberta", course: "Administração", from: T0 },
+      );
+      // jobA1 (aberta) + curso ADM + publicada/candidatura a partir de T0.
+      expect(summary.applications).toMatchObject({
+        total: 1,
+        inProgress: 1,
+      });
     });
-    // jobA1 (aberta) + curso ADM + publicada/candidatura a partir de T0:
-    // apenas a candidatura "triagem" de ADM.
-    expect(summary.applications.total).toBe(1);
-    expect(summary.applications.inProgress).toBe(1);
-    // Sem finalizados no filtro: taxa null.
-    expect(summary.employability.rate).toBeNull();
 
-    // TTH: curso CC com contratação na jobA2 (encerrada há 10 dias,
-    // candidatura há 35) — período amplo inclui; 25 dias.
-    const tth = await asGestor.query(api.operational.timeToHireStats, {
-      course: "Ciência da Computação",
-      from: T0 - 60 * DAY,
+    it("status + curso + período: sem finalizados, a taxa é null", async () => {
+      const { asGestor, T0 } = await setup();
+      const summary = await asGestor.query(
+        api.operational.operationalSummary,
+        { status: "aberta", course: "Administração", from: T0 },
+      );
+      expect(summary.employability.rate).toBeNull();
     });
-    expect(tth.samplesCount).toBe(1);
-    expect(tth.averageDays).toBe(25);
 
-    // TTH com status != encerrada: nenhuma vaga preenchida permanece.
-    const tthVazio = await asGestor.query(api.operational.timeToHireStats, {
-      status: "aberta",
+    it("TTH do curso CC com período amplo inclui a contratação da jobA2", async () => {
+      const { asGestor, T0 } = await setup();
+      const tth = await asGestor.query(api.operational.timeToHireStats, {
+        course: "Ciência da Computação",
+        from: T0 - PERIODO_AMPLO,
+      });
+      expect(tth).toMatchObject({
+        samplesCount: 1,
+        averageDays: TTH_JOB_A2_DIAS,
+      });
     });
-    expect(tthVazio.averageDays).toBeNull();
-    expect(tthVazio.samplesCount).toBe(0);
+
+    it("TTH com status != encerrada: nenhuma vaga preenchida permanece", async () => {
+      const { asGestor } = await setup();
+      const tth = await asGestor.query(api.operational.timeToHireStats, {
+        status: "aberta",
+      });
+      expect(tth).toMatchObject({ averageDays: null, samplesCount: 0 });
+    });
   });
 
   it("guard R7: aluno não acessa as métricas mesmo com filtros", async () => {
