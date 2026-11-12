@@ -790,10 +790,16 @@ export const myBannerUrl = query({
 });
 
 /**
- * Perfil público (R2) — o que um recrutador/visitante pode ver de um aluno.
+ * Perfil público (R2) — o que um recrutador/gestor pode ver de um aluno.
  * Projeção no SERVIDOR: contato (R6) omitido quando não autorizado e perfil
  * inteiro oculto quando a regra R2 não permite a visualização.
  * `jobId` opcional: quando informado, avalia visibilidade no contexto da vaga.
+ *
+ * [SEC_RBAC] Guard de acesso: a query é "pública" apenas no sentido de
+ * respeitar a visibilidade escolhida pelo aluno (R2) — ela NÃO é anônima.
+ * Sem login + papel de recrutador/gestor (R7), a enumeração de `studentId`
+ * devolvia nome, curso, cidade e disponibilidade de qualquer aluno
+ * "público" para um visitante não autenticado (IDOR anônimo).
  */
 export const publicProfile = query({
   args: {
@@ -801,6 +807,12 @@ export const publicProfile = query({
     jobId: v.optional(v.id("jobs")),
   },
   handler: async (ctx, { studentId, jobId }) => {
+    const user = await requireConsentedUser(ctx);
+    if (user.role !== "recrutador" && user.role !== "gestor") {
+      throw new Error(
+        "Apenas recrutadores e gestores visualizam perfis de alunos.",
+      );
+    }
     const student = await ctx.db.get(studentId);
     if (student === null) return null;
     // R1 — inativo não participa. R2 — avaliação de visibilidade.

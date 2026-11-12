@@ -1,17 +1,24 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { checkRequiredPrerequisites } from "../src/lib/application";
 import { canonicalSkill } from "../src/lib/skills";
+import { requireActiveConsentUser } from "./lib/currentUser";
 
-/** Quantos alunos do banco de talentos têm TODAS as competências obrigatórias. */
+/**
+ * Quantos alunos do banco de talentos têm TODAS as competências obrigatórias.
+ *
+ * [SEC_RBAC] Guard completo (R7): o contador do Banco de Talentos usa
+ * `requireActiveConsentUser` — conta ativa, recrutador aprovado e aceite
+ * LGPD vigente. Antes bastava `getAuthUserId` + papel: um recrutador
+ * pendente/recusado, uma conta desativada ou um usuário sem aceite do
+ * termo consultavam a base de talentos (bypass de R7 e da moderação).
+ */
 export const countEligibleStudents = query({
   args: { requiredSkills: v.array(v.string()) },
   handler: async (ctx, { requiredSkills }) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) return null;
-    const user = await ctx.db.get(userId);
-    if (user?.role !== "recrutador" && user?.role !== "gestor") return null;
+    const guard = await requireActiveConsentUser(ctx);
+    if (!guard.ok) return null;
+    if (guard.role !== "recrutador" && guard.role !== "gestor") return null;
 
     const required = requiredSkills
       .slice(0, 20)

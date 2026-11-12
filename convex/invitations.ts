@@ -6,8 +6,7 @@ import {
   mutation,
 } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { getAuthUserId } from "@convex-dev/auth/server";
-import { isRecruiterApproved } from "./lib/currentUser";
+import { requireConsentedUser } from "./lib/currentUser";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -33,22 +32,17 @@ export const sendInvite = mutation({
     message: v.string(),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) throw new ConvexError("Faça login para continuar.");
-
-    const recruiter = await ctx.db.get(userId);
-    if (
-      recruiter === null ||
-      recruiter.role !== "recrutador" ||
-      recruiter.active === false
-    ) {
-      throw new ConvexError("Apenas recrutadores ativos podem enviar convites.");
-    }
-    if (!isRecruiterApproved(recruiter)) {
+    // [SEC_RBAC] Guard único (R7): login + conta ativa + recrutador
+    // aprovado + aceite LGPD vigente. Antes o convite checava papel e
+    // aprovação, mas NÃO o consentimento: um recrutador que revogou o
+    // termo continuava podendo enviar e-mails a alunos.
+    const recruiter = await requireConsentedUser(ctx);
+    if (recruiter.role !== "recrutador") {
       throw new ConvexError(
-        "Seu cadastro de recrutador ainda não foi aprovado pela coordenação.",
+        "Apenas recrutadores ativos podem enviar convites.",
       );
     }
+    const userId = recruiter._id;
 
     // R1 + R2 + R6: vínculo ativo/egresso, perfil público e contato autorizado.
     const student = await ctx.db.get(args.studentId);
