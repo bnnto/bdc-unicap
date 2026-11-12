@@ -1077,65 +1077,74 @@ export const searchTalent = query({
     // Filtros combináveis + paginação (regra pura compartilhada com a UI).
     const result = filterTalentCandidates(rows, filters);
 
-    const items = [];
     const chips = (args.skills ?? []).filter((c) => c.trim().length > 0);
-    for (const row of result.items) {
-      // Re-checagem por card: o perfil pode ter mudado entre índice e leitura.
-      const student = await ctx.db.get(row.id as Id<"students">);
-      if (student === null) continue;
-      if (
-        !canAppearInTalentBank({
-          status: student.status,
-          visibility: student.visibility ?? "somente_candidaturas",
-        })
-      ) {
-        continue;
-      }
-      // R6 — contato e links profissionais apenas com autorização geral.
-      const contactAllowed = canRecruiterSeeContact(
-        {
-          status: student.status,
-          visibility: student.visibility ?? "somente_candidaturas",
-          showContactToRecruiters: student.showContactToRecruiters ?? false,
-          contactReleasedTo: [],
-        },
-        null,
-      );
-      const owner = contactAllowed ? await ctx.db.get(student.userId) : null;
-      const imageUrl =
-        owner === null
-          ? null
-          : owner.imageStorageId !== undefined
-            ? await ctx.storage.getUrl(owner.imageStorageId)
-            : (owner.image ?? null);
-      items.push({
-        studentId: student._id,
-        fullName: student.fullName,
-        course: student.course,
-        status: student.status,
-        graduationYear: student.graduationYear,
-        semester: student.semester ?? null,
-        location: student.location ?? null,
-        availability: student.availability,
-        summary: formatTalentSummary({
-          status: student.status,
+    // [PERF_LOAD] A montagem dos cards fazia as re-leituras (R1/R2 + dono +
+    // imagem) em SÉRIE: até 10 awaits por página, custo linear no tamanho
+    // dela. Em paralelo o tempo de resposta deixa de somar cada ida ao
+    // banco. A ordem de `result.items` é preservada e os cards que falham
+    // na re-checagem continuam descartados.
+    const resolved = await Promise.all(
+      result.items.map(async (row) => {
+        // Re-checagem por card: o perfil pode ter mudado entre índice e leitura.
+        const student = await ctx.db.get(row.id as Id<"students">);
+        if (student === null) return null;
+        if (
+          !canAppearInTalentBank({
+            status: student.status,
+            visibility: student.visibility ?? "somente_candidaturas",
+          })
+        ) {
+          return null;
+        }
+        // R6 — contato e links profissionais apenas com autorização geral.
+        const contactAllowed = canRecruiterSeeContact(
+          {
+            status: student.status,
+            visibility: student.visibility ?? "somente_candidaturas",
+            showContactToRecruiters: student.showContactToRecruiters ?? false,
+            contactReleasedTo: [],
+          },
+          null,
+        );
+        const owner = contactAllowed ? await ctx.db.get(student.userId) : null;
+        const imageUrl =
+          owner === null
+            ? null
+            : owner.imageStorageId !== undefined
+              ? await ctx.storage.getUrl(owner.imageStorageId)
+              : (owner.image ?? null);
+        return {
+          studentId: student._id,
+          fullName: student.fullName,
           course: student.course,
+          status: student.status,
           graduationYear: student.graduationYear,
           semester: student.semester ?? null,
-        }),
-        skills: student.skills ?? [],
-        skillMatches: countSkillMatches(
-          { skills: student.skills ?? [] },
-          chips,
-        ),
-        languages: student.languages ?? [],
-        headline: student.resumeData?.headline ?? null,
-        contactAllowed,
-        linkedinUrl: contactAllowed ? (student.linkedinUrl ?? null) : null,
-        imageUrl,
-        portfolioUrl: contactAllowed ? (student.portfolioUrl ?? null) : null,
-      });
-    }
+          location: student.location ?? null,
+          availability: student.availability,
+          summary: formatTalentSummary({
+            status: student.status,
+            course: student.course,
+            graduationYear: student.graduationYear,
+            semester: student.semester ?? null,
+          }),
+          skills: student.skills ?? [],
+          skillMatches: countSkillMatches(
+            { skills: student.skills ?? [] },
+            chips,
+          ),
+          languages: student.languages ?? [],
+          headline: student.resumeData?.headline ?? null,
+          contactAllowed,
+          linkedinUrl: contactAllowed ? (student.linkedinUrl ?? null) : null,
+          imageUrl,
+          portfolioUrl: contactAllowed ? (student.portfolioUrl ?? null) : null,
+        };
+      }),
+    );
+    const items = resolved.filter(
+      (item): item is NonNullable<typeof item> => item !== null,
+    );
 
     return { ...result, items };
   },

@@ -40,16 +40,30 @@ export const TALENT_SCAN_SLICE_BATCH = Math.floor(
  * (uma por valor oficial com primeiro = valor) particionam exatamente os
  * arrays não vazios, sem sobreposição e sem vazamento.
  */
+/**
+ * [PERF_LOAD] Bounds são CONSTANTES por grupo (derivam só do catálogo
+ * oficial), mas eram recalculados a cada query (4 grupos × 2 status):
+ * 8 filtragens + 8 ordenações de array por requisição. Memoizado abaixo.
+ */
+const AVAILABILITY_BOUNDS_CACHE = new Map<
+  Availability,
+  { lower: Availability[]; upper: Availability[] }
+>();
+
 export function availabilitySliceBounds(group: Availability): {
   lower: Availability[];
   upper: Availability[];
 } {
+  const cached = AVAILABILITY_BOUNDS_CACHE.get(group);
+  if (cached !== undefined) return cached;
   // Maior array possível do grupo: primeiro = group + demais em ordem
   // decrescente — cobre qualquer resto, pois a comparação é prefixo.
   const othersDesc = AVAILABILITY.filter((value) => value !== group).sort(
     (left, right) => (left < right ? 1 : -1),
   );
-  return { lower: [group], upper: [group, ...othersDesc] };
+  const bounds = { lower: [group], upper: [group, ...othersDesc] };
+  AVAILABILITY_BOUNDS_CACHE.set(group, bounds);
+  return bounds;
 }
 
 /**
@@ -160,18 +174,43 @@ type TalentSearchResult = {
   hasPrev: boolean;
 };
 
+/**
+ * [PERF_LOAD] Cache de normalização.
+ *
+ * `normalize` (NFD) + regex + `toLowerCase` é caro e era refeito para a
+ * MESMA string em cada candidato da varredura (curso, competências,
+ * idioma, localidade e chips do filtro). O vocabulário do portal é
+ * fechado (dicionário oficial de competências/idiomas, catálogo de cursos
+ * e localidades), então o cache acerta quase sempre. Nomes de candidatos
+ * variam: o cache é limitado e é limpo ao encher, para não crescer sem
+ * limite dentro do isolate.
+ */
+const NORMALIZE_CACHE_LIMIT = 4096;
+const NORMALIZE_CACHE = new Map<string, string>();
+
 /** Texto minúsculo e sem acentos, para comparações tolerantes. */
 export function normalizeForSearch(value: string): string {
-  return value
+  const cached = NORMALIZE_CACHE.get(value);
+  if (cached !== undefined) return cached;
+  const normalized = value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+  if (NORMALIZE_CACHE.size >= NORMALIZE_CACHE_LIMIT) NORMALIZE_CACHE.clear();
+  NORMALIZE_CACHE.set(value, normalized);
+  return normalized;
 }
 
-function ownsSkill(skills: readonly string[], wanted: string): boolean {
-  const target = normalizeForSearch(wanted);
-  return skills.some((s) => normalizeForSearch(s) === target);
+/** Igualdade de competência com o alvo JÁ normalizado. */
+function ownsNormalizedSkill(
+  skills: readonly string[],
+  normalizedTarget: string,
+): boolean {
+  for (const skill of skills) {
+    if (normalizeForSearch(skill) === normalizedTarget) return true;
+  }
+  return false;
 }
 
 /**
@@ -222,16 +261,45 @@ export function toTalentCandidate<
   };
 }
 
+/**
+ * [PERF_LOAD] Termos de texto dos filtros normalizados UMA vez por
+ * requisição. Antes, cada candidato da varredura renormalizava curso,
+ * local, competência, chips, idioma e busca — trabalho O(linhas × filtros)
+ * que não depende do candidato.
+ */
+type PreparedFilters = {
+  course: string;
+  location: string;
+  skill: string;
+  /** Chips de competência já normalizados (casamento exato). */
+  chips: readonly string[];
+  language: string;
+  query: string;
+};
+
+function prepareFilters(filters: TalentFilters): PreparedFilters {
+  return {
+    course: normalizeForSearch(filters.course ?? ""),
+    location: normalizeForSearch(filters.location ?? ""),
+    skill: normalizeForSearch(filters.skill ?? ""),
+    chips: (filters.skills ?? [])
+      .filter((chip) => chip.trim().length > 0)
+      .map((chip) => normalizeForSearch(chip)),
+    language: normalizeForSearch(filters.language ?? ""),
+    query: normalizeForSearch(filters.query ?? ""),
+  };
+}
+
 function matchesTextFilters(
   candidate: TalentCandidate,
   filters: TalentFilters,
+  prepared: PreparedFilters,
 ): boolean {
-  const course = filters.course ?? "";
-  if (course.length > 0) {
-    if (
-      !normalizeForSearch(candidate.course).includes(normalizeForSearch(course))
-    )
-      return false;
+  if (
+    prepared.course.length > 0 &&
+    !normalizeForSearch(candidate.course).includes(prepared.course)
+  ) {
+    return false;
   }
 
   if (filters.status !== undefined && candidate.status !== filters.status)
@@ -257,63 +325,82 @@ function matchesTextFilters(
   )
     return false;
 
-  const location = filters.location ?? "";
-  if (location.length > 0) {
+  if (prepared.location.length > 0) {
     const candidateLocation = normalizeForSearch(candidate.location ?? "");
-    if (!candidateLocation.includes(normalizeForSearch(location))) return false;
+    if (!candidateLocation.includes(prepared.location)) return false;
   }
 
-  const skill = filters.skill ?? "";
-  if (skill.length > 0) {
-    const wanted = normalizeForSearch(skill);
-    const has = candidate.skills.some((s) =>
-      normalizeForSearch(s).includes(wanted),
-    );
+  if (prepared.skill.length > 0) {
+    let has = false;
+    for (const candidateSkill of candidate.skills) {
+      if (normalizeForSearch(candidateSkill).includes(prepared.skill)) {
+        has = true;
+        break;
+      }
+    }
     if (!has) return false;
   }
 
   // [REFACTOR_UI] Chips de competências: casa com pelo menos uma (OU).
-  const chips = (filters.skills ?? []).filter((c) => c.trim().length > 0);
-  if (chips.length > 0) {
-    if (!chips.some((chip) => ownsSkill(candidate.skills, chip))) return false;
-  }
-
-  const language = filters.language ?? "";
-  if (language.length > 0) {
-    const wanted = normalizeForSearch(language);
-    const minLevel = filters.languageLevel;
-    const has = candidate.languages.some((l) => {
-      if (!normalizeForSearch(l.name).includes(wanted)) return false;
-      if (minLevel === undefined) return true;
-      return LEVEL_ORDER[l.level] >= LEVEL_ORDER[minLevel];
-    });
+  if (prepared.chips.length > 0) {
+    let has = false;
+    for (const chip of prepared.chips) {
+      if (ownsNormalizedSkill(candidate.skills, chip)) {
+        has = true;
+        break;
+      }
+    }
     if (!has) return false;
   }
 
-  const query = filters.query ?? "";
-  if (query.length > 0) {
-    const q = normalizeForSearch(query);
-    const haystack = [
-      candidate.fullName,
-      candidate.course,
-      candidate.location ?? "",
-      ...candidate.skills,
-    ]
-      .map(normalizeForSearch)
-      .join(" ");
-    if (!haystack.includes(q)) return false;
+  if (prepared.language.length > 0) {
+    const minLevel = filters.languageLevel;
+    let has = false;
+    for (const language of candidate.languages) {
+      if (!normalizeForSearch(language.name).includes(prepared.language))
+        continue;
+      if (minLevel === undefined) {
+        has = true;
+        break;
+      }
+      if (LEVEL_ORDER[language.level] >= LEVEL_ORDER[minLevel]) {
+        has = true;
+        break;
+      }
+    }
+    if (!has) return false;
+  }
+
+  if (prepared.query.length > 0) {
+    // Mesmo campo de busca de antes (nome · curso · local · competências),
+    // agora montado sem array intermediário.
+    let haystack =
+      `${normalizeForSearch(candidate.fullName)} ` +
+      `${normalizeForSearch(candidate.course)} ` +
+      normalizeForSearch(candidate.location ?? "");
+    for (const candidateSkill of candidate.skills) {
+      haystack += ` ${normalizeForSearch(candidateSkill)}`;
+    }
+    if (!haystack.includes(prepared.query)) return false;
   }
 
   return true;
 }
+
+/**
+ * [PERF_LOAD] `String.localeCompare` com locale + options revalida a
+ * configuração a cada comparação (~n·log n por página). Um `Intl.Collator`
+ * único preserva exatamente a ordenação pt-BR/base e é ordens de grandeza
+ * mais barato.
+ */
+const PT_BR_COLLATOR = new Intl.Collator("pt-BR", { sensitivity: "base" });
 
 const SORT_COMPARATORS: Record<
   TalentSortOption,
   (a: TalentCandidate, b: TalentCandidate) => number
 > = {
   relevancia: () => 0,
-  nome: (a, b) =>
-    a.fullName.localeCompare(b.fullName, "pt-BR", { sensitivity: "base" }),
+  nome: (a, b) => PT_BR_COLLATOR.compare(a.fullName, b.fullName),
   conclusao_proxima: (a, b) => a.graduationYear - b.graduationYear,
 };
 
@@ -326,25 +413,33 @@ export function filterTalentCandidates(
   candidates: readonly TalentCandidate[],
   filters: TalentFilters,
 ): TalentSearchResult {
-  const eligible = candidates.filter((c) => canAppearInTalentBank(c));
-  const matching = eligible.filter((c) => matchesTextFilters(c, filters));
+  // [PERF_LOAD] Um único passo (elegibilidade R1/R2 + filtros) em vez de
+  // duas varreduras com dois arrays intermediários sobre o teto de 400
+  // linhas por requisição.
+  const prepared = prepareFilters(filters);
+  const matching: TalentCandidate[] = [];
+  for (const candidate of candidates) {
+    if (!canAppearInTalentBank(candidate)) continue;
+    if (!matchesTextFilters(candidate, filters, prepared)) continue;
+    matching.push(candidate);
+  }
 
   // [REFACTOR_UI] Ordenação estável (Array.sort) aplicada antes da paginação.
   const sort = filters.sort ?? "relevancia";
   const comparator = SORT_COMPARATORS[sort];
-  const chips = (filters.skills ?? []).filter((c) => c.trim().length > 0);
   let sorted: TalentCandidate[];
-  if (chips.length > 0) {
+  if (prepared.chips.length > 0) {
     const scored = matching.map((candidate) => ({
       candidate,
-      score: countSkillMatches(candidate, chips),
+      score: countNormalizedSkillMatches(candidate, prepared.chips),
     }));
     scored.sort(
       (a, b) => b.score - a.score || comparator(a.candidate, b.candidate),
     );
     sorted = scored.map((entry) => entry.candidate);
   } else {
-    sorted = [...matching].sort(comparator);
+    // `matching` é um array novo criado acima: ordenar no lugar é seguro.
+    sorted = matching.sort(comparator);
   }
 
   const total = sorted.length;
@@ -377,16 +472,31 @@ export function formatTalentSummary(input: {
   return [STATUS_LABELS[input.status], input.course, detail].join(" · ");
 }
 
+/** Conta chips já normalizados (caminho quente do filtro). */
+function countNormalizedSkillMatches(
+  candidate: Pick<TalentCandidate, "skills">,
+  normalizedChips: readonly string[],
+): number {
+  let matches = 0;
+  for (const chip of normalizedChips) {
+    if (ownsNormalizedSkill(candidate.skills, chip)) matches += 1;
+  }
+  return matches;
+}
+
 /**
  * Quantas das competências escolhidas (chips) o candidato possui.
- * Mesmo critério de casamento do filtro (normalizado, "contém"), mas
+ * Mesmo critério de casamento do filtro (normalizado, igualdade), mas
  * cada chip conta no máximo uma vez.
  */
 export function countSkillMatches(
   candidate: Pick<TalentCandidate, "skills">,
   chips: readonly string[],
 ): number {
-  return chips.filter(
-    (chip) => chip.trim().length > 0 && ownsSkill(candidate.skills, chip),
-  ).length;
+  const normalized: string[] = [];
+  for (const chip of chips) {
+    if (chip.trim().length === 0) continue;
+    normalized.push(normalizeForSearch(chip));
+  }
+  return countNormalizedSkillMatches(candidate, normalized);
 }
