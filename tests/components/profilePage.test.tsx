@@ -322,7 +322,7 @@ describe("ProfilePage: notificações (aba Notificações)", () => {
 });
 
 describe("ProfilePage: privacidade e dados (aba Privacidade)", () => {
-  it("Exportar (JSON) dispara o download do arquivo", async () => {
+  it("Exportar (CSV) dispara o download do arquivo", async () => {
     const clickSpy = vi
       .spyOn(HTMLAnchorElement.prototype, "click")
       .mockImplementation(() => undefined);
@@ -330,7 +330,7 @@ describe("ProfilePage: privacidade e dados (aba Privacidade)", () => {
     await irPara("Privacidade");
 
     await userEvent.click(
-      screen.getByRole("button", { name: /exportar \(json\)/i }),
+      screen.getByRole("button", { name: /exportar \(csv\)/i }),
     );
     expect(clickSpy).toHaveBeenCalledOnce();
     expect(toast.success).toHaveBeenCalledWith("Dados exportados com sucesso.");

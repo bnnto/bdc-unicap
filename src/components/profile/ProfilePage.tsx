@@ -20,7 +20,7 @@ import { useAuthState } from "../auth/authContext";
 import { ROLE_LABELS } from "../../lib/roles";
 import { formatDay } from "../../lib/formatters";
 import { navigateTo } from "../../lib/router";
-import { downloadJson } from "../../lib/download";
+import { downloadCsv, myDataReport } from "../../lib/download";
 import {
   FONT_SCALE_STEPS,
   applyPreferences,
@@ -658,7 +658,10 @@ export function ProfilePage() {
   function handleExport() {
     if (exportData === undefined || exportData === null) return;
     const day = new Date().toISOString().slice(0, 10);
-    downloadJson(`portal-carreiras-meus-dados-${day}.json`, exportData);
+    downloadCsv(
+      `portal-carreiras-meus-dados-${day}.csv`,
+      myDataReport(exportData),
+    );
     toast.success("Dados exportados com sucesso.");
   }
 
@@ -1118,7 +1121,7 @@ export function ProfilePage() {
                 <div className={ROW}>
                   <RowText
                     label="Exportar meus dados"
-                    description="Uma cópia de tudo que o portal guarda sobre você, em JSON."
+                    description="Uma cópia de tudo que o portal guarda sobre você, em CSV (abre no Excel)."
                   />
                   <Button
                     variant="primary"
@@ -1126,7 +1129,7 @@ export function ProfilePage() {
                     onClick={handleExport}
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
-                    Exportar (JSON)
+                    Exportar (CSV)
                   </Button>
                 </div>
 

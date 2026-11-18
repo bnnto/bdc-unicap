@@ -33,7 +33,7 @@
   "dependencies": {
     "@convex-dev/auth": "^0.0.95",
     "convex": "^1.19.0",
-    "lucide-react": "^1.54.0",
+    "lucide-react": "^1.75.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "sonner": "^2.0.8"
@@ -51,7 +51,7 @@
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.3.4",
-    "@vitest/coverage-v8": "^3.2.7",
+    "@vitest/coverage-v8": "^5.1.1",
     "@vitest/eslint-plugin": "^1.6.28",
     "autoprefixer": "^10.6.1",
     "convex-test": "^0.0.60",
@@ -70,6 +70,6 @@
     "typescript": "^6.0.0",
     "typescript-eslint": "^8.72.1",
     "vite": "^6.3.1",
-    "vitest": "^3.1.4"
+    "vitest": "^5.1.1"
   }
 }
